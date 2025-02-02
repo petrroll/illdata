@@ -1,4 +1,10 @@
 import { promises as fs } from "fs";
+import path from "path";
+
+// New helper function to convert relative path to absolute
+function getAbsolutePath(relativePath: string): string {
+    return path.resolve(process.cwd(), relativePath);
+}
 
 export async function downloadCzkCovidCsv(filename: string, perDay: boolean = false) {
     let storedFilename = filename;
@@ -10,7 +16,7 @@ export async function downloadCzkCovidCsv(filename: string, perDay: boolean = fa
             ? `${filename.slice(0, dotIndex)}_${today}${filename.slice(dotIndex)}` 
             : `${filename}_${today}`;
     }
-    const filePath = `./data/${storedFilename}`;
+    const filePath = getAbsolutePath(`./data/${storedFilename}`);
 
     try {
         await fs.access(filePath);
@@ -20,7 +26,12 @@ export async function downloadCzkCovidCsv(filename: string, perDay: boolean = fa
         // File doesn't exist, proceed to download
     }
 
-    await fs.mkdir("./data", { recursive: true });
+    try {
+        await fs.access("./data");
+    } catch {
+        await fs.mkdir("./data", { recursive: true });
+    }
+    
     const url = `https://onemocneni-aktualne.mzcr.cz/api/v2/covid-19/${filename}`;
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to fetch CSV: ${response.statusText}`);
