@@ -26,11 +26,7 @@ export async function downloadCzkCovidCsv(filename: string, perDay: boolean = fa
         // File doesn't exist, proceed to download
     }
 
-    try {
-        await fs.access("./data");
-    } catch {
-        await fs.mkdir("./data", { recursive: true });
-    }
+    await fs.mkdir("./data", { recursive: true });
     
     const url = `https://onemocneni-aktualne.mzcr.cz/api/v2/covid-19/${filename}`;
     const response = await fetch(url);
@@ -42,7 +38,8 @@ export async function downloadCzkCovidCsv(filename: string, perDay: boolean = fa
 }
 
 export async function loadAndParseCsv(filename: string) {
-    const csvContent = await fs.readFile(`./data/${filename}`, "utf-8");
+    const filepath = getAbsolutePath(`./data/${filename}`);
+    const csvContent = await fs.readFile(filepath, "utf-8");
     const lines = csvContent.split("\n").filter(line => line.trim() !== "");
 
     // Assume first line contains headers
