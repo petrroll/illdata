@@ -5,6 +5,28 @@ import Chart from 'chart.js/auto';
 const mzcrPositivity = mzcrPositivityImport as MzcrCovidTestPositivity[];
 console.log("Test positivity data from MZCR:", mzcrPositivity);
 
+function compute7DayAverages(data: MzcrCovidTestPositivity[]): MzcrCovidTestPositivity[] {
+    // Sort data ascending by date (assumes date is in YYYY-MM-DD format)
+    const sortedData = [...data].sort((a, b) => a.datum.localeCompare(b.datum));
+    const result: MzcrCovidTestPositivity[] = [];
+    for (let i = 0; i <= sortedData.length - 7; i++) {
+        let sumPcr = 0;
+        let sumAntigen = 0;
+        for (let j = 0; j < 7; j++) {
+            sumPcr += sortedData[i + j].pcrPositivity;
+            sumAntigen += sortedData[i + j].antigenPositivity;
+        }
+        result.push({
+            datum: sortedData[i + 6].datum, // use last date in the window
+            pcrPositivity: sumPcr / 7,
+            antigenPositivity: sumAntigen / 7,
+        });
+    }
+    return result;
+}
+
+const weeklyAverages = compute7DayAverages(mzcrPositivity);
+
 // Add a table to the root div with mzcrPositivity data
 const container = document.getElementById("root");
 if (container) {
@@ -12,26 +34,46 @@ if (container) {
     canvas.id = "positivityChart";
     container.appendChild(canvas);
 
-    // Prepare data for the chart
-    const labels = mzcrPositivity.map(item => item.datum);
-    const pcrData = mzcrPositivity.map(item => item.pcrPositivity);
-    const antigenData = mzcrPositivity.map(item => item.antigenPositivity);
+    // Prepare original data sorted ascending by date
+    const sortedOriginal = [...mzcrPositivity].sort((a, b) => a.datum.localeCompare(b.datum));
+    const originalLabels = sortedOriginal.map(item => item.datum);
+    const pcrOriginalData = sortedOriginal.map(item => item.pcrPositivity);
+    const antigenOriginalData = sortedOriginal.map(item => item.antigenPositivity);
 
+    // Calculate overall weekly averages
+    const pcrWeeklyAvg = weeklyAverages.map(item => item.pcrPositivity);
+    const antigenWeeklyAvg = weeklyAverages.map(item => item.antigenPositivity);
+    
     new Chart(canvas, {
         type: "line",
         data: {
-            labels,
+            labels: originalLabels,
             datasets: [
                 {
-                    label: "PCR Positivity (%)",
-                    data: pcrData,
+                    label: "PCR Positivity (%) - Daily",
+                    data: pcrOriginalData,
                     borderColor: "blue",
                     fill: false,
                 },
                 {
-                    label: "Antigen Positivity (%)",
-                    data: antigenData,
+                    label: "Antigen Positivity (%) - Daily",
+                    data: antigenOriginalData,
                     borderColor: "red",
+                    fill: false,
+                },
+                {
+                    label: `PCR Positivity (%) - 7day average Daily`,
+                    // Map weekly averages as {x, y} points
+                    data: pcrWeeklyAvg,
+                    borderColor: "cyan",
+                    borderDash: [5, 5],
+                    fill: false,
+                },
+                {
+                    label: "Antigen Positivity (%) - 7day average Daily",
+                    data: antigenWeeklyAvg,
+                    borderColor: "orange",
+                    borderDash: [5, 5],
                     fill: false,
                 },
             ],
