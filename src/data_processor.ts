@@ -1,13 +1,13 @@
-import { toFloat } from "./utils";
-import { downloadCzkCovidCsv, loadAndParseCsv} from "./data_sources/mzcr";
-import { promises as fs } from "fs";
-import type { MzcrCovidTestPositivity } from "./data_types";
+import { saveData, toFloat } from "./data_sources/utils";
+import { downloadCzCovPositivity, loadAndParseCsv} from "./data_sources/cr_cov_mzcr";
+import { CR_COV_MZCR_POSITIVITY, type MzcrCovidTestPositivity } from "./shared";
+
 
 function getLastTenElements<T>(data: T[]): T[] {
     return data.slice(-10);
 }
 
-function computeTestPositivity(data: Record<string, string>[]): MzcrCovidTestPositivity[] {
+function computeCovPositivity(data: Record<string, string>[]): MzcrCovidTestPositivity[] {
     return data.map(row => {
         const datum = row["datum"] || row["Datum"] || "";
 
@@ -23,20 +23,10 @@ function computeTestPositivity(data: Record<string, string>[]): MzcrCovidTestPos
     });
 }
 
-async function savePositivityData(data: MzcrCovidTestPositivity[]): Promise<void> {
-    const dir = "./data_processed/covid_mzcr";
-    await fs.mkdir(dir, { recursive: true });
-    const filePath = `${dir}/positivity_data.json`;
-    await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
-    console.log(`Positivity data saved to ${filePath}`);
-}
-
-await downloadCzkCovidCsv("zakladni-prehled.csv", true)
-await downloadCzkCovidCsv("testy-pcr-antigenni.csv")
-
+await downloadCzCovPositivity("testy-pcr-antigenni.csv")
 let data = await loadAndParseCsv("testy-pcr-antigenni.csv");
+let positivityData = computeCovPositivity(data);
 
-let positivityData = computeTestPositivity(data);
-await savePositivityData(positivityData);
+await saveData(positivityData, CR_COV_MZCR_POSITIVITY);
+export { CR_COV_MZCR_POSITIVITY };
 
-console.log("Hello via Bun!");

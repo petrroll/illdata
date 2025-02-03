@@ -1,9 +1,8 @@
-import type { MzcrCovidTestPositivity } from "./data_types";
-import mzcrPositivityImport from "../data_processed/covid_mzcr/positivity_data.json" with { type: "json" };
+import type { MzcrCovidTestPositivity } from "./shared";
+import mzcrPositivityImport from "../data_processed/cr_cov_mzcr/positivity_data.json" with { type: "json" };
 import Chart from 'chart.js/auto';
 
-let mzcrPositivity = mzcrPositivityImport as MzcrCovidTestPositivity[];
-
+const mzcrPositivity = mzcrPositivityImport as MzcrCovidTestPositivity[];
 console.log("Test positivity data from MZCR:", mzcrPositivity);
 
 // Add a table to the root div with mzcrPositivity data
@@ -49,7 +48,12 @@ if (container) {
                 y: {
                     beginAtZero: true,
                     ticks: {
-                        callback: (value: number) => value.toFixed(2) + "%"
+                        callback: function(tickValue: string | number) {
+                            if (typeof tickValue === 'number') {
+                                return tickValue.toFixed(2) + "%";
+                            }
+                            return tickValue;
+                        }
                     }
                 }
             }
