@@ -3,7 +3,10 @@ export interface TimeseriesData {
     series: {
         name: string;
         values: number[];
+        type: 'raw' | 'averaged';
+        windowsize?: number;
     }[];
+} {
 }
 
 export function transformMzcrDataToTimeseries(data: { datum: string; pcrPositivity: number; antigenPositivity: number }[]): TimeseriesData {
@@ -17,10 +20,12 @@ export function transformMzcrDataToTimeseries(data: { datum: string; pcrPositivi
             {
                 name: "PCR Positivity",
                 values: pcrValues,
+                type: 'raw'
             },
             {
                 name: "Antigen Positivity",
                 values: antigenValues,
+                type: 'raw'
             },
         ],
     };
@@ -48,6 +53,8 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
             return {
                 name: `${series.name} - ${windowSize}day avg`,
                 values: averagedValues,
+                type: 'averaged',
+                windowsize: windowSize
             };
         });
     });

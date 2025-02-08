@@ -4,4 +4,6 @@ export interface MzcrCovidTestPositivity {
     datum: string;
     pcrPositivity: number;
     antigenPositivity: number;
+    type: 'raw' | 'averaged';
+    windowsize?: number;
 }
