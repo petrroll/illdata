@@ -1,10 +1,11 @@
 import type { MzcrCovidTestPositivity } from "./shared";
 import mzcrPositivityImport from "../data_processed/cr_cov_mzcr/positivity_data.json" with { type: "json" };
 import { Chart, Legend } from 'chart.js/auto';
-import { transformMzcrDataToTimeseries, compute7DayAverageTimeseries } from "./utils";
+import { transformMzcrDataToTimeseries, computeMovingAverageTimeseries } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as MzcrCovidTestPositivity[];
 const timeseriesData = transformMzcrDataToTimeseries(mzcrPositivity);
+const enhancedTimeseriesData = computeMovingAverageTimeseries(timeseriesData, [7, 28]);
 
 // Local storage keys
 const TIME_RANGE_KEY = "selectedTimeRange";
@@ -37,7 +38,7 @@ function updateChart(timeRange: string, canvas: HTMLCanvasElement, previousChart
         previousChartInstance.destroy();
     }
 
-    let filteredTimeseriesData = { ...timeseriesData }; // Copy the original data
+    let filteredTimeseriesData = { ...enhancedTimeseriesData }; // Copy the original data
 
     if (timeRange !== "all") {
         const days = parseInt(timeRange);
@@ -52,8 +53,6 @@ function updateChart(timeRange: string, canvas: HTMLCanvasElement, previousChart
         }));
     }
 
-    const weeklyAverageTimeseries = compute7DayAverageTimeseries(filteredTimeseriesData);
-
     // Retrieve dataset visibility from local storage
     let datasetVisibility: { [key: string]: boolean } = {};
     try {
@@ -64,8 +63,8 @@ function updateChart(timeRange: string, canvas: HTMLCanvasElement, previousChart
     }
 
     // Prepare data for chart
-    const labels = weeklyAverageTimeseries.dates;
-    const datasets = weeklyAverageTimeseries.series.map(series => {
+    const labels = filteredTimeseriesData.dates;
+    const datasets = filteredTimeseriesData.series.map(series => {
         const isVisible = datasetVisibility[series.name] !== undefined ? datasetVisibility[series.name] : true;
         return {
             label: series.name,
@@ -90,7 +89,7 @@ function updateChart(timeRange: string, canvas: HTMLCanvasElement, previousChart
             plugins: {
                 title: {
                     display: true,
-                    text: "COVID Test Positivity (MZCR Data) - 7-day Averages"
+                    text: "COVID Test Positivity (MZCR Data) - Moving Averages"
                 },
                 legend: {
                     onClick: (evt, item, legend) => {
