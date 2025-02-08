@@ -77,11 +77,25 @@ export function findLocalMaxima(timeseriesArray: TimeseriesData[], windowSize: n
     const selectedSeries = filteredSeries[0].values;
     const localMaximaIndices: number[] = [];
 
-    for (let i = 1; i < selectedSeries.length - 1; i++) {
-        if (selectedSeries[i] > selectedSeries[i - 1] && selectedSeries[i] > selectedSeries[i + 1]) {
+    for (let i = 0; i < selectedSeries.length; i++) {
+        if (isMaximaInWindow(selectedSeries, i, windowSize)) {
             localMaximaIndices.push(i);
         }
     }
 
     return localMaximaIndices;
+}
+
+function isMaximaInWindow(series: number[], index: number, windowSize: number): boolean {
+    const halfWindowSize = Math.floor(windowSize / 2);
+    const start = Math.max(0, index - halfWindowSize);
+    const end = Math.min(series.length - 1, index + halfWindowSize);
+
+    for (let i = start; i <= end; i++) {
+        if (series[i] > series[index]) {
+            return false;
+        }
+    }
+
+    return true;
 }
