@@ -74,7 +74,6 @@ function updateChart(timeRange: string, canvas: HTMLCanvasElement, previousChart
             fill: false,
             borderDash: series.name.includes("avg") ? [5, 5] : [],
             hidden: !isVisible,
-            pointStyle: 'line',
             borderWidth: 1,
         };
     });
