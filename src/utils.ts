@@ -1,11 +1,18 @@
 export interface TimeseriesData {
     dates: string[];
-    series: {
-        name: string;
-        values: number[];
-        type: 'raw' | 'averaged';
-        windowsize?: number;
-    }[];
+    series: SeriesData[];
+}
+
+export interface SeriesData {
+    name: string;
+    values: number[];
+    type: 'raw' | 'averaged';
+    windowsize?: number;
+}
+
+export interface MaximaSeries {
+    name: string;
+    indices: number[];
 }
 
 export function transformMzcrDataToTimeseries(data: { datum: string; pcrPositivity: number; antigenPositivity: number }[]): TimeseriesData {
@@ -64,26 +71,20 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
     };
 }
 
-export function findLocalMaxima(timeseriesArray: TimeseriesData[], windowSize: number): number[] {
-    // Filter time series of type averaged and select one of provided window size
-    const filteredSeries = timeseriesArray.flatMap(timeseries => 
-        timeseries.series.filter(series => series.type === 'averaged' && series.windowsize === windowSize)
-    );
+export function findLocalMaxima(series: SeriesData, windowSize: number): MaximaSeries[] {
+    const maximaSeries: MaximaSeries[] = [];
 
-    if (filteredSeries.length === 0) {
-        return [];
-    }
-
-    const selectedSeries = filteredSeries[0].values;
-    const localMaximaIndices: number[] = [];
-
-    for (let i = 0; i < selectedSeries.length; i++) {
-        if (isMaximaInWindow(selectedSeries, i, windowSize)) {
-            localMaximaIndices.push(i);
+    if (series.type === 'averaged' && series.windowsize === windowSize) {
+        const localMaximaIndices: number[] = [];
+        for (let i = 0; i < series.values.length; i++) {
+            if (isMaximaInWindow(series.values, i, windowSize)) {
+                localMaximaIndices.push(i);
+            }
         }
+        maximaSeries.push({ name: series.name, indices: localMaximaIndices });
     }
 
-    return localMaximaIndices;
+    return maximaSeries;
 }
 
 function isMaximaInWindow(series: number[], index: number, windowSize: number): boolean {
