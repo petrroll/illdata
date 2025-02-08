@@ -51,7 +51,7 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
     });
 
     return {
-        dates: dates,
+        dates: data.dates,
         series: [...data.series, ...averagedSeries],
     };
 }

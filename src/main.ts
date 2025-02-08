@@ -5,6 +5,7 @@ import { transformMzcrDataToTimeseries, computeMovingAverageTimeseries } from ".
 
 const mzcrPositivity = mzcrPositivityImport as MzcrCovidTestPositivity[];
 const timeseriesData = transformMzcrDataToTimeseries(mzcrPositivity);
+const enhancedTimeseriesData = computeMovingAverageTimeseries(timeseriesData, [7, 28, 60]);
 
 // Local storage keys
 const TIME_RANGE_KEY = "selectedTimeRange";
@@ -37,7 +38,7 @@ function updateChart(timeRange: string, canvas: HTMLCanvasElement, previousChart
         previousChartInstance.destroy();
     }
 
-    let filteredTimeseriesData = { ...timeseriesData }; // Copy the original data
+    let filteredTimeseriesData = { ...enhancedTimeseriesData }; // Copy the original data
 
     if (timeRange !== "all") {
         const days = parseInt(timeRange);
@@ -52,8 +53,6 @@ function updateChart(timeRange: string, canvas: HTMLCanvasElement, previousChart
         }));
     }
 
-    const movingAverageTimeseries = computeMovingAverageTimeseries(filteredTimeseriesData, [7, 28]);
-
     // Retrieve dataset visibility from local storage
     let datasetVisibility: { [key: string]: boolean } = {};
     try {
@@ -64,8 +63,8 @@ function updateChart(timeRange: string, canvas: HTMLCanvasElement, previousChart
     }
 
     // Prepare data for chart
-    const labels = movingAverageTimeseries.dates;
-    const datasets = movingAverageTimeseries.series.map(series => {
+    const labels = filteredTimeseriesData.dates;
+    const datasets = filteredTimeseriesData.series.map(series => {
         const isVisible = datasetVisibility[series.name] !== undefined ? datasetVisibility[series.name] : true;
         return {
             label: series.name,
