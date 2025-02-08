@@ -64,26 +64,22 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
     };
 }
 
-export function findLocalMaxima(timeseriesArray: TimeseriesData[], windowSize: number): number[] {
-    // Filter time series of type averaged and select one of provided window size
-    const filteredSeries = timeseriesArray.flatMap(timeseries => 
-        timeseries.series.filter(series => series.type === 'averaged' && series.windowsize === windowSize)
-    );
+export function findLocalMaxima(timeseries: TimeseriesData, windowSize: number): Record<string, number[]> {
+    const maximaPerSeries: Record<string, number[]> = {};
 
-    if (filteredSeries.length === 0) {
-        return [];
-    }
-
-    const selectedSeries = filteredSeries[0].values;
-    const localMaximaIndices: number[] = [];
-
-    for (let i = 0; i < selectedSeries.length; i++) {
-        if (isMaximaInWindow(selectedSeries, i, windowSize)) {
-            localMaximaIndices.push(i);
+    timeseries.series.forEach(series => {
+        if (series.type === 'averaged' && series.windowsize === windowSize) {
+            const localMaximaIndices: number[] = [];
+            for (let i = 0; i < series.values.length; i++) {
+                if (isMaximaInWindow(series.values, i, windowSize)) {
+                    localMaximaIndices.push(i);
+                }
+            }
+            maximaPerSeries[series.name] = localMaximaIndices;
         }
-    }
+    });
 
-    return localMaximaIndices;
+    return maximaPerSeries;
 }
 
 function isMaximaInWindow(series: number[], index: number, windowSize: number): boolean {
