@@ -1,35 +1,30 @@
-import { findLocalMaxima, TimeseriesData } from './utils';
+import { findLocalMaxima, SeriesData, MaximaSeries } from './utils';
 
 describe('findLocalMaxima', () => {
-    const timeseries: TimeseriesData = {
-        dates: ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-04', '2023-01-05'],
-        series: [
-            {
-                name: 'Averaged Series',
-                values: [1, 3, 2, 4, 1],
-                type: 'averaged',
-                windowsize: 3
-            }
-        ]
+    const series: SeriesData = {
+        name: 'Averaged Series',
+        values: [1, 3, 2, 4, 1],
+        type: 'averaged',
+        windowsize: 3
     };
 
     test('filters time series of type averaged', () => {
-        const result = findLocalMaxima(timeseries, 3);
-        expect(result).toEqual({ 'Averaged Series': [1, 3] });
+        const result: MaximaSeries[] = findLocalMaxima(series, 3);
+        expect(result).toEqual([{ name: 'Averaged Series', indices: [1, 3] }]);
     });
 
     test('selects the provided window size', () => {
-        const result = findLocalMaxima(timeseries, 3);
-        expect(result).toEqual({ 'Averaged Series': [1, 3] });
+        const result: MaximaSeries[] = findLocalMaxima(series, 3);
+        expect(result).toEqual([{ name: 'Averaged Series', indices: [1, 3] }]);
     });
 
     test('finds all local maxima and returns their index', () => {
-        const result = findLocalMaxima(timeseries, 3);
-        expect(result).toEqual({ 'Averaged Series': [1, 3] });
+        const result: MaximaSeries[] = findLocalMaxima(series, 3);
+        expect(result).toEqual([{ name: 'Averaged Series', indices: [1, 3] }]);
     });
 
     test('does not consider local maxima at the edge of the array', () => {
-        const result = findLocalMaxima(timeseries, 3);
-        expect(result).toEqual({ 'Averaged Series': [1, 3] });
+        const result: MaximaSeries[] = findLocalMaxima(series, 3);
+        expect(result).toEqual([{ name: 'Averaged Series', indices: [1, 3] }]);
     });
 });

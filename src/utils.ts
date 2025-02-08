@@ -1,11 +1,18 @@
 export interface TimeseriesData {
     dates: string[];
-    series: {
-        name: string;
-        values: number[];
-        type: 'raw' | 'averaged';
-        windowsize?: number;
-    }[];
+    series: SeriesData[];
+}
+
+export interface SeriesData {
+    name: string;
+    values: number[];
+    type: 'raw' | 'averaged';
+    windowsize?: number;
+}
+
+export interface MaximaSeries {
+    name: string;
+    indices: number[];
 }
 
 export function transformMzcrDataToTimeseries(data: { datum: string; pcrPositivity: number; antigenPositivity: number }[]): TimeseriesData {
@@ -64,22 +71,20 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
     };
 }
 
-export function findLocalMaxima(timeseries: TimeseriesData, windowSize: number): Record<string, number[]> {
-    const maximaPerSeries: Record<string, number[]> = {};
+export function findLocalMaxima(series: SeriesData, windowSize: number): MaximaSeries[] {
+    const maximaSeries: MaximaSeries[] = [];
 
-    timeseries.series.forEach(series => {
-        if (series.type === 'averaged' && series.windowsize === windowSize) {
-            const localMaximaIndices: number[] = [];
-            for (let i = 0; i < series.values.length; i++) {
-                if (isMaximaInWindow(series.values, i, windowSize)) {
-                    localMaximaIndices.push(i);
-                }
+    if (series.type === 'averaged' && series.windowsize === windowSize) {
+        const localMaximaIndices: number[] = [];
+        for (let i = 0; i < series.values.length; i++) {
+            if (isMaximaInWindow(series.values, i, windowSize)) {
+                localMaximaIndices.push(i);
             }
-            maximaPerSeries[series.name] = localMaximaIndices;
         }
-    });
+        maximaSeries.push({ name: series.name, indices: localMaximaIndices });
+    }
 
-    return maximaPerSeries;
+    return maximaSeries;
 }
 
 function isMaximaInWindow(series: number[], index: number, windowSize: number): boolean {
