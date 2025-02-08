@@ -5,7 +5,7 @@ import { transformMzcrDataToTimeseries, computeMovingAverageTimeseries } from ".
 
 const mzcrPositivity = mzcrPositivityImport as MzcrCovidTestPositivity[];
 const timeseriesData = transformMzcrDataToTimeseries(mzcrPositivity);
-const enhancedTimeseriesData = computeMovingAverageTimeseries(timeseriesData, [7, 28, 60]);
+const enhancedTimeseriesData = computeMovingAverageTimeseries(timeseriesData, [7, 28]);
 
 // Local storage keys
 const TIME_RANGE_KEY = "selectedTimeRange";

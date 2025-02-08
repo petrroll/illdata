@@ -29,20 +29,22 @@ export function transformMzcrDataToTimeseries(data: { datum: string; pcrPositivi
 export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes: number[]): TimeseriesData {
     const averagedSeries = data.series.flatMap(series => {
         return windowSizes.map(windowSize => {
-            const values = series.values;
-            const averagedValues: number[] = [];
-            for (let i = 0; i < values.length; i++) {
+            const averagedValues = series.values.map((v, i) => {
                 let sum = 0;
-                for (let j = 0; j < windowSize; j++) {
-                    const index = i - j;
-                    if (index >= 0) {
-                        sum += values[index];
-                    } else {
-                        sum += values[0]; // Assume the same value as the last datapoint if there are no days prior
+                let count = 0;
+                for (let j = Math.floor(-windowSize/2); j <= Math.floor(windowSize/2); j++) {
+                    const index = i + j;
+                    count += 1;
+                    if (index >= 0 && index < series.values.length) {
+                        sum += series.values[index];
+                    } else if (index < 0) {
+                        sum += series.values[0]; // Assume the same value as the first datapoint if there are no days prior
+                    } else if (index >= series.values.length) {
+                        sum += series.values[series.values.length - 1]; // Assume the same value as the last datapoint if there are no future days
                     }
                 }
-                averagedValues.push(sum / windowSize);
-            }
+                return sum / count;
+            })
             return {
                 name: `${series.name} - ${windowSize}day avg`,
                 values: averagedValues,
