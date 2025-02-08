@@ -1,7 +1,7 @@
 import type { MzcrCovidTestPositivity } from "./shared";
 import mzcrPositivityImport from "../data_processed/cr_cov_mzcr/positivity_data.json" with { type: "json" };
 import { Chart, Legend } from 'chart.js/auto';
-import { transformMzcrDataToTimeseries, computeMovingAverageTimeseries } from "./utils";
+import { transformMzcrDataToTimeseries, computeMovingAverageTimeseries, findLocalMaxima } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as MzcrCovidTestPositivity[];
 const timeseriesData = transformMzcrDataToTimeseries(mzcrPositivity);
@@ -79,6 +79,22 @@ function updateChart(timeRange: string, canvas: HTMLCanvasElement, previousChart
             pointRadius: 0,
         };
     });
+
+    // Find local maxima for window size 28
+    const localMaximaIndices = findLocalMaxima([enhancedTimeseriesData], 28);
+    const localMaximaDataset = {
+        label: "Local Maxima",
+        data: localMaximaIndices.map(index => ({
+            x: labels[index],
+            y: filteredTimeseriesData.series.find(series => series.windowsize === 28)?.values[index]
+        })),
+        borderColor: "green",
+        backgroundColor: "green",
+        pointRadius: 5,
+        type: "scatter",
+        showLine: false
+    };
+    datasets.push(localMaximaDataset);
 
     return new Chart(canvas, {
         type: "line",
