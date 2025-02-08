@@ -7,6 +7,8 @@ const mzcrPositivity = mzcrPositivityImport as MzcrCovidTestPositivity[];
 const timeseriesData = transformMzcrDataToTimeseries(mzcrPositivity);
 const enhancedTimeseriesData = computeMovingAverageTimeseries(timeseriesData, [7, 28]);
 
+// Assuming computeMovingAverageTimeseries and transformMzcrDataToTimeseries functions are updated to handle the new structure
+
 // Local storage keys
 const TIME_RANGE_KEY = "selectedTimeRange";
 const DATASET_VISIBILITY_KEY = "datasetVisibility";
