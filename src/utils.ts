@@ -6,7 +6,6 @@ export interface TimeseriesData {
         type: 'raw' | 'averaged';
         windowsize?: number;
     }[];
-} {
 }
 
 export function transformMzcrDataToTimeseries(data: { datum: string; pcrPositivity: number; antigenPositivity: number }[]): TimeseriesData {
@@ -63,4 +62,26 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
         dates: data.dates,
         series: [...data.series, ...averagedSeries],
     };
+}
+
+export function findLocalMaxima(timeseriesArray: TimeseriesData[], windowSize: number): number[] {
+    // Filter time series of type averaged and select one of provided window size
+    const filteredSeries = timeseriesArray.flatMap(timeseries => 
+        timeseries.series.filter(series => series.type === 'averaged' && series.windowsize === windowSize)
+    );
+
+    if (filteredSeries.length === 0) {
+        return [];
+    }
+
+    const selectedSeries = filteredSeries[0].values;
+    const localMaximaIndices: number[] = [];
+
+    for (let i = 1; i < selectedSeries.length - 1; i++) {
+        if (selectedSeries[i] > selectedSeries[i - 1] && selectedSeries[i] > selectedSeries[i + 1]) {
+            localMaximaIndices.push(i);
+        }
+    }
+
+    return localMaximaIndices;
 }
