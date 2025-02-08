@@ -3,6 +3,7 @@
     "image": "ghcr.io/nhaef/devcontainer-bun:latest",
     "tasks": {
       "build": "bun install && bun run ./src/data_processor.ts",
-      "launch": "bun run bunx vite"
+      "launch": "bun run bunx vite",
+      "test": "bun test"
     }
 }
