@@ -1,7 +1,7 @@
 import type { MzcrCovidTestPositivity } from "./shared";
 import mzcrPositivityImport from "../data_processed/cr_cov_mzcr/positivity_data.json" with { type: "json" };
 import { Chart, Legend } from 'chart.js/auto';
-import { transformMzcrDataToTimeseries, compute7DayAverageTimeseries } from "./utils";
+import { transformMzcrDataToTimeseries, computeMovingAverageTimeseries } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as MzcrCovidTestPositivity[];
 const timeseriesData = transformMzcrDataToTimeseries(mzcrPositivity);
@@ -52,7 +52,7 @@ function updateChart(timeRange: string, canvas: HTMLCanvasElement, previousChart
         }));
     }
 
-    const weeklyAverageTimeseries = compute7DayAverageTimeseries(filteredTimeseriesData);
+    const movingAverageTimeseries = computeMovingAverageTimeseries(filteredTimeseriesData, [7, 28]);
 
     // Retrieve dataset visibility from local storage
     let datasetVisibility: { [key: string]: boolean } = {};
@@ -64,8 +64,8 @@ function updateChart(timeRange: string, canvas: HTMLCanvasElement, previousChart
     }
 
     // Prepare data for chart
-    const labels = weeklyAverageTimeseries.dates;
-    const datasets = weeklyAverageTimeseries.series.map(series => {
+    const labels = movingAverageTimeseries.dates;
+    const datasets = movingAverageTimeseries.series.map(series => {
         const isVisible = datasetVisibility[series.name] !== undefined ? datasetVisibility[series.name] : true;
         return {
             label: series.name,
@@ -90,7 +90,7 @@ function updateChart(timeRange: string, canvas: HTMLCanvasElement, previousChart
             plugins: {
                 title: {
                     display: true,
-                    text: "COVID Test Positivity (MZCR Data) - 7-day Averages"
+                    text: "COVID Test Positivity (MZCR Data) - Moving Averages"
                 },
                 legend: {
                     onClick: (evt, item, legend) => {

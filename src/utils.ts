@@ -26,22 +26,28 @@ export function transformMzcrDataToTimeseries(data: { datum: string; pcrPositivi
     };
 }
 
-export function compute7DayAverageTimeseries(data: TimeseriesData): TimeseriesData {
-    const dates = data.dates.slice(6); // Adjust dates to match the 7-day average
-    const averagedSeries = data.series.map(series => {
-        const values = series.values;
-        const averagedValues: number[] = [];
-        for (let i = 0; i <= values.length - 7; i++) {
-            let sum = 0;
-            for (let j = 0; j < 7; j++) {
-                sum += values[i + j];
+export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes: number[]): TimeseriesData {
+    const averagedSeries = data.series.flatMap(series => {
+        return windowSizes.map(windowSize => {
+            const values = series.values;
+            const averagedValues: number[] = [];
+            for (let i = 0; i < values.length; i++) {
+                let sum = 0;
+                for (let j = 0; j < windowSize; j++) {
+                    const index = i - j;
+                    if (index >= 0) {
+                        sum += values[index];
+                    } else {
+                        sum += values[0]; // Assume the same value as the last datapoint if there are no days prior
+                    }
+                }
+                averagedValues.push(sum / windowSize);
             }
-            averagedValues.push(sum / 7);
-        }
-        return {
-            name: `${series.name} - 7day avg`,
-            values: averagedValues,
-        };
+            return {
+                name: `${series.name} - ${windowSize}day avg`,
+                values: averagedValues,
+            };
+        });
     });
 
     return {
