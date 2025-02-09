@@ -62,7 +62,7 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
         return {
             label: series.name,
             data: series.values.slice(data.dates.findIndex(d => d > cutoffDateString)),
-            borderColor: series.name.includes("PCR") ? "blue" : "red",
+            borderColor: series.name.includes("PCR") ? "green" : "purple",
             fill: false,
             borderDash: series.name.includes("avg") ? [5, 5] : [],
             hidden: !isVisible,
@@ -71,49 +71,11 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
         };
     });
 
-    // Find local maxima for window size 28
-    const localMaximaPerSeries = data.series.map(series => findLocalExtreme(series, averagingWindows[1], "maxima"));
-    const localMaximaDatasets = localMaximaPerSeries.flat().map(extrSeries => {
-        const isVisible = datasetVisibility[extrSeries.name] !== undefined ? datasetVisibility[extrSeries.name] : true;
-        return {
-            label: extrSeries.name,
-            data: extrSeries.indices.map(index => ({
-                x: data.dates[index],
-                y: data.series.find(series => series.name === extrSeries.originalSeriesName)?.values[index] ?? -10
-            })).filter(dp=> dp.x > cutoffDateString) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
-            borderColor: "green",
-            backgroundColor: "green",
-            fill: false,
-            borderDash: [],
-            hidden: !isVisible,
-            borderWidth: 1,
-            pointRadius: 5,
-            type: "scatter",
-            showLine: false
-        };
-    });
+    const localMaximaDatasets = generateLocalExtremeDataset(data, datasetVisibility, cutoffDateString, 'maxima', "red");
     datasets.push(...localMaximaDatasets);
 
-    const localMinimaPerSeries = data.series.map(series => findLocalExtreme(series, averagingWindows[1], "minima"));
-    const localMinimaDatasets = localMinimaPerSeries.flat().map(extrSeries => {
-        const isVisible = datasetVisibility[extrSeries.name] !== undefined ? datasetVisibility[extrSeries.name] : true;
-        return {
-            label: extrSeries.name,
-            data: extrSeries.indices.map(index => ({
-                x: data.dates[index],
-                y: data.series.find(series => series.name === extrSeries.originalSeriesName)?.values[index] ?? -10
-            })).filter(dp=> dp.x > cutoffDateString) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
-            borderColor: "blue",
-            backgroundColor: "blue",
-            fill: false,
-            borderDash: [],
-            hidden: !isVisible,
-            borderWidth: 1,
-            pointRadius: 5,
-            type: "scatter",
-            showLine: false
-        };
-    });
+
+    const localMinimaDatasets = generateLocalExtremeDataset(data, datasetVisibility, cutoffDateString, 'minima', "blue");
     datasets.push(...localMinimaDatasets);
 
     return new Chart(canvas, {
@@ -156,6 +118,29 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
     });
 }
 
+function generateLocalExtremeDataset(data: TimeseriesData, datasetVisibility: { [key: string]: boolean; }, cutoffDateString: string, extreme: 'minima' | 'maxima', color: string) {
+    const localExtremePerSeries = data.series.map(series => findLocalExtreme(series, averagingWindows[1], extreme));
+    return localExtremePerSeries.flat().map(extrSeries => {
+        const isVisible = datasetVisibility[extrSeries.name] !== undefined ? datasetVisibility[extrSeries.name] : true;
+        return {
+            label: extrSeries.name,
+            data: extrSeries.indices.map(index => ({
+                x: data.dates[index],
+                y: data.series.find(series => series.name === extrSeries.originalSeriesName)?.values[index] ?? -10
+            })).filter(dp => dp.x > cutoffDateString) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
+            borderColor: color,
+            backgroundColor: color,
+            fill: false,
+            borderDash: [],
+            hidden: !isVisible,
+            borderWidth: 1,
+            pointRadius: 5,
+            type: "scatter",
+            showLine: false
+        };
+    });
+}
+
 function initializeTimeRangeDropdown(onTimeRangeChange: (timeRange: string) => void, container: HTMLElement) {
     const timeRangeSelect = document.createElement("select");
     timeRangeSelect.id = "timeRangeSelect";
@@ -163,6 +148,7 @@ function initializeTimeRangeDropdown(onTimeRangeChange: (timeRange: string) => v
         { value: "30", label: "Last Month" },
         { value: "90", label: "Last 90 Days" },
         { value: "365", label: "Last Year" },
+        { value: `${365*2}`, label: "Last 2 Years" },
         { value: "all", label: "All Time" },
     ];
     options.forEach(option => {
