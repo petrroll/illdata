@@ -72,6 +72,7 @@ function isExtremeWindow(series: number[], index: number, windowSize: number, ex
     const end = Math.min(series.length - 1, index + halfWindowSize);
 
     for (let i = start; i <= end; i++) {
+        if (i === index) continue; // Skip self-comparison
         if (extreme === 'maxima' && series[i] >= series[index]) { return false; }
         else if (extreme === 'minima' && series[i] <= series[index]) { return false; }
     }

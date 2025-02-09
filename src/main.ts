@@ -3,7 +3,8 @@ import { Chart, Legend } from 'chart.js/auto';
 import { computeMovingAverageTimeseries, findLocalExtreme, type TimeseriesData } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
-const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, [7, 28]);
+const averagingWindows = [7, 3*28];
+const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, averagingWindows);
 
 // Assuming computeMovingAverageTimeseries and transformMzcrDataToTimeseries functions are updated to handle the new structure
 
@@ -79,7 +80,7 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
     });
 
     // Find local maxima for window size 28
-    const localMaximaPerSeries = data.series.map(series => findLocalExtreme(series, 28, "maxima"));
+    const localMaximaPerSeries = data.series.map(series => findLocalExtreme(series, averagingWindows[1], "maxima"));
     const localMaximaDatasets = localMaximaPerSeries.flat().map(maximaSeries => {
         const isVisible = datasetVisibility[maximaSeries.name] !== undefined ? datasetVisibility[maximaSeries.name] : true;
         return {
@@ -101,7 +102,7 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
     });
     datasets.push(...localMaximaDatasets);
 
-    const localMinimaPerSeries = data.series.map(series => findLocalExtreme(series, 28, "maxima"));
+    const localMinimaPerSeries = data.series.map(series => findLocalExtreme(series, averagingWindows[1], "minima"));
     const localMinimaDatasets = localMinimaPerSeries.flat().map(extrSeries => {
         const isVisible = datasetVisibility[extrSeries.name] !== undefined ? datasetVisibility[extrSeries.name] : true;
         return {
