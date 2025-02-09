@@ -5,6 +5,20 @@ export function toFloat(row: Record<string, string>, key: string): number {
     return parseFloat(row[key] || "0");
 }
 
+export function normalizeDate(date: string): string {
+    if (!date) return '';
+    
+    // Try parsing the date
+    const parsed = new Date(date.replace(/\./g, '-')); // Replace dots with dashes to help Date.parse
+    
+    if (isNaN(parsed.getTime())) {
+        throw new Error(`Invalid date format: ${date}`);
+    }
+
+    // Format to YYYY-MM-DD
+    return parsed.toISOString().split('T')[0];
+}
+
 export function getAbsolutePath(relativePath: string): string {
     return path.resolve(process.cwd(), relativePath);
 }

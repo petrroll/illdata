@@ -4,6 +4,6 @@
     "tasks": {
       "build": "bun install && bun run ./src/data_processor.ts",
       "launch": "bun run bunx vite",
-      "test": "bun test"
+      "test": "bun run tsc --noEmit && bun test"
     }
 }

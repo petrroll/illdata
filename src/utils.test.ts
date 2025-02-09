@@ -1,7 +1,7 @@
-import { findLocalMaxima, SeriesData, MaximaSeries } from './utils';
+import { findLocalMaxima, type LinearSeries, type MaximaSeries } from './utils';
 
 describe('findLocalMaxima', () => {
-    const series: SeriesData = {
+    const series: LinearSeries = {
         name: 'Averaged Series',
         values: [1, 3, 2, 4, 1],
         type: 'averaged',

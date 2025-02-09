@@ -1,10 +1,10 @@
 import { promises as fs } from "fs";
-import { downloadCsv, getAbsolutePath, parseCsv, toFloat } from "./ioUtils";
+import { downloadCsv, getAbsolutePath, normalizeDate, toFloat } from "./ioUtils";
 import type { TimeseriesData } from "../utils";
 
 export function computeCzCovPositivityData(data: Record<string, string>[]): TimeseriesData {
     const processedData = data.map(row => {
-        const datum = row["datum"] || row["Datum"] || "";
+        const datum = normalizeDate(row["datum"] || row["Datum"] || "");
 
         const pcrTotal = toFloat(row, "pocet_PCR_testy");
         const antigenTotal = toFloat(row, "pocet_AG_testy");
