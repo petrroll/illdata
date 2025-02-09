@@ -12,6 +12,7 @@ export interface LinearSeries {
 
 export interface MaximaSeries {
     name: string;
+    originalSeriesName: string;
     indices: number[];
 }
 
@@ -59,7 +60,7 @@ export function findLocalMaxima(series: LinearSeries, windowSize: number): Maxim
                 localMaximaIndices.push(i);
             }
         }
-        maximaSeries.push({ name: `${series.name} Local Maxima`, indices: localMaximaIndices });
+        maximaSeries.push({ name: `${series.name} Local Maxima`, originalSeriesName: series.name, indices: localMaximaIndices });
     }
 
     return maximaSeries;
@@ -71,7 +72,7 @@ function isMaximaInWindow(series: number[], index: number, windowSize: number): 
     const end = Math.min(series.length - 1, index + halfWindowSize);
 
     for (let i = start; i <= end; i++) {
-        if (series[i] > series[index]) {
+        if (series[i] >= series[index]) {
             return false;
         }
     }

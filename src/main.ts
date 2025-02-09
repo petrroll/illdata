@@ -86,7 +86,7 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
             label: maximaSeries.name,
             data: maximaSeries.indices.map(index => ({
                 x: labels[index],
-                y: filteredTimeseriesData.series.find(series => series.name === maximaSeries.name)?.values[index] ?? -10
+                y: filteredTimeseriesData.series.find(series => series.name === maximaSeries.originalSeriesName)?.values[index] ?? -10
             })) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
             borderColor: "green",
             backgroundColor: "green",
