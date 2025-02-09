@@ -81,8 +81,9 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
     // Find local maxima for window size 28
     const localMaximaPerSeries = data.series.map(series => findLocalMaxima(series, 28));
     const localMaximaDatasets = localMaximaPerSeries.flat().map(maximaSeries => {
+        const isVisible = datasetVisibility[maximaSeries.name] !== undefined ? datasetVisibility[maximaSeries.name] : true;
         return {
-            label: `${maximaSeries.name} Local Maxima`,
+            label: maximaSeries.name,
             data: maximaSeries.indices.map(index => ({
                 x: labels[index],
                 y: filteredTimeseriesData.series.find(series => series.name === maximaSeries.name)?.values[index] ?? -10
@@ -91,7 +92,7 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
             backgroundColor: "green",
             fill: false,
             borderDash: [],
-            hidden: false,
+            hidden: !isVisible,
             borderWidth: 1,
             pointRadius: 5,
             type: "scatter",

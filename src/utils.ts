@@ -59,7 +59,7 @@ export function findLocalMaxima(series: LinearSeries, windowSize: number): Maxim
                 localMaximaIndices.push(i);
             }
         }
-        maximaSeries.push({ name: series.name, indices: localMaximaIndices });
+        maximaSeries.push({ name: `${series.name} Local Maxima`, indices: localMaximaIndices });
     }
 
     return maximaSeries;
