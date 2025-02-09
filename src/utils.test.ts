@@ -10,21 +10,21 @@ describe('findLocalMaxima', () => {
 
     test('filters time series of type averaged', () => {
         const result: ExtremeSeries[] = findLocalExtreme(series, 3, 'maxima');
-        expect(result).toEqual([{ name: 'Averaged Series', indices: [1, 3] }]);
+        expect(result).toEqual([{ name: 'Averaged Series maxima', originalSeriesName: 'Averaged Series' , indices: [1, 3] }]);
     });
 
     test('selects the provided window size', () => {
         const result: ExtremeSeries[] = findLocalExtreme(series, 3, 'maxima');
-        expect(result).toEqual([{ name: 'Averaged Series', indices: [1, 3] }]);
+        expect(result).toEqual([{ name: 'Averaged Series maxima', originalSeriesName: 'Averaged Series' , indices: [1, 3] }]);
     });
 
     test('finds all local maxima and returns their index', () => {
         const result: ExtremeSeries[] = findLocalExtreme(series, 3, 'maxima');
-        expect(result).toEqual([{ name: 'Averaged Series', indices: [1, 3] }]);
+        expect(result).toEqual([{ name: 'Averaged Series maxima', originalSeriesName: 'Averaged Series' , indices: [1, 3] }]);
     });
 
     test('does not consider local maxima at the edge of the array', () => {
         const result: ExtremeSeries[] = findLocalExtreme(series, 3, 'maxima');
-        expect(result).toEqual([{ name: 'Averaged Series', indices: [1, 3] }]);
+        expect(result).toEqual([{ name: 'Averaged Series maxima', originalSeriesName: 'Averaged Series' , indices: [1, 3] }]);
     });
 });
