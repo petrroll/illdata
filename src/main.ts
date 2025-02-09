@@ -39,19 +39,12 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
         previousChartInstance.destroy();
     }
 
-    let filteredTimeseriesData = { ...data }; // Copy the original data
-
+    let cutoffDateString = data.dates[0] ?? new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     if (timeRange !== "all") {
         const days = parseInt(timeRange);
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - days);
-        const cutoffDateString = cutoffDate.toISOString().split('T')[0]; // YYYY-MM-DD
-
-        filteredTimeseriesData.dates = data.dates.filter(date => date >= cutoffDateString);
-        filteredTimeseriesData.series = data.series.map(series => ({
-            ...series,
-            values: series.values.slice(data.dates.findIndex(date => date >= cutoffDateString))
-        }));
+        cutoffDateString = cutoffDate.toISOString().split('T')[0]; // YYYY-MM-DD
     }
 
     // Retrieve dataset visibility from local storage
@@ -64,12 +57,11 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
     }
 
     // Prepare data for chart
-    const labels = filteredTimeseriesData.dates;
-    const datasets = filteredTimeseriesData.series.map(series => {
+    const datasets = data.series.map(series => {
         const isVisible = datasetVisibility[series.name] !== undefined ? datasetVisibility[series.name] : true;
         return {
             label: series.name,
-            data: series.values,
+            data: series.values.slice(data.dates.findIndex(d => d > cutoffDateString)),
             borderColor: series.name.includes("PCR") ? "blue" : "red",
             fill: false,
             borderDash: series.name.includes("avg") ? [5, 5] : [],
@@ -81,14 +73,14 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
 
     // Find local maxima for window size 28
     const localMaximaPerSeries = data.series.map(series => findLocalExtreme(series, averagingWindows[1], "maxima"));
-    const localMaximaDatasets = localMaximaPerSeries.flat().map(maximaSeries => {
-        const isVisible = datasetVisibility[maximaSeries.name] !== undefined ? datasetVisibility[maximaSeries.name] : true;
+    const localMaximaDatasets = localMaximaPerSeries.flat().map(extrSeries => {
+        const isVisible = datasetVisibility[extrSeries.name] !== undefined ? datasetVisibility[extrSeries.name] : true;
         return {
-            label: maximaSeries.name,
-            data: maximaSeries.indices.map(index => ({
-                x: labels[index],
-                y: filteredTimeseriesData.series.find(series => series.name === maximaSeries.originalSeriesName)?.values[index] ?? -10
-            })) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
+            label: extrSeries.name,
+            data: extrSeries.indices.map(index => ({
+                x: data.dates[index],
+                y: data.series.find(series => series.name === extrSeries.originalSeriesName)?.values[index] ?? -10
+            })).filter(dp=> dp.x > cutoffDateString) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
             borderColor: "green",
             backgroundColor: "green",
             fill: false,
@@ -108,9 +100,9 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
         return {
             label: extrSeries.name,
             data: extrSeries.indices.map(index => ({
-                x: labels[index],
-                y: filteredTimeseriesData.series.find(series => series.name === extrSeries.originalSeriesName)?.values[index] ?? -10
-            })) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
+                x: data.dates[index],
+                y: data.series.find(series => series.name === extrSeries.originalSeriesName)?.values[index] ?? -10
+            })).filter(dp=> dp.x > cutoffDateString) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
             borderColor: "blue",
             backgroundColor: "blue",
             fill: false,
@@ -127,7 +119,7 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
     return new Chart(canvas, {
         type: "line",
         data: {
-            labels: labels,
+            labels: data.dates.filter(d => d > cutoffDateString),
             datasets: datasets,
         },
         options: {

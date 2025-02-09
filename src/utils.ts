@@ -55,7 +55,7 @@ export function findLocalExtreme(series: LinearSeries, windowSize: number, extre
 
     if (series.type === 'averaged' && series.windowsize === windowSize) {
         const localMaximaIndices: number[] = [];
-        for (let i = 0; i < series.values.length; i++) {
+        for (let i = 1; i < series.values.length - 1; i++) {
             if (isExtremeWindow(series.values, i, windowSize, extreme)) {
                 localMaximaIndices.push(i);
             }
