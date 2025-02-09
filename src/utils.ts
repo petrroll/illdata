@@ -1,3 +1,5 @@
+import { LineController } from "chart.js";
+
 export interface TimeseriesData {
     dates: string[];
     series: LinearSeries[];
@@ -14,6 +16,22 @@ export interface ExtremeSeries {
     name: string;
     originalSeriesName: string;
     indices: number[];
+}
+
+export function shiftToAlignExtremeDates(data: TimeseriesData, extremeSeries: ExtremeSeries, extremeIndexShiftFrom: number, extremeIndexShiftTo: number): TimeseriesData {
+    const shiftedSeries = data.series.flatMap(series => {
+        if (series.name === extremeSeries.originalSeriesName) {
+            const indexShift = extremeSeries.indices[extremeSeries.indices.length-extremeIndexShiftTo] - extremeSeries.indices[extremeSeries.indices.length-extremeIndexShiftFrom]
+            const shiftedValues = series.values.map((v, i) => {
+                return series.values[i + indexShift];
+            });
+            return [{ name: `${series.name} - ${indexShift} days`, type: 'raw' as `raw`, values: shiftedValues }, series];
+        } else {
+            return [series];
+        }
+    });
+
+    return { dates: data.dates, series: shiftedSeries };
 }
 
 export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes: number[]): TimeseriesData {
