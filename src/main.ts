@@ -121,7 +121,7 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
             showLine: false
         };
     });
-    datasets.push(...localMaximaDatasets);
+    datasets.push(...localMinimaDatasets);
 
     return new Chart(canvas, {
         type: "line",
