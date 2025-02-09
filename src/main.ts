@@ -1,6 +1,6 @@
 import mzcrPositivityImport from "../data_processed/cr_cov_mzcr/positivity_data.json" with { type: "json" };
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, type TimeseriesData } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, shiftToAlignExtremeDates, type TimeseriesData } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const averagingWindows = [7, 3*28];
@@ -11,7 +11,6 @@ const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, av
 // Local storage keys
 const TIME_RANGE_KEY = "selectedTimeRange";
 const DATASET_VISIBILITY_KEY = "datasetVisibility";
-
 
 const container = document.getElementById("root");
 renderPage(container);
@@ -64,6 +63,10 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
         console.error("Error parsing dataset visibility from local storage:", error);
     }
 
+    const localMaximaDatasets = generateLocalExtremeDataset(data, datasetVisibility, cutoffDateString, 'maxima', "red");
+    const localMinimaDatasets = generateLocalExtremeDataset(data, datasetVisibility, cutoffDateString, 'minima', "blue");
+    data = shiftToAlignExtremeDates(data, data.series.map(series => findLocalExtreme(series, averagingWindows[1], 'maxima')).flat()[0], 1, 2);
+    
     // Prepare data for chart
     const datasets = data.series.map(series => {
         const isVisible = datasetVisibility[series.name] !== undefined ? datasetVisibility[series.name] : true;
@@ -79,11 +82,7 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
         };
     });
 
-    const localMaximaDatasets = generateLocalExtremeDataset(data, datasetVisibility, cutoffDateString, 'maxima', "red");
     datasets.push(...localMaximaDatasets);
-
-
-    const localMinimaDatasets = generateLocalExtremeDataset(data, datasetVisibility, cutoffDateString, 'minima', "blue");
     datasets.push(...localMinimaDatasets);
 
     return new Chart(canvas, {
