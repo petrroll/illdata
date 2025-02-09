@@ -1,9 +1,9 @@
 export interface TimeseriesData {
     dates: string[];
-    series: SeriesData[];
+    series: LinearSeries[];
 }
 
-export interface SeriesData {
+export interface LinearSeries {
     name: string;
     values: number[];
     type: 'raw' | 'averaged';
@@ -13,28 +13,6 @@ export interface SeriesData {
 export interface MaximaSeries {
     name: string;
     indices: number[];
-}
-
-export function transformMzcrDataToTimeseries(data: { datum: string; pcrPositivity: number; antigenPositivity: number }[]): TimeseriesData {
-    const dates = data.map(item => item.datum);
-    const pcrValues = data.map(item => item.pcrPositivity);
-    const antigenValues = data.map(item => item.antigenPositivity);
-
-    return {
-        dates: dates,
-        series: [
-            {
-                name: "PCR Positivity",
-                values: pcrValues,
-                type: 'raw'
-            },
-            {
-                name: "Antigen Positivity",
-                values: antigenValues,
-                type: 'raw'
-            },
-        ],
-    };
 }
 
 export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes: number[]): TimeseriesData {
@@ -61,7 +39,7 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
                 values: averagedValues,
                 type: 'averaged',
                 windowsize: windowSize
-            };
+            } as LinearSeries;
         });
     });
 
@@ -71,7 +49,7 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
     };
 }
 
-export function findLocalMaxima(series: SeriesData, windowSize: number): MaximaSeries[] {
+export function findLocalMaxima(series: LinearSeries, windowSize: number): MaximaSeries[] {
     const maximaSeries: MaximaSeries[] = [];
 
     if (series.type === 'averaged' && series.windowsize === windowSize) {

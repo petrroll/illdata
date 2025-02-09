@@ -1,5 +1,38 @@
 import { promises as fs } from "fs";
-import { downloadCsv, getAbsolutePath, parseCsv } from "./utils";
+import { downloadCsv, getAbsolutePath, parseCsv, toFloat } from "./ioUtils";
+import type { TimeseriesData } from "../utils";
+
+export function computeCzCovPositivityData(data: Record<string, string>[]): TimeseriesData {
+    const processedData = data.map(row => {
+        const datum = row["datum"] || row["Datum"] || "";
+
+        const pcrTotal = toFloat(row, "pocet_PCR_testy");
+        const antigenTotal = toFloat(row, "pocet_AG_testy");
+
+        const antigenPos = toFloat(row, "AG_pozit_symp") + toFloat(row, "AG_pozit_asymp_PCR_conf");
+        const pcrPos = toFloat(row, "PCR_pozit_sympt") + toFloat(row, "PCR_pozit_asymp");
+
+        const pcrRate = pcrTotal ? (pcrPos / pcrTotal) * 100 : 0;
+        const antigenRate = antigenTotal ? (antigenPos / antigenTotal) * 100 : 0;
+        return { datum, pcrRate, antigenRate };
+    });
+
+    return {
+        dates: processedData.map(row => row.datum),
+        series: [
+            {
+                name: "PCR Positivity",
+                values: processedData.map(row => row.pcrRate),
+                type: 'raw'
+            },
+            {
+                name: "Antigen Positivity",
+                values: processedData.map(row => row.antigenRate),
+                type: 'raw'
+            }
+        ]
+    };
+}
 
 export async function downloadCzCovPositivity(filename: string, perDay: boolean = false) {
     let storedFilename = filename;
@@ -19,12 +52,6 @@ export async function downloadCzCovPositivity(filename: string, perDay: boolean 
     await fs.mkdir("./data", { recursive: true });
     await fs.writeFile(filePath, csvContent, "utf-8");
     console.log(`CSV downloaded and saved to ${filePath}`);
-}
-
-export async function loadAndParseCsv(filename: string) {
-    const filepath = getAbsolutePath(`./data/${filename}`);
-    const csvContent = await fs.readFile(filepath, "utf-8");
-    return parseCsv(csvContent);
 }
 
 function createPerDayName(filename: string, storedFilename: string) {

@@ -1,11 +1,9 @@
-import type { MzcrCovidTestPositivity } from "./shared";
 import mzcrPositivityImport from "../data_processed/cr_cov_mzcr/positivity_data.json" with { type: "json" };
 import { Chart, Legend } from 'chart.js/auto';
-import { transformMzcrDataToTimeseries, computeMovingAverageTimeseries, findLocalMaxima } from "./utils";
+import { computeMovingAverageTimeseries, findLocalMaxima, type TimeseriesData } from "./utils";
 
-const mzcrPositivity = mzcrPositivityImport as MzcrCovidTestPositivity[];
-const timeseriesData = transformMzcrDataToTimeseries(mzcrPositivity);
-const enhancedTimeseriesData = computeMovingAverageTimeseries(timeseriesData, [7, 28]);
+const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
+const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, [7, 28]);
 
 // Assuming computeMovingAverageTimeseries and transformMzcrDataToTimeseries functions are updated to handle the new structure
 
@@ -28,19 +26,19 @@ function renderPage(container: HTMLElement | null) {
     const canvas = document.createElement("canvas");
     canvas.id = "positivityChart";
     container.appendChild(canvas);
-    const storedTimeRange = initializeTimeRangeDropdown((timeRange) => { currentChartHolder.chart = updateChart(timeRange, canvas, currentChartHolder.chart)}, container);
+    const storedTimeRange = initializeTimeRangeDropdown((timeRange) => { currentChartHolder.chart = updateChart(timeRange, mzcrPositivityEnhanced, canvas, currentChartHolder.chart)}, container);
 
     // Initial chart render with stored or default time range
-    currentChartHolder.chart = updateChart(storedTimeRange, canvas);
+    currentChartHolder.chart = updateChart(storedTimeRange, mzcrPositivityEnhanced, canvas);
 }
 
-function updateChart(timeRange: string, canvas: HTMLCanvasElement, previousChartInstance?: Chart) {
+function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvasElement, previousChartInstance?: Chart) {
     // Destroy existing chart if it exists
     if (previousChartInstance) {
         previousChartInstance.destroy();
     }
 
-    let filteredTimeseriesData = { ...enhancedTimeseriesData }; // Copy the original data
+    let filteredTimeseriesData = { ...data }; // Copy the original data
 
     if (timeRange !== "all") {
         const days = parseInt(timeRange);
@@ -48,10 +46,10 @@ function updateChart(timeRange: string, canvas: HTMLCanvasElement, previousChart
         cutoffDate.setDate(cutoffDate.getDate() - days);
         const cutoffDateString = cutoffDate.toISOString().split('T')[0]; // YYYY-MM-DD
 
-        filteredTimeseriesData.dates = timeseriesData.dates.filter(date => date >= cutoffDateString);
-        filteredTimeseriesData.series = timeseriesData.series.map(series => ({
+        filteredTimeseriesData.dates = data.dates.filter(date => date >= cutoffDateString);
+        filteredTimeseriesData.series = data.series.map(series => ({
             ...series,
-            values: series.values.slice(timeseriesData.dates.findIndex(date => date >= cutoffDateString))
+            values: series.values.slice(data.dates.findIndex(date => date >= cutoffDateString))
         }));
     }
 
@@ -81,16 +79,20 @@ function updateChart(timeRange: string, canvas: HTMLCanvasElement, previousChart
     });
 
     // Find local maxima for window size 28
-    const localMaximaPerSeries = enhancedTimeseriesData.series.map(series => findLocalMaxima(series, 28));
+    const localMaximaPerSeries = data.series.map(series => findLocalMaxima(series, 28));
     const localMaximaDatasets = localMaximaPerSeries.flat().map(maximaSeries => {
         return {
             label: `${maximaSeries.name} Local Maxima`,
             data: maximaSeries.indices.map(index => ({
                 x: labels[index],
-                y: filteredTimeseriesData.series.find(series => series.name === maximaSeries.name)?.values[index]
-            })),
+                y: filteredTimeseriesData.series.find(series => series.name === maximaSeries.name)?.values[index] ?? -10
+            })) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
             borderColor: "green",
             backgroundColor: "green",
+            fill: false,
+            borderDash: [],
+            hidden: false,
+            borderWidth: 1,
             pointRadius: 5,
             type: "scatter",
             showLine: false

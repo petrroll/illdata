@@ -9,6 +9,12 @@ export function getAbsolutePath(relativePath: string): string {
     return path.resolve(process.cwd(), relativePath);
 }
 
+export async function loadAndParseCsv(filename: string) {
+    const filepath = getAbsolutePath(`./data/${filename}`);
+    const csvContent = await fs.readFile(filepath, "utf-8");
+    return parseCsv(csvContent);
+}
+
 export function parseCsv(csvContent: string) {
     const lines = csvContent.split("\n").filter(line => line.trim() !== "");
 
