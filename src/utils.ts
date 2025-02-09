@@ -10,7 +10,7 @@ export interface LinearSeries {
     windowsize?: number;
 }
 
-export interface MaximaSeries {
+export interface ExtremeSeries {
     name: string;
     originalSeriesName: string;
     indices: number[];
@@ -50,31 +50,31 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
     };
 }
 
-export function findLocalMaxima(series: LinearSeries, windowSize: number): MaximaSeries[] {
-    const maximaSeries: MaximaSeries[] = [];
+export function findLocalExtreme(series: LinearSeries, windowSize: number, extreme: 'maxima'|'minima'): ExtremeSeries[] {
+    const maximaSeries: ExtremeSeries[] = [];
 
     if (series.type === 'averaged' && series.windowsize === windowSize) {
         const localMaximaIndices: number[] = [];
         for (let i = 0; i < series.values.length; i++) {
-            if (isMaximaInWindow(series.values, i, windowSize)) {
+            if (isExtremeWindow(series.values, i, windowSize, extreme)) {
                 localMaximaIndices.push(i);
             }
         }
-        maximaSeries.push({ name: `${series.name} Local Maxima`, originalSeriesName: series.name, indices: localMaximaIndices });
+        maximaSeries.push({ name: `${series.name} ${extreme}`, originalSeriesName: series.name, indices: localMaximaIndices });
     }
 
     return maximaSeries;
 }
 
-function isMaximaInWindow(series: number[], index: number, windowSize: number): boolean {
+function isExtremeWindow(series: number[], index: number, windowSize: number, extreme: 'maxima'|'minima'): boolean {
     const halfWindowSize = Math.floor(windowSize / 2);
     const start = Math.max(0, index - halfWindowSize);
     const end = Math.min(series.length - 1, index + halfWindowSize);
 
     for (let i = start; i <= end; i++) {
-        if (series[i] >= series[index]) {
-            return false;
-        }
+        if (extreme === 'maxima' && series[i] >= series[index]) { return false; }
+        else if (extreme === 'minima' && series[i] <= series[index]) { return false; }
+        else { return true; }
     }
 
     return true;

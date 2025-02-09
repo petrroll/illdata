@@ -1,6 +1,6 @@
 import mzcrPositivityImport from "../data_processed/cr_cov_mzcr/positivity_data.json" with { type: "json" };
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalMaxima, type TimeseriesData } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, type TimeseriesData } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, [7, 28]);
@@ -79,7 +79,7 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
     });
 
     // Find local maxima for window size 28
-    const localMaximaPerSeries = data.series.map(series => findLocalMaxima(series, 28));
+    const localMaximaPerSeries = data.series.map(series => findLocalExtreme(series, 28, "maxima"));
     const localMaximaDatasets = localMaximaPerSeries.flat().map(maximaSeries => {
         const isVisible = datasetVisibility[maximaSeries.name] !== undefined ? datasetVisibility[maximaSeries.name] : true;
         return {
@@ -90,6 +90,28 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
             })) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
             borderColor: "green",
             backgroundColor: "green",
+            fill: false,
+            borderDash: [],
+            hidden: !isVisible,
+            borderWidth: 1,
+            pointRadius: 5,
+            type: "scatter",
+            showLine: false
+        };
+    });
+    datasets.push(...localMaximaDatasets);
+
+    const localMinimaPerSeries = data.series.map(series => findLocalExtreme(series, 28, "maxima"));
+    const localMinimaDatasets = localMinimaPerSeries.flat().map(extrSeries => {
+        const isVisible = datasetVisibility[extrSeries.name] !== undefined ? datasetVisibility[extrSeries.name] : true;
+        return {
+            label: extrSeries.name,
+            data: extrSeries.indices.map(index => ({
+                x: labels[index],
+                y: filteredTimeseriesData.series.find(series => series.name === extrSeries.originalSeriesName)?.values[index] ?? -10
+            })) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
+            borderColor: "blue",
+            backgroundColor: "blue",
             fill: false,
             borderDash: [],
             hidden: !isVisible,
