@@ -22,7 +22,7 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
             const averagedValues = series.values.map((v, i) => {
                 let sum = 0;
                 let count = 0;
-                for (let j = Math.floor(-windowSize/2); j <= Math.floor(windowSize/2); j++) {
+                for (let j = -Math.floor(windowSize/2); j <= Math.floor(windowSize/2); j++) {
                     const index = i + j;
                     count += 1;
                     if (index >= 0 && index < series.values.length) {
