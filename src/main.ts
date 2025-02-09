@@ -16,18 +16,26 @@ const DATASET_VISIBILITY_KEY = "datasetVisibility";
 const container = document.getElementById("root");
 renderPage(container);
 
-function renderPage(container: HTMLElement | null) {
-    if (!container) {
+function renderPage(rootDiv: HTMLElement | null) {
+    if (!rootDiv) {
         console.error("Root element not found.");
         return;
     }
 
     const currentChartHolder : {chart: Chart | undefined } = { chart: undefined };
 
+    const canvasContainer = document.createElement("div");
+    canvasContainer.id = "canvasContainer";
+    canvasContainer.style.width = "100vw"
+    canvasContainer.style.height = "40vh"
+
+    rootDiv.appendChild(canvasContainer);
+
     const canvas = document.createElement("canvas");
     canvas.id = "positivityChart";
-    container.appendChild(canvas);
-    const storedTimeRange = initializeTimeRangeDropdown((timeRange) => { currentChartHolder.chart = updateChart(timeRange, mzcrPositivityEnhanced, canvas, currentChartHolder.chart)}, container);
+    canvasContainer.appendChild(canvas);
+
+    const storedTimeRange = initializeTimeRangeDropdown((timeRange) => { currentChartHolder.chart = updateChart(timeRange, mzcrPositivityEnhanced, canvas, currentChartHolder.chart)}, rootDiv);
 
     // Initial chart render with stored or default time range
     currentChartHolder.chart = updateChart(storedTimeRange, mzcrPositivityEnhanced, canvas);
@@ -86,6 +94,7 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: {
                 title: {
                     display: true,
