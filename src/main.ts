@@ -68,14 +68,22 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
     data = shiftToAlignExtremeDates(data, data.series.map(series => findLocalExtreme(series, averagingWindows[1], 'maxima')).flat()[0], 1, 2);
     
     // Prepare data for chart
-    const datasets = data.series.map(series => {
+    const colorPalettePCR = [
+        "#1f77b4", "#aec7e8", "#ffbb78", "#2ca02c", "#98df8a", 
+        "#d62728", "#ff9896", "#9467bd", "#c5b0d5", "#8c564b"
+    ];
+    const colorPaletteNonPCR = [
+        "#e377c2", "#f7b6d2", "#7f7f7f", "#c7c7c7", "#bcbd22", 
+        "#dbdb8d", "#17becf", "#9edae5", "#ff7f0e", "#ffbb78"
+    ];
+    const datasets = data.series.map((series, index) => {
         const isVisible = datasetVisibility[series.name] !== undefined ? datasetVisibility[series.name] : true;
+        const colorPalette = series.name.toLowerCase().includes("pcr") ? colorPalettePCR : colorPaletteNonPCR;
         return {
             label: series.name,
             data: series.values.slice(data.dates.findIndex(d => d > cutoffDateString)),
-            borderColor: series.name.includes("PCR") ? "green" : "purple",
+            borderColor: colorPalette[index % colorPalette.length],
             fill: false,
-            borderDash: series.name.includes("avg") ? [5, 5] : [],
             hidden: !isVisible,
             borderWidth: 1,
             pointRadius: 0,
@@ -139,7 +147,6 @@ function generateLocalExtremeDataset(data: TimeseriesData, datasetVisibility: { 
             borderColor: color,
             backgroundColor: color,
             fill: false,
-            borderDash: [],
             hidden: !isVisible,
             borderWidth: 1,
             pointRadius: 5,
