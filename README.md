@@ -1,15 +1,33 @@
 # illmeter
 
-To install dependencies:
+This project explores illness positivity rates across Europe—with a primary focus on Czechia—and delivers a single pane of glass dashboard for data visualization.
 
+## Installing Dependencies
+
+Install the required dependencies with:
 ```bash
 bun install
 ```
 
-To run:
+## Running the Project
 
-```bash
-bun run index.ts
-```
+The project provides several tasks defined in the dev container:
 
-This project was created using `bun init` in bun v1.2.2. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+- **Build**: Install dependencies and process data.
+    ```bash
+    bun run ./src/data_processor.ts
+    ```
+    
+- **Launch**: Start the dashboard.
+    ```bash
+    bun run bunx vite
+    ```
+
+- **Test**: Run type checks and tests.
+    ```bash
+    bun run tsc --noEmit && bun test
+    ```
+
+## Data Exploration
+
+An UV-managed Jupyter playground is available in `./playground` to explore the data retrieved by the data processor.
