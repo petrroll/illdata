@@ -1,6 +1,10 @@
 {
     "name": "Bun",
-    "image": "ghcr.io/nhaef/devcontainer-bun:latest",
+    "image": "mcr.microsoft.com/devcontainers/base:alpine",
+    "features": {
+        "ghcr.io/prulloac/devcontainer-features/bun:1": {},
+        "ghcr.io/va-h/devcontainers-features/uv:1": {}
+    },
     "tasks": {
       "build": "bun install && bun run ./src/data_processor.ts",
       "launch": "bun run bunx vite",
