@@ -9,8 +9,8 @@ let positivityData = computeCzCovPositivityData(data);
 
 await saveData(positivityData, CR_COV_MZCR_POSITIVITY);
 
-await downloadEuEcdcData("nonSentinelTestsDetections.csv");
-data = await loadAndParseCsv("nonSentinelTestsDetections.csv");
+await downloadEuEcdcData("sentinelTestsDetectionsPositivity.csv");
+data = await loadAndParseCsv("sentinelTestsDetectionsPositivity.csv");
 let euPositivityData = computeEuEcdcData(data);
 
 await saveData(euPositivityData, EU_ALLSENTINEL_ERVIS_POSITIVITY);
