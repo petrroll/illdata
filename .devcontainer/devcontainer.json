@@ -1,9 +1,9 @@
 {
     "name": "Bun",
-    "image": "mcr.microsoft.com/devcontainers/base:alpine",
+    "image": "mcr.microsoft.com/devcontainers/base:debian",
     "features": {
-        "ghcr.io/prulloac/devcontainer-features/bun:1": {},
-        "ghcr.io/va-h/devcontainers-features/uv:1": {}
+      "ghcr.io/prulloac/devcontainer-features/bun:1": {},
+      "ghcr.io/va-h/devcontainers-features/uv:1": {}
     },
     "tasks": {
       "build": "bun install && bun run ./src/data_processor.ts",
