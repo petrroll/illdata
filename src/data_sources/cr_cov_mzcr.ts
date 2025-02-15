@@ -1,5 +1,4 @@
-import { promises as fs } from "fs";
-import { downloadCsv, getAbsolutePath, normalizeDate, toFloat } from "./ioUtils";
+import { downloadAndSaveCsv, downloadCsv, getAbsolutePath, normalizeDate, toFloat } from "./ioUtils";
 import type { TimeseriesData } from "../utils";
 
 export function computeCzCovPositivityData(data: Record<string, string>[]): TimeseriesData {
@@ -40,18 +39,9 @@ export async function downloadCzCovPositivity(filename: string, perDay: boolean 
         storedFilename = createPerDayName(filename, storedFilename);
     }
     const filePath = getAbsolutePath(`./data/${storedFilename}`);
-
-    if (await fs.exists(filePath)) {
-        console.log(`File already exists at ${filePath}`);
-        return;
-    }
-
     const url = `https://onemocneni-aktualne.mzcr.cz/api/v2/covid-19/${filename}`;
-    const csvContent = await downloadCsv(url);
 
-    await fs.mkdir("./data", { recursive: true });
-    await fs.writeFile(filePath, csvContent, "utf-8");
-    console.log(`CSV downloaded and saved to ${filePath}`);
+    await downloadAndSaveCsv(url, filePath);
 }
 
 function createPerDayName(filename: string, storedFilename: string) {

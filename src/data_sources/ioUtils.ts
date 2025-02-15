@@ -47,6 +47,20 @@ export function parseCsv(csvContent: string) {
     return data;
 }
 
+export async function downloadAndSaveCsv(url: string, filePath: string): Promise<void> {
+    if (await fs.access(filePath).then(() => true).catch(() => false)) {
+        console.log(`File already exists at ${filePath}`);
+        return;
+    }
+
+    const csvContent = await downloadCsv(url);
+    
+    const dir = path.dirname(filePath);
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(filePath, csvContent, "utf-8");
+    console.log(`CSV downloaded and saved to ${filePath}`);
+}
+
 export async function downloadCsv(url: string) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to fetch CSV: ${response.statusText}`);
