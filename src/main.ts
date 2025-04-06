@@ -1,7 +1,7 @@
 import mzcrPositivityImport from "../data_processed/cr_cov_mzcr/positivity_data.json" with { type: "json" };
 import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_data.json" with { type: "json" };
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, shiftToAlignExtremeDates, type TimeseriesData } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, addShiftedToAlignExtremeDates, type TimeseriesData } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -88,7 +88,7 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
     const localMaximaDatasets = generateLocalExtremeDataset(data, datasetVisibility, cutoffDateString, 'maxima', "red");
     const localMinimaDatasets = generateLocalExtremeDataset(data, datasetVisibility, cutoffDateString, 'minima', "blue");
     const localMaximaSeries = data.series.map(series => findLocalExtreme(series, averagingWindows[1], 'maxima'))
-    data = shiftToAlignExtremeDates(data, localMaximaSeries.flat()[0], 1, 2);
+    data = addShiftedToAlignExtremeDates(data, localMaximaSeries.flat(), 1, 2);
     
     // Prepare data for chart
     const colorPalettePCR = [

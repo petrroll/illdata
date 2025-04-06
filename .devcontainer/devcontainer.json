@@ -8,7 +8,7 @@
     },
     "tasks": {
       "build": "just build",
-      "launch": "just launch",
+      "launch": "just serve",
       "test": "just test"
     }
 }

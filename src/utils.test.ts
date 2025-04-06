@@ -11,7 +11,7 @@ describe('findLocalExtreme - Local Maxima Tests', () => {
         name: 'Averaged Series',
         values: [1, 3, 2, 4, 1],
         type: 'averaged',
-        windowSizeInIndex: 3,
+        windowSizeInDays: 3,
 		frequencyInDays: 1
     };
 
@@ -40,7 +40,7 @@ describe('findLocalExtreme - Local Minima Tests', () => {
         name: 'Averaged Series',
         values: [4, 2, 3, 1, 5],
         type: 'averaged',
-        windowSizeInIndex: 3,
+        windowSizeInDays: 3,
 		frequencyInDays: 1,
     };
 
@@ -88,7 +88,7 @@ describe('computeMovingAverageTimeseries Tests', () => {
 			name: 'Test Series - 3 day(s) avg',
 			values: expectedAvg,
 			type: 'averaged',
-			windowSizeInIndex: 3,
+			windowSizeInDays: 3,
 			frequencyInDays: 1
 		});
 	});
@@ -116,14 +116,14 @@ describe('computeMovingAverageTimeseries Tests', () => {
 			name: 'Multi Window - 3 day(s) avg',
 			values: expectedAvg3,
 			type: 'averaged',
-			windowSizeInIndex: 3,
+			windowSizeInDays: 3,
 			frequencyInDays: 1
 		});
 		expect(result.series[input.series.length + 1]).toEqual({
 			name: 'Multi Window - 5 day(s) avg',
 			values: expectedAvg5,
 			type: 'averaged',
-			windowSizeInIndex: 5,
+			windowSizeInDays: 5,
 			frequencyInDays: 1
 		});
 	});

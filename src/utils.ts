@@ -9,7 +9,7 @@ export interface LinearSeries {
     name: string;
     values: number[];
     type: 'raw' | 'averaged';
-    windowSizeInIndex?: number;
+    windowSizeInDays?: number;
     frequencyInDays: number;
 }
 
@@ -19,35 +19,41 @@ export interface ExtremeSeries {
     indices: number[];
 }
 
-export function shiftToAlignExtremeDates(data: TimeseriesData, extremeSeries: ExtremeSeries, extremeIndexShiftFrom: number, extremeIndexShiftTo: number): TimeseriesData {
+export function addShiftedToAlignExtremeDates(data: TimeseriesData, extremeSeries: ExtremeSeries[], extremeIndexShiftFrom: number, extremeIndexShiftTo: number): TimeseriesData {
     const shiftedSeries = data.series.flatMap(series => {
-        if (series.name === extremeSeries.originalSeriesName) {
-            const shiftedByIndexes = extremeSeries.indices[extremeSeries.indices.length-extremeIndexShiftTo] - extremeSeries.indices[extremeSeries.indices.length-extremeIndexShiftFrom]
-            const shiftedValues = series.values.map((v, i) => {
-                return series.values[i + shiftedByIndexes];
+        const shifts = extremeSeries
+            .filter(extreme => extreme.originalSeriesName === series.name)
+            .map(extreme => {
+                const shiftedByIndexes = extreme.indices[extreme.indices.length-extremeIndexShiftTo] - extreme.indices[extreme.indices.length-extremeIndexShiftFrom];
+                const shiftedValues = series.values.map((v, i) => {
+                    return series.values[i + shiftedByIndexes];
+                });
+                return { 
+                    name: `${series.name} SHIFTED -${shiftedByIndexes * series.frequencyInDays} day(s)`, 
+                    type: 'raw' as 'raw', 
+                    values: shiftedValues,
+                    frequencyInDays: series.frequencyInDays 
+                };
             });
-            return [{ 
-                name: `${series.name} SHIFTED -${shiftedByIndexes * series.frequencyInDays} day(s)`, 
-                type: 'raw' as 'raw', 
-                values: shiftedValues,
-                frequencyInDays: series.frequencyInDays 
-            }, series];
-        } else {
-            return [series];
-        }
+        
+        return shifts.length > 0 ? [...shifts, series] : [series];
     });
 
     return { dates: data.dates, series: shiftedSeries };
 }
 
+export function windowSizeDaysToIndex(windowSizeInDays: number | undefined, frequencyInDays: number): number {
+    return Math.round((windowSizeInDays ?? 1) / frequencyInDays);
+}
+
 export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes: number[]): TimeseriesData {
     const averagedSeries = data.series.flatMap(series => {
-        const adjustedWindowSizes = windowSizes.map(w => Math.max(1, Math.round(w / series.frequencyInDays)));
-        return adjustedWindowSizes.map((windowSize, i) => {
+        const adjustedWindowSizes = windowSizes.map(w => windowSizeDaysToIndex(w, series.frequencyInDays));
+        return adjustedWindowSizes.map((windowSizeInIndex, i) => {
             const averagedValues = series.values.map((v, j) => {
                 let sum = 0;
                 let count = 0;
-                for (let k = -Math.floor(windowSize/2); k <= Math.floor(windowSize/2); k++) {
+                for (let k = -Math.floor(windowSizeInIndex/2); k <= Math.floor(windowSizeInIndex/2); k++) {
                     const index = j + k;
                     count += 1;
                     if (index >= 0 && index < series.values.length) {
@@ -65,7 +71,7 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
                 name: `${series.name} - ${originalWindowSize} day(${originalWindowSize === 1 ? '' : 's'}) avg`,
                 values: averagedValues,
                 type: 'averaged',
-                windowSizeInIndex: adjustedWindowSizes[i],
+                windowSizeInDays: windowSizes[i],
                 frequencyInDays: series.frequencyInDays
             } as LinearSeries;
         });
@@ -79,12 +85,11 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
 
 export function findLocalExtreme(series: LinearSeries, desiredWindowSizeInDays: number, extreme: 'maxima'|'minima'): ExtremeSeries[] {
     const maximaSeries: ExtremeSeries[] = [];
-    const seriesWindowSizeInDays = (series.windowSizeInIndex ?? 1) * series.frequencyInDays;
 
-    if (series.type === 'averaged' && seriesWindowSizeInDays === desiredWindowSizeInDays) {
+    if (series.type === 'averaged' && series.windowSizeInDays === desiredWindowSizeInDays) {
         const localMaximaIndices: number[] = [];
         for (let i = 1; i < series.values.length - 1; i++) {
-            if (isExtremeWindow(series.values, i, desiredWindowSizeInDays, extreme)) {
+            if (isExtremeWindow(series.values, i, windowSizeDaysToIndex(series.windowSizeInDays, series.frequencyInDays), extreme)) {
                 localMaximaIndices.push(i);
             }
         }
@@ -94,8 +99,8 @@ export function findLocalExtreme(series: LinearSeries, desiredWindowSizeInDays: 
     return maximaSeries;
 }
 
-function isExtremeWindow(series: number[], index: number, windowSize: number, extreme: 'maxima'|'minima'): boolean {
-    const halfWindowSize = Math.floor(windowSize / 2);
+function isExtremeWindow(series: number[], index: number, windowSizeInIndex: number, extreme: 'maxima'|'minima'): boolean {
+    const halfWindowSize = Math.floor(windowSizeInIndex / 2);
     const start = Math.max(0, index - halfWindowSize);
     const end = Math.min(series.length - 1, index + halfWindowSize);
 

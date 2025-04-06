@@ -1,5 +1,5 @@
 # Default recipe to run when just is called without arguments
-default: launch
+default: serve
 
 build: && process-data
     bun install
@@ -10,7 +10,7 @@ process-data:
 
 
 # Start the dashboard
-launch:
+serve:
     bun run bunx vite
 
 generate:
