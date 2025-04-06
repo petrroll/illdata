@@ -3,14 +3,14 @@ import { LineController } from "chart.js";
 export interface TimeseriesData {
     dates: string[];
     series: LinearSeries[];
-    frequencyInDays: number;
 }
 
 export interface LinearSeries {
     name: string;
     values: number[];
     type: 'raw' | 'averaged';
-    windowsize?: number;
+    windowSizeInIndex?: number;
+    frequencyInDays: number;
 }
 
 export interface ExtremeSeries {
@@ -26,19 +26,23 @@ export function shiftToAlignExtremeDates(data: TimeseriesData, extremeSeries: Ex
             const shiftedValues = series.values.map((v, i) => {
                 return series.values[i + shiftedByIndexes];
             });
-            return [{ name: `${series.name} SHIFTED -${shiftedByIndexes * data.frequencyInDays} day(s)`, type: 'raw' as `raw`, values: shiftedValues }, series];
+            return [{ 
+                name: `${series.name} SHIFTED -${shiftedByIndexes * series.frequencyInDays} day(s)`, 
+                type: 'raw' as 'raw', 
+                values: shiftedValues,
+                frequencyInDays: series.frequencyInDays 
+            }, series];
         } else {
             return [series];
         }
     });
 
-    return { dates: data.dates, series: shiftedSeries, frequencyInDays: data.frequencyInDays };
+    return { dates: data.dates, series: shiftedSeries };
 }
 
 export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes: number[]): TimeseriesData {
-    const adjustedWindowSizes = windowSizes.map(w => Math.max(1, Math.round(w / data.frequencyInDays)));
-
     const averagedSeries = data.series.flatMap(series => {
+        const adjustedWindowSizes = windowSizes.map(w => Math.max(1, Math.round(w / series.frequencyInDays)));
         return adjustedWindowSizes.map((windowSize, i) => {
             const averagedValues = series.values.map((v, j) => {
                 let sum = 0;
@@ -61,25 +65,26 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
                 name: `${series.name} - ${originalWindowSize} day(${originalWindowSize === 1 ? '' : 's'}) avg`,
                 values: averagedValues,
                 type: 'averaged',
-                windowsize: originalWindowSize
+                windowSizeInIndex: adjustedWindowSizes[i],
+                frequencyInDays: series.frequencyInDays
             } as LinearSeries;
         });
     });
 
     return {
         dates: data.dates,
-        series: [...data.series, ...averagedSeries],
-        frequencyInDays: data.frequencyInDays
+        series: [...data.series, ...averagedSeries]
     };
 }
 
-export function findLocalExtreme(series: LinearSeries, windowSize: number, extreme: 'maxima'|'minima'): ExtremeSeries[] {
+export function findLocalExtreme(series: LinearSeries, desiredWindowSizeInDays: number, extreme: 'maxima'|'minima'): ExtremeSeries[] {
     const maximaSeries: ExtremeSeries[] = [];
+    const seriesWindowSizeInDays = (series.windowSizeInIndex ?? 1) * series.frequencyInDays;
 
-    if (series.type === 'averaged' && series.windowsize === windowSize) {
+    if (series.type === 'averaged' && seriesWindowSizeInDays === desiredWindowSizeInDays) {
         const localMaximaIndices: number[] = [];
         for (let i = 1; i < series.values.length - 1; i++) {
-            if (isExtremeWindow(series.values, i, windowSize, extreme)) {
+            if (isExtremeWindow(series.values, i, desiredWindowSizeInDays, extreme)) {
                 localMaximaIndices.push(i);
             }
         }

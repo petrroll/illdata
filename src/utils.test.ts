@@ -11,7 +11,8 @@ describe('findLocalExtreme - Local Maxima Tests', () => {
         name: 'Averaged Series',
         values: [1, 3, 2, 4, 1],
         type: 'averaged',
-        windowsize: 3
+        windowSizeInIndex: 3,
+		frequencyInDays: 1
     };
 
     test('filters time series of type averaged (maxima)', () => {
@@ -39,7 +40,8 @@ describe('findLocalExtreme - Local Minima Tests', () => {
         name: 'Averaged Series',
         values: [4, 2, 3, 1, 5],
         type: 'averaged',
-        windowsize: 3
+        windowSizeInIndex: 3,
+		frequencyInDays: 1,
     };
 
     test('filters time series of type averaged (minima)', () => {
@@ -62,7 +64,6 @@ describe('findLocalExtreme - Local Minima Tests', () => {
     });
 });
 
-// Added tests for computeMovingAverageTimeseries function
 describe('computeMovingAverageTimeseries Tests', () => {
 	test('computes moving average for one series with a single window size', () => {
 		const input: TimeseriesData = {
@@ -70,9 +71,9 @@ describe('computeMovingAverageTimeseries Tests', () => {
 			series: [{
 				name: 'Test Series',
 				values: [1, 2, 3, 4, 5],
-				type: 'raw'
-			}],
-			frequencyInDays: 1
+				type: 'raw',
+				frequencyInDays: 1
+			}]
 		};
 		const windowSizes = [3];
 		const result = computeMovingAverageTimeseries(input, windowSizes);
@@ -84,10 +85,11 @@ describe('computeMovingAverageTimeseries Tests', () => {
 		expect(result.dates).toEqual(input.dates);
 		expect(result.series).toHaveLength(input.series.length + 1);
 		expect(result.series[input.series.length]).toEqual({
-			name: 'Test Series - 3 days avg',
+			name: 'Test Series - 3 day(s) avg',
 			values: expectedAvg,
 			type: 'averaged',
-			windowsize: 3
+			windowSizeInIndex: 3,
+			frequencyInDays: 1
 		});
 	});
 
@@ -97,9 +99,9 @@ describe('computeMovingAverageTimeseries Tests', () => {
 			series: [{
 				name: 'Multi Window',
 				values: [10, 20, 30, 40, 50],
-				type: 'raw'
-			}],
-			frequencyInDays: 1
+				type: 'raw',
+				frequencyInDays: 1
+			}]
 		};
 		const windowSizes = [3, 5];
 		const result = computeMovingAverageTimeseries(input, windowSizes);
@@ -111,16 +113,18 @@ describe('computeMovingAverageTimeseries Tests', () => {
 		const expectedAvg5 = [16, 22, 30, 38, 44];
 		expect(result.series).toHaveLength(input.series.length + 2);
 		expect(result.series[input.series.length]).toEqual({
-			name: 'Multi Window - 3 days avg',
+			name: 'Multi Window - 3 day(s) avg',
 			values: expectedAvg3,
 			type: 'averaged',
-			windowsize: 3
+			windowSizeInIndex: 3,
+			frequencyInDays: 1
 		});
 		expect(result.series[input.series.length + 1]).toEqual({
-			name: 'Multi Window - 5 days avg',
+			name: 'Multi Window - 5 day(s) avg',
 			values: expectedAvg5,
 			type: 'averaged',
-			windowsize: 5
+			windowSizeInIndex: 5,
+			frequencyInDays: 1
 		});
 	});
 });

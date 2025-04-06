@@ -72,8 +72,8 @@ export function computeEuEcdcData(data: Record<string, string>[]): TimeseriesDat
                     ? (stats.detections / stats.tests) * 100 
                     : 0;
             }),
-            type: 'raw'
-        })),
-        frequencyInDays: 7,
+            type: 'raw',
+            frequencyInDays: 7
+        }))
     };
 }

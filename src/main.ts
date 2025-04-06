@@ -87,7 +87,8 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
 
     const localMaximaDatasets = generateLocalExtremeDataset(data, datasetVisibility, cutoffDateString, 'maxima', "red");
     const localMinimaDatasets = generateLocalExtremeDataset(data, datasetVisibility, cutoffDateString, 'minima', "blue");
-    data = shiftToAlignExtremeDates(data, data.series.map(series => findLocalExtreme(series, averagingWindows[1], 'maxima')).flat()[0], 1, 2);
+    const localMaximaSeries = data.series.map(series => findLocalExtreme(series, averagingWindows[1], 'maxima'))
+    data = shiftToAlignExtremeDates(data, localMaximaSeries.flat()[0], 1, 2);
     
     // Prepare data for chart
     const colorPalettePCR = [
