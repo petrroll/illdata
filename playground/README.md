@@ -4,16 +4,10 @@ This project is primarily managed using UV and consists mostly of Jupyter notebo
 
 ## Setup Instructions
 
-To set up all necessary data, run the following commands:
+To set up all necessary data and the playground environment, run:
 
 ```sh
-bun install
-bun run ./src/data_processor
+just setup-playground
 ```
 
-```sh
-uv sync
-source dev.env
-```
-
-After running these commands, you can start using the Jupyter notebooks available in this project.
+After running this command, you can start using the Jupyter notebooks available in this project.

@@ -2,30 +2,28 @@
 
 This project explores illness positivity rates across Europe—with a primary focus on Czechia—and delivers a single pane of glass dashboard for data visualization.
 
-## Installing Dependencies
+## Installing Dependencies and Running the Project
 
-Install the required dependencies with:
-```bash
-bun install
-```
-
-## Running the Project
-
-The project provides several tasks defined in the dev container:
+The project uses [just](https://github.com/casey/just) as its command runner. Here are the available commands:
 
 - **Build**: Install dependencies and process data.
     ```bash
-    bun run ./src/data_processor.ts
+    just build
+    ```
+
+- **Process Data**: Process the raw data files (also included in build).
+    ```bash
+    just process-data
     ```
     
-- **Launch**: Start the dashboard.
+- **Launch**: Start the dashboard (default command, runs build first).
     ```bash
-    bun run bunx vite
+    just launch
     ```
 
 - **Test**: Run type checks and tests.
     ```bash
-    bun run tsc --noEmit && bun test
+    just test
     ```
 
 ## Data Exploration
