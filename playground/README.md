@@ -11,4 +11,9 @@ bun install
 bun run ./src/data_processor
 ```
 
+```sh
+uv sync
+source dev.env
+```
+
 After running these commands, you can start using the Jupyter notebooks available in this project.
