@@ -1,16 +1,18 @@
 import mzcrPositivityImport from "../data_processed/cr_cov_mzcr/positivity_data.json" with { type: "json" };
+import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_data.json" with { type: "json" };
 import { Chart, Legend } from 'chart.js/auto';
 import { computeMovingAverageTimeseries, findLocalExtreme, shiftToAlignExtremeDates, type TimeseriesData } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
+const euPositivity = euPositivityImport as TimeseriesData;
 const averagingWindows = [7, 3*28];
 const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, averagingWindows);
-
-// Assuming computeMovingAverageTimeseries and transformMzcrDataToTimeseries functions are updated to handle the new structure
+const euPositivityEnhanced = computeMovingAverageTimeseries(euPositivity, averagingWindows);
 
 // Local storage keys
 const TIME_RANGE_KEY = "selectedTimeRange";
 const DATASET_VISIBILITY_KEY = "datasetVisibility";
+const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
 
 const container = document.getElementById("root");
 renderPage(container);
@@ -21,26 +23,46 @@ function renderPage(rootDiv: HTMLElement | null) {
         return;
     }
 
-    const currentChartHolder : {chart: Chart | undefined } = { chart: undefined };
+    const czechChartHolder : {chart: Chart | undefined } = { chart: undefined };
+    const euChartHolder : {chart: Chart | undefined } = { chart: undefined };
 
-    const canvasContainer = document.createElement("div");
-    canvasContainer.id = "canvasContainer";
-    canvasContainer.style.width = "100vw"
-    canvasContainer.style.height = "40vh"
+    // Czech data container setup
+    const czechContainer = document.getElementById("czechDataContainer");
+    if (!czechContainer) {
+        console.error("Czech container not found");
+        return;
+    }
+    czechContainer.style.width = "100vw";
+    czechContainer.style.height = "40vh";
 
-    rootDiv.appendChild(canvasContainer);
+    const czechCanvas = document.createElement("canvas");
+    czechCanvas.id = "czechPositivityChart";
+    czechContainer.appendChild(czechCanvas);
 
-    const canvas = document.createElement("canvas");
-    canvas.id = "positivityChart";
-    canvasContainer.appendChild(canvas);
+    // EU data container setup
+    const euContainer = document.getElementById("euDataContainer");
+    if (!euContainer) {
+        console.error("EU container not found");
+        return;
+    }
+    euContainer.style.width = "100vw";
+    euContainer.style.height = "40vh";
 
-    const storedTimeRange = initializeTimeRangeDropdown((timeRange) => { currentChartHolder.chart = updateChart(timeRange, mzcrPositivityEnhanced, canvas, currentChartHolder.chart)}, rootDiv);
+    const euCanvas = document.createElement("canvas");
+    euCanvas.id = "euPositivityChart";
+    euContainer.appendChild(euCanvas);
 
-    // Initial chart render with stored or default time range
-    currentChartHolder.chart = updateChart(storedTimeRange, mzcrPositivityEnhanced, canvas);
+    const storedTimeRange = initializeTimeRangeDropdown((timeRange) => { 
+        czechChartHolder.chart = updateChart(timeRange, mzcrPositivityEnhanced, czechCanvas, czechChartHolder.chart, "COVID Test Positivity (MZCR Data)", DATASET_VISIBILITY_KEY);
+        euChartHolder.chart = updateChart(timeRange, euPositivityEnhanced, euCanvas, euChartHolder.chart, "EU ECDC Respiratory Viruses", EU_DATASET_VISIBILITY_KEY);
+    }, rootDiv);
+
+    // Initial chart renders
+    czechChartHolder.chart = updateChart(storedTimeRange, mzcrPositivityEnhanced, czechCanvas, undefined, "COVID Test Positivity (MZCR Data)", DATASET_VISIBILITY_KEY);
+    euChartHolder.chart = updateChart(storedTimeRange, euPositivityEnhanced, euCanvas, undefined, "EU ECDC Respiratory Viruses", EU_DATASET_VISIBILITY_KEY);
 }
 
-function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvasElement, previousChartInstance?: Chart) {
+function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvasElement, previousChartInstance?: Chart, title?: string, visibilityKey: string = DATASET_VISIBILITY_KEY) {
     // Destroy existing chart if it exists
     if (previousChartInstance) {
         previousChartInstance.destroy();
@@ -57,7 +79,7 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
     // Retrieve dataset visibility from local storage
     let datasetVisibility: { [key: string]: boolean } = {};
     try {
-        const storedVisibility = localStorage.getItem(DATASET_VISIBILITY_KEY);
+        const storedVisibility = localStorage.getItem(visibilityKey);
         datasetVisibility = storedVisibility ? JSON.parse(storedVisibility) : {};
     } catch (error) {
         console.error("Error parsing dataset visibility from local storage:", error);
@@ -105,7 +127,7 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
             plugins: {
                 title: {
                     display: true,
-                    text: "COVID Test Positivity (MZCR Data) - Moving Averages"
+                    text: title || "Positivity Data"
                 },
                 legend: {
                     onClick: (evt, item, legend) => {
@@ -113,7 +135,7 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
 
                         // Store the new visibility state
                         datasetVisibility[item.text] = !item.hidden;
-                        localStorage.setItem(DATASET_VISIBILITY_KEY, JSON.stringify(datasetVisibility));
+                        localStorage.setItem(visibilityKey, JSON.stringify(datasetVisibility));
                     }
                 }
             },

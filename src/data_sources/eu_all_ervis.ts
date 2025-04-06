@@ -15,31 +15,63 @@ export async function downloadEuEcdcData(filename: string = "nonSentinelTestsDet
 }
 
 export function computeEuEcdcData(data: Record<string, string>[]): TimeseriesData {
-    const processedData = data.map(row => {
-        const datum = normalizeDate(row["year_week"]); // Assuming the date format needs to be normalized
-        const testsTotal = toFloat(row, "number_testing");
-        const positiveCases = toFloat(row, "number_detections");
-        const positivityRate = testsTotal ? (positiveCases / testsTotal) * 100 : 0;
+    // Filter for main pathogen types (where pathogen equals pathogentype)
+    const mainPathogens = data.filter(row => row["pathogen"] === row["pathogentype"]);
+
+    const processedData = mainPathogens.map(row => {
+        // Convert yearweek to date (YYYY-MM-DD format)
+        const yearweek = row["yearweek"];
+        const year = parseInt(yearweek.split('-W')[0]);
+        const week = parseInt(yearweek.split('-W')[1]);
+        const date = new Date(year, 0, 1 + (week - 1) * 7);
+        const datum = date.toISOString().split('T')[0];
+
+        // Get tests and detections based on indicator type
+        const value = toFloat(row, "value");
+        const tests = row["indicator"] === "tests" ? value : 0;
+        const detections = row["indicator"] === "detections" ? value : 0;
 
         return {
             datum,
-            positivityRate,
-            virus: row["virus"],
-            country: row["country"]
+            pathogen: row["pathogen"],
+            tests,
+            detections
         };
     });
 
-    // Group by virus type
-    const virusTypes = [...new Set(processedData.map(row => row.virus))];
+    // Group by date and pathogen, aggregate tests and detections
+    const groupedData = new Map<string, Map<string, { tests: number, detections: number }>>();
+    
+    processedData.forEach(row => {
+        if (!groupedData.has(row.datum)) {
+            groupedData.set(row.datum, new Map());
+        }
+        const dateGroup = groupedData.get(row.datum)!;
+        
+        if (!dateGroup.has(row.pathogen)) {
+            dateGroup.set(row.pathogen, { tests: 0, detections: 0 });
+        }
+        const pathogenStats = dateGroup.get(row.pathogen)!;
+        
+        pathogenStats.tests += row.tests;
+        pathogenStats.detections += row.detections;
+    });
 
+    // Get unique dates and pathogens
+    const dates = [...groupedData.keys()].sort();
+    const pathogens = [...new Set(processedData.map(row => row.pathogen))];
+
+    // Create series for each pathogen
     return {
-        dates: [...new Set(processedData.map(row => row.datum))].sort(),
-        series: virusTypes.map(virus => ({
-            name: `${virus} Positivity`,
-            values: processedData
-                .filter(row => row.virus === virus)
-                .sort((a, b) => a.datum.localeCompare(b.datum))
-                .map(row => row.positivityRate),
+        dates,
+        series: pathogens.map(pathogen => ({
+            name: `${pathogen} Positivity`,
+            values: dates.map(date => {
+                const stats = groupedData.get(date)?.get(pathogen);
+                return stats && stats.tests > 0 
+                    ? (stats.detections / stats.tests) * 100 
+                    : 0;
+            }),
             type: 'raw'
         }))
     };
