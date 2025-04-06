@@ -29,7 +29,8 @@ export function computeCzCovPositivityData(data: Record<string, string>[]): Time
                 values: processedData.map(row => row.antigenRate),
                 type: 'raw'
             }
-        ]
+        ],
+        frequencyInDays: 1   
     };
 }
 

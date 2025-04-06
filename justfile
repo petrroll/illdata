@@ -16,9 +16,11 @@ launch:
 generate:
     bun build ./index.html --outdir=./dist
 
-# Run type checks and tests
-test:
+check-ts:
     bun run tsc --noEmit
+
+# Run type checks and tests
+test: check-ts
     bun test
 
 # Setup playground environment

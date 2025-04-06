@@ -73,6 +73,7 @@ export function computeEuEcdcData(data: Record<string, string>[]): TimeseriesDat
                     : 0;
             }),
             type: 'raw'
-        }))
+        })),
+        frequencyInDays: 7,
     };
 }

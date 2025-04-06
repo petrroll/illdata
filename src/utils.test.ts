@@ -71,7 +71,8 @@ describe('computeMovingAverageTimeseries Tests', () => {
 				name: 'Test Series',
 				values: [1, 2, 3, 4, 5],
 				type: 'raw'
-			}]
+			}],
+			frequencyInDays: 1
 		};
 		const windowSizes = [3];
 		const result = computeMovingAverageTimeseries(input, windowSizes);
@@ -83,7 +84,7 @@ describe('computeMovingAverageTimeseries Tests', () => {
 		expect(result.dates).toEqual(input.dates);
 		expect(result.series).toHaveLength(input.series.length + 1);
 		expect(result.series[input.series.length]).toEqual({
-			name: 'Test Series - 3day avg',
+			name: 'Test Series - 3 days avg',
 			values: expectedAvg,
 			type: 'averaged',
 			windowsize: 3
@@ -97,7 +98,8 @@ describe('computeMovingAverageTimeseries Tests', () => {
 				name: 'Multi Window',
 				values: [10, 20, 30, 40, 50],
 				type: 'raw'
-			}]
+			}],
+			frequencyInDays: 1
 		};
 		const windowSizes = [3, 5];
 		const result = computeMovingAverageTimeseries(input, windowSizes);
@@ -109,13 +111,13 @@ describe('computeMovingAverageTimeseries Tests', () => {
 		const expectedAvg5 = [16, 22, 30, 38, 44];
 		expect(result.series).toHaveLength(input.series.length + 2);
 		expect(result.series[input.series.length]).toEqual({
-			name: 'Multi Window - 3day avg',
+			name: 'Multi Window - 3 days avg',
 			values: expectedAvg3,
 			type: 'averaged',
 			windowsize: 3
 		});
 		expect(result.series[input.series.length + 1]).toEqual({
-			name: 'Multi Window - 5day avg',
+			name: 'Multi Window - 5 days avg',
 			values: expectedAvg5,
 			type: 'averaged',
 			windowsize: 5

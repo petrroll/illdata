@@ -3,6 +3,7 @@ import { LineController } from "chart.js";
 export interface TimeseriesData {
     dates: string[];
     series: LinearSeries[];
+    frequencyInDays: number;
 }
 
 export interface LinearSeries {
@@ -21,43 +22,46 @@ export interface ExtremeSeries {
 export function shiftToAlignExtremeDates(data: TimeseriesData, extremeSeries: ExtremeSeries, extremeIndexShiftFrom: number, extremeIndexShiftTo: number): TimeseriesData {
     const shiftedSeries = data.series.flatMap(series => {
         if (series.name === extremeSeries.originalSeriesName) {
-            const indexShift = extremeSeries.indices[extremeSeries.indices.length-extremeIndexShiftTo] - extremeSeries.indices[extremeSeries.indices.length-extremeIndexShiftFrom]
+            const shiftedByIndexes = extremeSeries.indices[extremeSeries.indices.length-extremeIndexShiftTo] - extremeSeries.indices[extremeSeries.indices.length-extremeIndexShiftFrom]
             const shiftedValues = series.values.map((v, i) => {
-                return series.values[i + indexShift];
+                return series.values[i + shiftedByIndexes];
             });
-            return [{ name: `${series.name} - ${indexShift} days`, type: 'raw' as `raw`, values: shiftedValues }, series];
+            return [{ name: `${series.name} SHIFTED -${shiftedByIndexes} ${data.frequencyInDays}`, type: 'raw' as `raw`, values: shiftedValues }, series];
         } else {
             return [series];
         }
     });
 
-    return { dates: data.dates, series: shiftedSeries };
+    return { dates: data.dates, series: shiftedSeries, frequencyInDays: data.frequencyInDays };
 }
 
 export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes: number[]): TimeseriesData {
+    const adjustedWindowSizes = windowSizes.map(w => Math.max(1, Math.round(w / data.frequencyInDays)));
+
     const averagedSeries = data.series.flatMap(series => {
-        return windowSizes.map(windowSize => {
-            const averagedValues = series.values.map((v, i) => {
+        return adjustedWindowSizes.map((windowSize, i) => {
+            const averagedValues = series.values.map((v, j) => {
                 let sum = 0;
                 let count = 0;
-                for (let j = -Math.floor(windowSize/2); j <= Math.floor(windowSize/2); j++) {
-                    const index = i + j;
+                for (let k = -Math.floor(windowSize/2); k <= Math.floor(windowSize/2); k++) {
+                    const index = j + k;
                     count += 1;
                     if (index >= 0 && index < series.values.length) {
                         sum += series.values[index];
                     } else if (index < 0) {
-                        sum += series.values[0]; // Assume the same value as the first datapoint if there are no days prior
+                        sum += series.values[0];
                     } else if (index >= series.values.length) {
-                        sum += series.values[series.values.length - 1]; // Assume the same value as the last datapoint if there are no future days
+                        sum += series.values[series.values.length - 1];
                     }
                 }
                 return sum / count;
             })
+            const originalWindowSize = windowSizes[i];
             return {
-                name: `${series.name} - ${windowSize}day avg`,
+                name: `${series.name} - ${originalWindowSize} day${originalWindowSize === 1 ? '' : 's'} avg`,
                 values: averagedValues,
                 type: 'averaged',
-                windowsize: windowSize
+                windowsize: originalWindowSize
             } as LinearSeries;
         });
     });
@@ -65,6 +69,7 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
     return {
         dates: data.dates,
         series: [...data.series, ...averagedSeries],
+        frequencyInDays: data.frequencyInDays
     };
 }
 
