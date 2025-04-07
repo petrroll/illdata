@@ -4,12 +4,43 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>illmeter</title>
+    <style>
+      footer {
+        position: fixed;
+        bottom: 0;
+        width: 100%;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 10px;
+        text-align: center;
+        font-size: 0.9em;
+        border-top: 1px solid #eee;
+      }
+      footer a {
+        color: #666;
+        text-decoration: none;
+      }
+      footer a:hover {
+        text-decoration: underline;
+      }
+      #root {
+        margin-bottom: 50px;
+      }
+    </style>
   </head>
   <body>
     <div id="root">
       <div id="czechDataContainer"></div>
       <div id="euDataContainer"></div>
     </div>
+    <footer>
+      <span>
+        <a href="https://github.com/petrroll/illdata" target="_blank">View on GitHub</a>
+      </span>
+      <span> | </span>
+      <span>
+        Last data update: <span id="lastUpdateTime">UNKNOWN</span>
+      </span>
+    </footer>
     <script src="https://cdnjs.com/libraries/Chart.js"></script>
     <script type="module" src="./src/main.ts"></script>
   </body>

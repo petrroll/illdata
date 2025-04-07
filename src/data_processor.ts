@@ -1,6 +1,6 @@
-import { loadAndParseCsv, saveData } from "./data_sources/ioUtils";
+import { loadAndParseCsv, saveData, saveTimeStamp } from "./data_sources/ioUtils";
 import { computeCzCovPositivityData, downloadCzCovPositivity} from "./data_sources/cr_cov_mzcr";
-import { CR_COV_MZCR_POSITIVITY, EU_ALLSENTINEL_ERVIS_POSITIVITY } from "./shared";
+import { CR_COV_MZCR_POSITIVITY, EU_ALLSENTINEL_ERVIS_POSITIVITY, TIMESTAMP_FILE } from "./shared";
 import { computeEuEcdcData, downloadEuEcdcData } from "./data_sources/eu_all_ervis";
 
 await downloadCzCovPositivity("testy-pcr-antigenni.csv")
@@ -14,3 +14,4 @@ data = await loadAndParseCsv("sentinelTestsDetectionsPositivity.csv");
 let euPositivityData = computeEuEcdcData(data);
 
 await saveData(euPositivityData, EU_ALLSENTINEL_ERVIS_POSITIVITY);
+await saveTimeStamp(TIMESTAMP_FILE);

@@ -75,3 +75,8 @@ export async function saveData<T>(data: T, filePath: string): Promise<void> {
     await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
     console.log(`Data saved to ${filePath}`);
 }
+
+export async function saveTimeStamp(filePath: string): Promise<void> {
+    const timestamp = new Date().toISOString();
+    await saveData({ timestamp }, filePath);
+}

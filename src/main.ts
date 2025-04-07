@@ -1,5 +1,7 @@
 import mzcrPositivityImport from "../data_processed/cr_cov_mzcr/positivity_data.json" with { type: "json" };
 import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_data.json" with { type: "json" };
+import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
+
 import { Chart, Legend } from 'chart.js/auto';
 import { computeMovingAverageTimeseries, findLocalExtreme, addShiftedToAlignExtremeDates, type TimeseriesData } from "./utils";
 
@@ -21,6 +23,15 @@ function renderPage(rootDiv: HTMLElement | null) {
     if (!rootDiv) {
         console.error("Root element not found.");
         return;
+    }
+
+    // Update last update timestamp
+    const lastUpdateSpan = document.getElementById("lastUpdateTime");
+    if (lastUpdateSpan) {
+        const date = new Date(lastUpdateTimestamp.timestamp);
+        lastUpdateSpan.textContent = date.toISOString();
+    } else {
+        console.error("Last update span not found");
     }
 
     const czechChartHolder : {chart: Chart | undefined } = { chart: undefined };
