@@ -7,7 +7,7 @@ import { computeMovingAverageTimeseries, findLocalExtreme, addShiftedToAlignExtr
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
-const averagingWindows = [28, 3*28];
+const averagingWindows = [28];
 const extremesForWindow = 28;
 const extremeWindow = 3*28;
 const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, averagingWindows);
