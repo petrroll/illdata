@@ -22,7 +22,7 @@ This project processes and visualizes illness data (COVID, respiratory viruses) 
   - Useful for prototyping new data processing approaches
 
 ## Key Files
-
+- `index.html` - Browser visualisation HTML serving point that's manipulated by `src/main.ts`
 - `src/main.ts` - Browser visualization entry point
 - `src/utils.ts` - Shared utilities for data manipulation
 - `data_processor/` - Data processing scripts

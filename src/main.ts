@@ -18,6 +18,10 @@ const TIME_RANGE_KEY = "selectedTimeRange";
 const DATASET_VISIBILITY_KEY = "datasetVisibility";
 const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
 
+// Global chart holders for hideAllSeries
+let czechChartHolder: { chart: Chart | undefined } = { chart: undefined };
+let euChartHolder: { chart: Chart | undefined } = { chart: undefined };
+
 const container = document.getElementById("root");
 renderPage(container);
 
@@ -35,9 +39,6 @@ function renderPage(rootDiv: HTMLElement | null) {
     } else {
         console.error("Last update span not found");
     }
-
-    const czechChartHolder : {chart: Chart | undefined } = { chart: undefined };
-    const euChartHolder : {chart: Chart | undefined } = { chart: undefined };
 
     // Czech data container setup
     const czechContainer = document.getElementById("czechDataContainer");
@@ -73,6 +74,12 @@ function renderPage(rootDiv: HTMLElement | null) {
     // Initial chart renders
     czechChartHolder.chart = updateChart(storedTimeRange, mzcrPositivityEnhanced, czechCanvas, undefined, "COVID Test Positivity (MZCR Data)", DATASET_VISIBILITY_KEY);
     euChartHolder.chart = updateChart(storedTimeRange, euPositivityEnhanced, euCanvas, undefined, "EU ECDC Respiratory Viruses", EU_DATASET_VISIBILITY_KEY);
+
+    // Attach event listener to hide all button
+    const hideAllButton = document.getElementById('hideAllButton');
+    if (hideAllButton) {
+        hideAllButton.addEventListener('click', hideAllSeries);
+    }
 }
 
 function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvasElement, previousChartInstance?: Chart, title?: string, visibilityKey: string = DATASET_VISIBILITY_KEY) {
@@ -227,4 +234,26 @@ function initializeTimeRangeDropdown(onTimeRangeChange: (timeRange: string) => v
     timeRangeSelect.value = storedTimeRange;
     container.appendChild(timeRangeSelect);
     return storedTimeRange;
+}
+
+// Function to hide all series on both charts and store the hidden state
+function hideAllSeries() {
+    const holders = [
+        { chartHolder: czechChartHolder, key: DATASET_VISIBILITY_KEY },
+        { chartHolder: euChartHolder, key: EU_DATASET_VISIBILITY_KEY }
+    ];
+    holders.forEach(({ chartHolder, key }) => {
+        const chart = chartHolder.chart;
+        if (chart) {
+            const visibilityMap: { [name: string]: boolean } = {};
+            chart.data.datasets.forEach((dataset: any) => {
+                if (dataset.label) {
+                    visibilityMap[dataset.label] = false;
+                }
+                dataset.hidden = true;
+            });
+            chart.update();
+            localStorage.setItem(key, JSON.stringify(visibilityMap));
+        }
+    });
 }
