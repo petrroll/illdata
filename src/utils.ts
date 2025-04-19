@@ -26,46 +26,46 @@ export function addShiftedToAlignExtremeDates(
     extremeIndexShiftTo: number,
     includeFutureDates: boolean = false
 ): TimeseriesData {
-    // Determine how many future slots are needed for negative shifts
+    function getShift(extreme: ExtremeSeries) {
+        return (
+            extreme.indices[extreme.indices.length - extremeIndexShiftTo] -
+            extreme.indices[extreme.indices.length - extremeIndexShiftFrom]
+        );
+    }
+
+    function extendDatesIfNeeded(dates: string[], extraCount: number, freqDays: number): string[] {
+        if (extraCount <= 0) return dates;
+        const lastDate = new Date(dates[dates.length - 1]);
+        const extraDates = Array.from({ length: extraCount }, (_, i) => {
+            const d = new Date(lastDate.getTime() + freqDays * 24 * 60 * 60 * 1000 * (i + 1));
+            return d.toISOString().split('T')[0];
+        });
+        return [...dates, ...extraDates];
+    }
+
+    // Calculate all shifts and how many extra dates are needed
     const allShifts = data.series.flatMap(series =>
         extremeSeries
             .filter(extreme => extreme.originalSeriesName === series.name)
-            .map(extreme =>
-                extreme.indices[extreme.indices.length - extremeIndexShiftTo] -
-                extreme.indices[extreme.indices.length - extremeIndexShiftFrom]
-            )
+            .map(getShift)
     );
     const negativeShifts = allShifts.filter(s => s < 0);
     const extraCount = includeFutureDates && negativeShifts.length > 0
         ? Math.max(...negativeShifts.map(s => -s))
         : 0;
 
-    // Extend dates if needed
-    let newDates = data.dates;
-    if (includeFutureDates && extraCount > 0) {
-        const lastDate = new Date(data.dates[data.dates.length - 1]);
-        const freqDays = data.series[0]?.frequencyInDays ?? 1;
-        const extraDates = Array.from({ length: extraCount }, (_, i) => {
-            const d = new Date(lastDate.getTime() + freqDays * 24 * 60 * 60 * 1000 * (i + 1));
-            return d.toISOString().split('T')[0];
-        });
-        newDates = [...data.dates, ...extraDates];
-    }
+    const freqDays = data.series[0]?.frequencyInDays ?? 1;
+    const newDates = includeFutureDates ? extendDatesIfNeeded(data.dates, extraCount, freqDays) : data.dates;
 
-    const shiftedSeries = data.series.flatMap(series => {
+    function buildShiftedSeries(series: LinearSeries): LinearSeries[] {
         const shifts = extremeSeries
             .filter(extreme => extreme.originalSeriesName === series.name)
             .map(extreme => {
-                const shiftByIndexes =
-                    extreme.indices[extreme.indices.length - extremeIndexShiftTo] -
-                    extreme.indices[extreme.indices.length - extremeIndexShiftFrom];
-                // Build shifted values with clamping
+                const shiftByIndexes = getShift(extreme);
                 const length = series.values.length + (includeFutureDates ? extraCount : 0);
                 const shiftedValues = Array.from({ length }, (_, i) => {
                     const idx = i + shiftByIndexes;
-                    if (idx < 0) return NaN;
-                    if (idx >= series.values.length) return NaN;
-                    return series.values[idx];
+                    return idx < 0 || idx >= series.values.length ? NaN : series.values[idx];
                 });
                 return {
                     name: `${series.name} SHIFTED -${shiftByIndexes * series.frequencyInDays} day(s)`,
@@ -74,16 +74,14 @@ export function addShiftedToAlignExtremeDates(
                     frequencyInDays: series.frequencyInDays
                 };
             });
-
-        // Pad original series if extending dates
         const originalPadded = includeFutureDates && extraCount > 0
             ? [...series.values, ...Array(extraCount).fill(NaN)]
             : series.values;
         const base = { ...series, values: originalPadded };
-
         return shifts.length > 0 ? [...shifts, base] : [base];
-    });
+    }
 
+    const shiftedSeries = data.series.flatMap(buildShiftedSeries);
     return { dates: newDates, series: shiftedSeries };
 }
 
