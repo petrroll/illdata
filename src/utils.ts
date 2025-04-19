@@ -86,15 +86,13 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
 export function findLocalExtreme(series: LinearSeries, desiredWindowSizeInDays: number, extreme: 'maxima'|'minima'): ExtremeSeries[] {
     const maximaSeries: ExtremeSeries[] = [];
 
-    if (series.type === 'averaged' && series.windowSizeInDays === desiredWindowSizeInDays) {
-        const localMaximaIndices: number[] = [];
-        for (let i = 1; i < series.values.length - 1; i++) {
-            if (isExtremeWindow(series.values, i, windowSizeDaysToIndex(series.windowSizeInDays, series.frequencyInDays), extreme)) {
-                localMaximaIndices.push(i);
-            }
+    const localMaximaIndices: number[] = [];
+    for (let i = 1; i < series.values.length - 1; i++) {
+        if (isExtremeWindow(series.values, i, windowSizeDaysToIndex(desiredWindowSizeInDays, series.frequencyInDays), extreme)) {
+            localMaximaIndices.push(i);
         }
-        maximaSeries.push({ name: `${series.name} ${extreme}`, originalSeriesName: series.name, indices: localMaximaIndices });
     }
+    maximaSeries.push({ name: `${series.name} ${extreme} over ${desiredWindowSizeInDays}d`, originalSeriesName: series.name, indices: localMaximaIndices });
 
     return maximaSeries;
 }

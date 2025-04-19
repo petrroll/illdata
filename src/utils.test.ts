@@ -17,21 +17,21 @@ describe('findLocalExtreme - Local Maxima Tests', () => {
 
     test('filters time series of type averaged (maxima)', () => {
         const result: ExtremeSeries[] = findLocalExtreme(seriesMax, 3, 'maxima');
-        expect(result).toEqual([{ name: 'Averaged Series maxima', originalSeriesName: 'Averaged Series', indices: [1, 3] }]);
+        expect(result).toEqual([{ name: 'Averaged Series maxima over 3d', originalSeriesName: 'Averaged Series', indices: [1, 3] }]);
     });
 
     test('selects the provided window size (maxima)', () => {
         const alteredSeries = { ...seriesMax, values: [1, 5, 3, 7, 2, 6, 1] };
         const result: ExtremeSeries[] = findLocalExtreme(alteredSeries, 3, 'maxima');
         // Expect indices for local peaks that are not on the edge.
-        expect(result).toEqual([{ name: 'Averaged Series maxima', originalSeriesName: 'Averaged Series', indices: [1, 3, 5] }]);
+        expect(result).toEqual([{ name: 'Averaged Series maxima over 3d', originalSeriesName: 'Averaged Series', indices: [1, 3, 5] }]);
     });
 
     test('does not consider local maxima at the edge of the array', () => {
         const edgeSeries = { ...seriesMax, values: [5, 1, 4, 1, 5] };
         const result: ExtremeSeries[] = findLocalExtreme(edgeSeries, 3, 'maxima');
         // Even though 5 is high at the edges, only the center index qualifies.
-        expect(result).toEqual([{ name: 'Averaged Series maxima', originalSeriesName: 'Averaged Series', indices: [2] }]);
+        expect(result).toEqual([{ name: 'Averaged Series maxima over 3d', originalSeriesName: 'Averaged Series', indices: [2] }]);
     });
 });
 
@@ -46,21 +46,21 @@ describe('findLocalExtreme - Local Minima Tests', () => {
 
     test('filters time series of type averaged (minima)', () => {
         const result: ExtremeSeries[] = findLocalExtreme(seriesMin, 3, 'minima');
-        expect(result).toEqual([{ name: 'Averaged Series minima', originalSeriesName: 'Averaged Series', indices: [1, 3] }]);
+        expect(result).toEqual([{ name: 'Averaged Series minima over 3d', originalSeriesName: 'Averaged Series', indices: [1, 3] }]);
     });
 
     test('finds all local minima and returns their index', () => {
         const variedSeries = { ...seriesMin, values: [6, 2, 4, 1, 3, 0, 4] };
         const result: ExtremeSeries[] = findLocalExtreme(variedSeries, 3, 'minima');
         // Assuming indices for minima excluding the very first and last values.
-        expect(result).toEqual([{ name: 'Averaged Series minima', originalSeriesName: 'Averaged Series', indices: [1, 3, 5] }]);
+        expect(result).toEqual([{ name: 'Averaged Series minima over 3d', originalSeriesName: 'Averaged Series', indices: [1, 3, 5] }]);
     });
 
     test('does not consider local minima at the edge of the array', () => {
         const edgeMinSeries = { ...seriesMin, values: [1, 3, 1, 3, 1] };
         const result: ExtremeSeries[] = findLocalExtreme(edgeMinSeries, 3, 'minima');
         // Only the center index qualifies as a local minimum.
-        expect(result).toEqual([{ name: 'Averaged Series minima', originalSeriesName: 'Averaged Series', indices: [2] }]);
+        expect(result).toEqual([{ name: 'Averaged Series minima over 3d', originalSeriesName: 'Averaged Series', indices: [2] }]);
     });
 });
 

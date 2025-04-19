@@ -3,11 +3,13 @@ import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_d
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, addShiftedToAlignExtremeDates, type TimeseriesData } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, addShiftedToAlignExtremeDates, type TimeseriesData, type ExtremeSeries } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
 const averagingWindows = [7, 3*28];
+const extremesForWindow = 7;
+const extremeWindow = 3*28;
 const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, averagingWindows);
 const euPositivityEnhanced = computeMovingAverageTimeseries(euPositivity, averagingWindows);
 
@@ -96,9 +98,18 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
         console.error("Error parsing dataset visibility from local storage:", error);
     }
 
-    const localMaximaDatasets = generateLocalExtremeDataset(data, datasetVisibility, cutoffDateString, 'maxima', "red");
-    const localMinimaDatasets = generateLocalExtremeDataset(data, datasetVisibility, cutoffDateString, 'minima', "blue");
-    const localMaximaSeries = data.series.map(series => findLocalExtreme(series, averagingWindows[1], 'maxima'))
+    const localMaximaSeries = data.series
+        .filter(series => series.type === 'averaged')
+        .filter(series => extremesForWindow == series.windowSizeInDays)
+        .map(series => findLocalExtreme(series, extremeWindow, 'maxima'))
+    const localMinimaSeries = data.series
+        .filter(series => series.type === 'averaged')
+        .filter(series => extremesForWindow == series.windowSizeInDays)
+        .map(series => findLocalExtreme(series, extremeWindow, 'minima'))
+    const localMaximaDatasets = generateLocalExtremeDataset(localMaximaSeries, data, datasetVisibility, cutoffDateString, "red");
+    const localMinimaDatasets = generateLocalExtremeDataset(localMinimaSeries, data, datasetVisibility, cutoffDateString, "blue");
+    
+
     data = addShiftedToAlignExtremeDates(data, localMaximaSeries.flat(), 1, 2);
     
     // Prepare data for chart
@@ -168,15 +179,14 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
     });
 }
 
-function generateLocalExtremeDataset(data: TimeseriesData, datasetVisibility: { [key: string]: boolean; }, cutoffDateString: string, extreme: 'minima' | 'maxima', color: string) {
-    const localExtremePerSeries = data.series.map(series => findLocalExtreme(series, averagingWindows[1], extreme));
-    return localExtremePerSeries.flat().map(extrSeries => {
+function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData: TimeseriesData, datasetVisibility: { [key: string]: boolean; }, cutoffDateString: string, color: string) {
+    return extremeData.flat().map(extrSeries => {
         const isVisible = datasetVisibility[extrSeries.name] !== undefined ? datasetVisibility[extrSeries.name] : true;
         return {
             label: extrSeries.name,
             data: extrSeries.indices.map(index => ({
-                x: data.dates[index],
-                y: data.series.find(series => series.name === extrSeries.originalSeriesName)?.values[index] ?? -10
+                x: normalData.dates[index],
+                y: normalData.series.find(series => series.name === extrSeries.originalSeriesName)?.values[index] ?? -10
             })).filter(dp => dp.x > cutoffDateString) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
             borderColor: color,
             backgroundColor: color,
