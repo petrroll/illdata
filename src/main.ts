@@ -7,8 +7,8 @@ import { computeMovingAverageTimeseries, findLocalExtreme, addShiftedToAlignExtr
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
-const averagingWindows = [7, 3*28];
-const extremesForWindow = 7;
+const averagingWindows = [28, 3*28];
+const extremesForWindow = 28;
 const extremeWindow = 3*28;
 const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, averagingWindows);
 const euPositivityEnhanced = computeMovingAverageTimeseries(euPositivity, averagingWindows);
@@ -17,6 +17,7 @@ const euPositivityEnhanced = computeMovingAverageTimeseries(euPositivity, averag
 const TIME_RANGE_KEY = "selectedTimeRange";
 const DATASET_VISIBILITY_KEY = "datasetVisibility";
 const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
+const INCLUDE_FUTURE_KEY = "includeFuture";
 
 // Global chart holders for hideAllSeries
 let czechChartHolder: { chart: Chart | undefined } = { chart: undefined };
@@ -66,14 +67,25 @@ function renderPage(rootDiv: HTMLElement | null) {
     euCanvas.id = "euPositivityChart";
     euContainer.appendChild(euCanvas);
 
-    const storedTimeRange = initializeTimeRangeDropdown((timeRange) => { 
-        czechChartHolder.chart = updateChart(timeRange, mzcrPositivityEnhanced, czechCanvas, czechChartHolder.chart, "COVID Test Positivity (MZCR Data)", DATASET_VISIBILITY_KEY);
-        euChartHolder.chart = updateChart(timeRange, euPositivityEnhanced, euCanvas, euChartHolder.chart, "EU ECDC Respiratory Viruses", EU_DATASET_VISIBILITY_KEY);
-    }, rootDiv);
+    // Load stored options
+    const storedTimeRange = localStorage.getItem(TIME_RANGE_KEY) || "all";
+    const storedIncludeFutureRaw = localStorage.getItem(INCLUDE_FUTURE_KEY);
+    const storedIncludeFuture = storedIncludeFutureRaw !== null ? JSON.parse(storedIncludeFutureRaw) : true;
+    let currentTimeRange = storedTimeRange;
+    let currentIncludeFuture = storedIncludeFuture;
 
-    // Initial chart renders
-    czechChartHolder.chart = updateChart(storedTimeRange, mzcrPositivityEnhanced, czechCanvas, undefined, "COVID Test Positivity (MZCR Data)", DATASET_VISIBILITY_KEY);
-    euChartHolder.chart = updateChart(storedTimeRange, euPositivityEnhanced, euCanvas, undefined, "EU ECDC Respiratory Viruses", EU_DATASET_VISIBILITY_KEY);
+    // Common render callback
+    function onOptionsChange() {
+        czechChartHolder.chart = updateChart(currentTimeRange, mzcrPositivityEnhanced, czechCanvas, czechChartHolder.chart, "COVID Test Positivity (MZCR Data)", DATASET_VISIBILITY_KEY, currentIncludeFuture);
+        euChartHolder.chart = updateChart(currentTimeRange, euPositivityEnhanced, euCanvas, euChartHolder.chart, "EU ECDC Respiratory Viruses", EU_DATASET_VISIBILITY_KEY, currentIncludeFuture);
+    }
+
+    // Initialize controls
+    initializeTimeRangeDropdown((newTimeRange) => { currentTimeRange = newTimeRange; onOptionsChange(); }, rootDiv);
+    initializeIncludeFutureCheckbox((newIncludeFuture) => { currentIncludeFuture = newIncludeFuture; onOptionsChange(); }, rootDiv);
+
+    // Initial render
+    onOptionsChange();
 
     // Attach event listener to hide all button
     const hideAllButton = document.getElementById('hideAllButton');
@@ -82,13 +94,13 @@ function renderPage(rootDiv: HTMLElement | null) {
     }
 }
 
-function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvasElement, previousChartInstance?: Chart, title?: string, visibilityKey: string = DATASET_VISIBILITY_KEY) {
+function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvasElement, previousChartInstance?: Chart, title?: string, visibilityKey: string = DATASET_VISIBILITY_KEY, includeFuture: boolean = true) {
     // Destroy existing chart if it exists
     if (previousChartInstance) {
         previousChartInstance.destroy();
     }
 
-    let cutoffDateString = data.dates[0] ?? new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    let cutoffDateString = data.dates[0] ?? new Date().toISOString().split('T')[0];
     if (timeRange !== "all") {
         const days = parseInt(timeRange);
         const cutoffDate = new Date();
@@ -113,12 +125,21 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
         .filter(series => series.type === 'averaged')
         .filter(series => extremesForWindow == series.windowSizeInDays)
         .map(series => findLocalExtreme(series, extremeWindow, 'minima'))
-    const localMaximaDatasets = generateLocalExtremeDataset(localMaximaSeries, data, datasetVisibility, cutoffDateString, "red");
-    const localMinimaDatasets = generateLocalExtremeDataset(localMinimaSeries, data, datasetVisibility, cutoffDateString, "blue");
-    
+    const localMaximaDatasets = generateLocalExtremeDataset(localMaximaSeries, data, datasetVisibility, cutoffDateString, "red", includeFuture);
+    const localMinimaDatasets = generateLocalExtremeDataset(localMinimaSeries, data, datasetVisibility, cutoffDateString, "blue", includeFuture);
+    data = addShiftedToAlignExtremeDates(data, localMaximaSeries.flat(), 1, 2, true);
 
-    data = addShiftedToAlignExtremeDates(data, localMaximaSeries.flat(), 1, 2);
-    
+    // End cutoff based on future inclusion flag
+    const todayString = new Date().toISOString().split('T')[0];
+    let startIdx = data.dates.findIndex(d => d > cutoffDateString);
+    if (startIdx < 0) startIdx = 0;
+    let endIdx = data.dates.length;
+    if (!includeFuture) {
+        const futureIdx = data.dates.findIndex(d => d > todayString);
+        if (futureIdx >= 0) endIdx = futureIdx;
+    }
+    const labels = data.dates.slice(startIdx, endIdx);
+
     // Prepare data for chart
     const colorPalettePCR = [
         "#1f77b4", "#aec7e8", "#ffbb78", "#2ca02c", "#98df8a", 
@@ -133,7 +154,7 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
         const colorPalette = series.name.toLowerCase().includes("pcr") ? colorPalettePCR : colorPaletteNonPCR;
         return {
             label: series.name,
-            data: series.values.slice(data.dates.findIndex(d => d > cutoffDateString)),
+            data: series.values.slice(startIdx, endIdx),
             borderColor: colorPalette[index % colorPalette.length],
             fill: false,
             hidden: !isVisible,
@@ -148,7 +169,7 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
     return new Chart(canvas, {
         type: "line",
         data: {
-            labels: data.dates.filter(d => d > cutoffDateString),
+            labels,
             datasets: datasets,
         },
         options: {
@@ -170,6 +191,18 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
                 }
             },
             scales: {
+                x: {
+                    ticks: {
+                        color: function(context) {
+                            let label = context.tick.label;
+                            if (Array.isArray(label)) {
+                                label = label[0];
+                            }
+                            const date = new Date(label || '');
+                            return date > new Date() ? 'gray' : 'black';
+                        }
+                    }
+                },
                 y: {
                     beginAtZero: true,
                     ticks: {
@@ -186,7 +219,8 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
     });
 }
 
-function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData: TimeseriesData, datasetVisibility: { [key: string]: boolean; }, cutoffDateString: string, color: string) {
+function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData: TimeseriesData, datasetVisibility: { [key: string]: boolean; }, cutoffDateString: string, color: string, includeFuture: boolean) {
+    const todayString = new Date().toISOString().split('T')[0];
     return extremeData.flat().map(extrSeries => {
         const isVisible = datasetVisibility[extrSeries.name] !== undefined ? datasetVisibility[extrSeries.name] : true;
         return {
@@ -194,7 +228,7 @@ function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData:
             data: extrSeries.indices.map(index => ({
                 x: normalData.dates[index],
                 y: normalData.series.find(series => series.name === extrSeries.originalSeriesName)?.values[index] ?? -10
-            })).filter(dp => dp.x > cutoffDateString) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
+            })).filter(dp => dp.x > cutoffDateString && (includeFuture || dp.x <= todayString)) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
             borderColor: color,
             backgroundColor: color,
             fill: false,
@@ -234,6 +268,25 @@ function initializeTimeRangeDropdown(onTimeRangeChange: (timeRange: string) => v
     timeRangeSelect.value = storedTimeRange;
     container.appendChild(timeRangeSelect);
     return storedTimeRange;
+}
+
+function initializeIncludeFutureCheckbox(onIncludeFutureChange: (includeFuture: boolean) => void, container: HTMLElement) {
+    const includeFutureCheckbox = document.createElement("input");
+    includeFutureCheckbox.type = "checkbox";
+    includeFutureCheckbox.id = "includeFutureCheckbox";
+    includeFutureCheckbox.checked = JSON.parse(localStorage.getItem(INCLUDE_FUTURE_KEY) || "true");
+    includeFutureCheckbox.addEventListener("change", (event) => {
+        const includeFuture = (event.target as HTMLInputElement).checked;
+        localStorage.setItem(INCLUDE_FUTURE_KEY, JSON.stringify(includeFuture));
+        onIncludeFutureChange(includeFuture);
+    });
+
+    const label = document.createElement("label");
+    label.htmlFor = "includeFutureCheckbox";
+    label.textContent = "Include Future Data";
+
+    container.appendChild(label);
+    container.appendChild(includeFutureCheckbox);
 }
 
 // Function to hide all series on both charts and store the hidden state
