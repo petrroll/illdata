@@ -199,6 +199,11 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: {
+                mode: 'index', // Snap to nearest x value (vertical line)
+                intersect: false,
+                axis: 'x', // Only vertical
+            },
             plugins: {
                 title: {
                     display: true,
@@ -212,7 +217,12 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
                         datasetVisibility[item.text] = !item.hidden;
                         localStorage.setItem(visibilityKey, JSON.stringify(datasetVisibility));
                     }
-                }
+                },
+                tooltip: {
+                    mode: 'index', // Snap tooltip to vertical line
+                    intersect: false,
+                    axis: 'x',
+                },
             },
             scales: {
                 x: {
