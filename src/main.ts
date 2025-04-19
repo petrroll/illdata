@@ -20,11 +20,44 @@ const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
 const INCLUDE_FUTURE_KEY = "includeFuture";
 
 // Global chart holders for hideAllSeries
-let czechChartHolder: { chart: Chart | undefined } = { chart: undefined };
-let euChartHolder: { chart: Chart | undefined } = { chart: undefined };
+const chartConfigs = [
+    {
+        containerId: "czechDataContainer",
+        canvasId: "czechPositivityChart",
+        data: mzcrPositivityEnhanced,
+        title: "COVID Test Positivity (MZCR Data)",
+        visibilityKey: DATASET_VISIBILITY_KEY,
+        chartHolder: { chart: undefined as Chart | undefined },
+    },
+    {
+        containerId: "euDataContainer",
+        canvasId: "euPositivityChart",
+        data: euPositivityEnhanced,
+        title: "EU ECDC Respiratory Viruses",
+        visibilityKey: EU_DATASET_VISIBILITY_KEY,
+        chartHolder: { chart: undefined as Chart | undefined },
+    }
+];
 
 const container = document.getElementById("root");
 renderPage(container);
+
+function createChartContainerAndCanvas(containerId: string, canvasId: string): HTMLCanvasElement | null {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.error(`Container not found: ${containerId}`);
+        return null;
+    }
+    container.style.width = "100vw";
+    container.style.height = "40vh";
+    let canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
+    if (!canvas) {
+        canvas = document.createElement("canvas");
+        canvas.id = canvasId;
+        container.appendChild(canvas);
+    }
+    return canvas;
+}
 
 function renderPage(rootDiv: HTMLElement | null) {
     if (!rootDiv) {
@@ -41,31 +74,11 @@ function renderPage(rootDiv: HTMLElement | null) {
         console.error("Last update span not found");
     }
 
-    // Czech data container setup
-    const czechContainer = document.getElementById("czechDataContainer");
-    if (!czechContainer) {
-        console.error("Czech container not found");
-        return;
-    }
-    czechContainer.style.width = "100vw";
-    czechContainer.style.height = "40vh";
-
-    const czechCanvas = document.createElement("canvas");
-    czechCanvas.id = "czechPositivityChart";
-    czechContainer.appendChild(czechCanvas);
-
-    // EU data container setup
-    const euContainer = document.getElementById("euDataContainer");
-    if (!euContainer) {
-        console.error("EU container not found");
-        return;
-    }
-    euContainer.style.width = "100vw";
-    euContainer.style.height = "40vh";
-
-    const euCanvas = document.createElement("canvas");
-    euCanvas.id = "euPositivityChart";
-    euContainer.appendChild(euCanvas);
+    // Prepare chart canvases and holders
+    chartConfigs.forEach(cfg => {
+        const canvas = createChartContainerAndCanvas(cfg.containerId, cfg.canvasId);
+        (cfg as any).canvas = canvas;
+    });
 
     // Load stored options
     const storedTimeRange = localStorage.getItem(TIME_RANGE_KEY) || "all";
@@ -76,8 +89,19 @@ function renderPage(rootDiv: HTMLElement | null) {
 
     // Common render callback
     function onOptionsChange() {
-        czechChartHolder.chart = updateChart(currentTimeRange, mzcrPositivityEnhanced, czechCanvas, czechChartHolder.chart, "COVID Test Positivity (MZCR Data)", DATASET_VISIBILITY_KEY, currentIncludeFuture);
-        euChartHolder.chart = updateChart(currentTimeRange, euPositivityEnhanced, euCanvas, euChartHolder.chart, "EU ECDC Respiratory Viruses", EU_DATASET_VISIBILITY_KEY, currentIncludeFuture);
+        chartConfigs.forEach(cfg => {
+            if ((cfg as any).canvas) {
+                cfg.chartHolder.chart = updateChart(
+                    currentTimeRange,
+                    cfg.data,
+                    (cfg as any).canvas,
+                    cfg.chartHolder.chart,
+                    cfg.title,
+                    cfg.visibilityKey,
+                    currentIncludeFuture
+                );
+            }
+        });
     }
 
     // Initialize controls
@@ -289,14 +313,9 @@ function initializeIncludeFutureCheckbox(onIncludeFutureChange: (includeFuture: 
     container.appendChild(includeFutureCheckbox);
 }
 
-// Function to hide all series on both charts and store the hidden state
 function hideAllSeries() {
-    const holders = [
-        { chartHolder: czechChartHolder, key: DATASET_VISIBILITY_KEY },
-        { chartHolder: euChartHolder, key: EU_DATASET_VISIBILITY_KEY }
-    ];
-    holders.forEach(({ chartHolder, key }) => {
-        const chart = chartHolder.chart;
+    chartConfigs.forEach(cfg => {
+        const chart = cfg.chartHolder.chart;
         if (chart) {
             const visibilityMap: { [name: string]: boolean } = {};
             chart.data.datasets.forEach((dataset: any) => {
@@ -306,7 +325,7 @@ function hideAllSeries() {
                 dataset.hidden = true;
             });
             chart.update();
-            localStorage.setItem(key, JSON.stringify(visibilityMap));
+            localStorage.setItem(cfg.visibilityKey, JSON.stringify(visibilityMap));
         }
     });
 }
