@@ -27,3 +27,7 @@ test: check-ts
 setup-playground: build
     uv sync
     source dev.env
+
+clean-data:
+    rm -rf ./data
+    rm -rf ./data_processed
