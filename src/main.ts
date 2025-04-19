@@ -42,23 +42,60 @@ const chartConfigs = [
 const container = document.getElementById("root");
 renderPage(container);
 
-function createChartContainerAndCanvas(containerId: string, canvasId: string): HTMLCanvasElement | null {
-    const container = document.getElementById(containerId);
-    if (!container) {
-        console.error(`Container not found: ${containerId}`);
-        return null;
+// Generic function to create a control, initialize from localStorage, and handle change
+function createPreferenceControl<T extends string | boolean>(options: {
+    type: 'select' | 'checkbox',
+    id: string,
+    label?: string,
+    container: HTMLElement,
+    localStorageKey: string,
+    values?: { value: string, label: string }[], // for select
+    defaultValue: T,
+    onChange: (value: T) => void
+}) {
+    let control: HTMLSelectElement | HTMLInputElement;
+    let value: T = options.defaultValue;
+    if (options.type === 'select') {
+        control = document.createElement('select');
+        control.id = options.id;
+        (options.values || []).forEach(opt => {
+            const optionElement = document.createElement('option');
+            optionElement.value = opt.value;
+            optionElement.textContent = opt.label;
+            control.appendChild(optionElement);
+        });
+        const stored = localStorage.getItem(options.localStorageKey);
+        value = (stored as T) || options.defaultValue;
+        (control as HTMLSelectElement).value = value as string;
+    } else {
+        control = document.createElement('input');
+        control.type = 'checkbox';
+        control.id = options.id;
+        const stored = localStorage.getItem(options.localStorageKey);
+        value = stored !== null ? JSON.parse(stored) : options.defaultValue;
+        (control as HTMLInputElement).checked = value as boolean;
     }
-    container.style.width = "100vw";
-    container.style.height = "40vh";
-    let canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
-    if (!canvas) {
-        canvas = document.createElement("canvas");
-        canvas.id = canvasId;
-        container.appendChild(canvas);
+    if (options.label) {
+        const label = document.createElement('label');
+        label.htmlFor = options.id;
+        label.textContent = options.label;
+        options.container.appendChild(label);
     }
-    return canvas;
+    options.container.appendChild(control);
+    control.addEventListener('change', (event) => {
+        let newValue: T;
+        if (options.type === 'select') {
+            newValue = (event.target as HTMLSelectElement).value as T;
+        } else {
+            newValue = (event.target as HTMLInputElement).checked as T;
+        }
+        localStorage.setItem(options.localStorageKey, typeof newValue === 'string' ? newValue : JSON.stringify(newValue));
+        options.onChange(newValue);
+    });
+    return value;
 }
 
+// Refactored renderPage to use unified control creation and callback
 function renderPage(rootDiv: HTMLElement | null) {
     if (!rootDiv) {
         console.error("Root element not found.");
@@ -80,15 +117,14 @@ function renderPage(rootDiv: HTMLElement | null) {
         (cfg as any).canvas = canvas;
     });
 
-    // Load stored options
-    const storedTimeRange = localStorage.getItem(TIME_RANGE_KEY) || "all";
-    const storedIncludeFutureRaw = localStorage.getItem(INCLUDE_FUTURE_KEY);
-    const storedIncludeFuture = storedIncludeFutureRaw !== null ? JSON.parse(storedIncludeFutureRaw) : true;
-    let currentTimeRange = storedTimeRange;
-    let currentIncludeFuture = storedIncludeFuture;
+    // Unified state
+    let currentTimeRange: string;
+    let currentIncludeFuture: boolean;
 
-    // Common render callback
-    function onOptionsChange() {
+    // Unified callback
+    function onOptionsChange(newTimeRange?: string, newIncludeFuture?: boolean) {
+        if (typeof newTimeRange !== 'undefined') currentTimeRange = newTimeRange;
+        if (typeof newIncludeFuture !== 'undefined') currentIncludeFuture = newIncludeFuture;
         chartConfigs.forEach(cfg => {
             if ((cfg as any).canvas) {
                 cfg.chartHolder.chart = updateChart(
@@ -104,9 +140,33 @@ function renderPage(rootDiv: HTMLElement | null) {
         });
     }
 
-    // Initialize controls
-    initializeTimeRangeDropdown((newTimeRange) => { currentTimeRange = newTimeRange; onOptionsChange(); }, rootDiv);
-    initializeIncludeFutureCheckbox((newIncludeFuture) => { currentIncludeFuture = newIncludeFuture; onOptionsChange(); }, rootDiv);
+    // Controls
+    currentTimeRange = createPreferenceControl<string>({
+        type: 'select',
+        id: 'timeRangeSelect',
+        label: undefined,
+        container: rootDiv,
+        localStorageKey: TIME_RANGE_KEY,
+        values: [
+            { value: "30", label: "Last Month" },
+            { value: "90", label: "Last 90 Days" },
+            { value: "365", label: "Last Year" },
+            { value: `${365*2}`, label: "Last 2 Years" },
+            { value: "all", label: "All Time" },
+        ],
+        defaultValue: "all",
+        onChange: (val) => onOptionsChange(val, undefined)
+    });
+
+    currentIncludeFuture = createPreferenceControl<boolean>({
+        type: 'checkbox',
+        id: 'includeFutureCheckbox',
+        label: 'Include Future Data',
+        container: rootDiv,
+        localStorageKey: INCLUDE_FUTURE_KEY,
+        defaultValue: true,
+        onChange: (val) => onOptionsChange(undefined, val)
+    });
 
     // Initial render
     onOptionsChange();
@@ -114,8 +174,25 @@ function renderPage(rootDiv: HTMLElement | null) {
     // Attach event listener to hide all button
     const hideAllButton = document.getElementById('hideAllButton');
     if (hideAllButton) {
-        hideAllButton.addEventListener('click', hideAllSeries);
+        hideAllButton.addEventListener('click', () => hideAllSeries(onOptionsChange));
     }
+}
+
+function createChartContainerAndCanvas(containerId: string, canvasId: string): HTMLCanvasElement | null {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.error(`Container not found: ${containerId}`);
+        return null;
+    }
+    container.style.width = "100vw";
+    container.style.height = "40vh";
+    let canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
+    if (!canvas) {
+        canvas = document.createElement("canvas");
+        canvas.id = canvasId;
+        container.appendChild(canvas);
+    }
+    return canvas;
 }
 
 function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvasElement, previousChartInstance?: Chart, title?: string, visibilityKey: string = DATASET_VISIBILITY_KEY, includeFuture: boolean = true) {
@@ -275,55 +352,7 @@ function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData:
     });
 }
 
-function initializeTimeRangeDropdown(onTimeRangeChange: (timeRange: string) => void, container: HTMLElement) {
-    const timeRangeSelect = document.createElement("select");
-    timeRangeSelect.id = "timeRangeSelect";
-    const options = [
-        { value: "30", label: "Last Month" },
-        { value: "90", label: "Last 90 Days" },
-        { value: "365", label: "Last Year" },
-        { value: `${365*2}`, label: "Last 2 Years" },
-        { value: "all", label: "All Time" },
-    ];
-    options.forEach(option => {
-        const optionElement = document.createElement("option");
-        optionElement.value = option.value;
-        optionElement.textContent = option.label;
-        timeRangeSelect.appendChild(optionElement);
-    });
-    timeRangeSelect.addEventListener("change", (event) => {
-        const selectedTimeRange = (event.target as HTMLSelectElement).value;
-        localStorage.setItem(TIME_RANGE_KEY, selectedTimeRange);
-        onTimeRangeChange(selectedTimeRange);
-    });
-
-    // Load stored time range from local storage
-    const storedTimeRange = localStorage.getItem(TIME_RANGE_KEY) || "all";
-    timeRangeSelect.value = storedTimeRange;
-    container.appendChild(timeRangeSelect);
-    return storedTimeRange;
-}
-
-function initializeIncludeFutureCheckbox(onIncludeFutureChange: (includeFuture: boolean) => void, container: HTMLElement) {
-    const includeFutureCheckbox = document.createElement("input");
-    includeFutureCheckbox.type = "checkbox";
-    includeFutureCheckbox.id = "includeFutureCheckbox";
-    includeFutureCheckbox.checked = JSON.parse(localStorage.getItem(INCLUDE_FUTURE_KEY) || "true");
-    includeFutureCheckbox.addEventListener("change", (event) => {
-        const includeFuture = (event.target as HTMLInputElement).checked;
-        localStorage.setItem(INCLUDE_FUTURE_KEY, JSON.stringify(includeFuture));
-        onIncludeFutureChange(includeFuture);
-    });
-
-    const label = document.createElement("label");
-    label.htmlFor = "includeFutureCheckbox";
-    label.textContent = "Include Future Data";
-
-    container.appendChild(label);
-    container.appendChild(includeFutureCheckbox);
-}
-
-function hideAllSeries() {
+function hideAllSeries(onOptionsChange: () => void) {
     chartConfigs.forEach(cfg => {
         const chart = cfg.chartHolder.chart;
         if (chart) {
@@ -334,8 +363,8 @@ function hideAllSeries() {
                 }
                 dataset.hidden = true;
             });
-            chart.update();
             localStorage.setItem(cfg.visibilityKey, JSON.stringify(visibilityMap));
+            onOptionsChange();
         }
     });
 }
