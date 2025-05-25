@@ -214,18 +214,40 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
     try {
         const storedVisibility = localStorage.getItem(visibilityKey);
         datasetVisibility = storedVisibility ? JSON.parse(storedVisibility) : {};
+        
+        // Get all extreme series that will be in the chart
+        const localMaximaSeries = data.series
+            .filter(series => series.type === 'averaged')
+            .filter(series => extremesForWindow == series.windowSizeInDays)
+            .map(series => findLocalExtreme(series, extremeWindow, 'maxima'));
+        const localMinimaSeries = data.series
+            .filter(series => series.type === 'averaged')
+            .filter(series => extremesForWindow == series.windowSizeInDays)
+            .map(series => findLocalExtreme(series, extremeWindow, 'minima'));
+        
+        // Create a set of all valid series names (normal series + extreme series)
+        const validSeriesNames = new Set<string>();
+        data.series.forEach(series => validSeriesNames.add(series.name));
+        localMaximaSeries.flat().forEach(series => validSeriesNames.add(series.name));
+        localMinimaSeries.flat().forEach(series => validSeriesNames.add(series.name));
+        
+        // Filter out entries that don't correspond to any series
+        const filteredDatasetVisibility: { [key: string]: boolean } = {};
+        Object.keys(datasetVisibility).forEach(seriesName => {
+            if (validSeriesNames.has(seriesName)) {
+                filteredDatasetVisibility[seriesName] = datasetVisibility[seriesName];
+            }
+        });
+        
+        // Update datasetVisibility with filtered version
+        datasetVisibility = filteredDatasetVisibility;
+        
+        // Save filtered version back to localStorage
+        localStorage.setItem(visibilityKey, JSON.stringify(datasetVisibility));
     } catch (error) {
         console.error("Error parsing dataset visibility from local storage:", error);
     }
 
-    const localMaximaSeries = data.series
-        .filter(series => series.type === 'averaged')
-        .filter(series => extremesForWindow == series.windowSizeInDays)
-        .map(series => findLocalExtreme(series, extremeWindow, 'maxima'))
-    const localMinimaSeries = data.series
-        .filter(series => series.type === 'averaged')
-        .filter(series => extremesForWindow == series.windowSizeInDays)
-        .map(series => findLocalExtreme(series, extremeWindow, 'minima'))
     const localMaximaDatasets = generateLocalExtremeDataset(localMaximaSeries, data, datasetVisibility, cutoffDateString, "red", includeFuture);
     const localMinimaDatasets = generateLocalExtremeDataset(localMinimaSeries, data, datasetVisibility, cutoffDateString, "blue", includeFuture);
     data = addShiftedToAlignExtremeDates(data, localMaximaSeries.flat(), 1, 2, true);
