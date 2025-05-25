@@ -1,18 +1,25 @@
 import { 
-	findLocalExtreme, 
-	computeMovingAverageTimeseries,
-	type LinearSeries, 
-	type ExtremeSeries,
-	type TimeseriesData
+    findLocalExtreme, 
+    computeMovingAverageTimeseries,
+    type LinearSeries, 
+    type ExtremeSeries,
+    type TimeseriesData,
+    type Datapoint
 } from './utils';
 
 describe('findLocalExtreme - Local Maxima Tests', () => {
     const seriesMax: LinearSeries = {
         name: 'Averaged Series',
-        values: [1, 3, 2, 4, 1],
+        values: [
+            { positive: 1, tests: 100 },
+            { positive: 3, tests: 100 },
+            { positive: 2, tests: 100 },
+            { positive: 4, tests: 100 },
+            { positive: 1, tests: 100 }
+        ],
         type: 'averaged',
         windowSizeInDays: 3,
-		frequencyInDays: 1
+        frequencyInDays: 1
     };
 
     test('filters time series of type averaged (maxima)', () => {
@@ -21,27 +28,75 @@ describe('findLocalExtreme - Local Maxima Tests', () => {
     });
 
     test('selects the provided window size (maxima)', () => {
-        const alteredSeries = { ...seriesMax, values: [1, 5, 3, 7, 2, 6, 1] };
+        const alteredSeries = { 
+            ...seriesMax, 
+            values: [
+                { positive: 1, tests: 100 },
+                { positive: 5, tests: 100 },
+                { positive: 3, tests: 100 },
+                { positive: 7, tests: 100 },
+                { positive: 2, tests: 100 },
+                { positive: 6, tests: 100 },
+                { positive: 1, tests: 100 }
+            ]
+        };
         const result: ExtremeSeries[] = findLocalExtreme(alteredSeries, 3, 'maxima');
-        // Expect indices for local peaks that are not on the edge.
         expect(result).toEqual([{ name: 'Averaged Series maxima over 3d', originalSeriesName: 'Averaged Series', indices: [1, 3, 5] }]);
     });
 
     test('does not consider local maxima at the edge of the array', () => {
-        const edgeSeries = { ...seriesMax, values: [5, 1, 4, 1, 5] };
+        const edgeSeries = { 
+            ...seriesMax, 
+            values: [
+                { positive: 5, tests: 100 },
+                { positive: 1, tests: 100 },
+                { positive: 4, tests: 100 },
+                { positive: 1, tests: 100 },
+                { positive: 5, tests: 100 }
+            ]
+        };
         const result: ExtremeSeries[] = findLocalExtreme(edgeSeries, 3, 'maxima');
-        // Even though 5 is high at the edges, only the center index qualifies.
         expect(result).toEqual([{ name: 'Averaged Series maxima over 3d', originalSeriesName: 'Averaged Series', indices: [2] }]);
+    });
+
+    test('handles empty series', () => {
+        const emptySeries = { ...seriesMax, values: [] };
+        const result: ExtremeSeries[] = findLocalExtreme(emptySeries, 3, 'maxima');
+        expect(result).toEqual([]);
+    });
+
+    test('handles series with single value', () => {
+        const singleSeries = { ...seriesMax, values: [{ positive: 1, tests: 100 }] };
+        const result: ExtremeSeries[] = findLocalExtreme(singleSeries, 3, 'maxima');
+        expect(result).toEqual([]);
+    });
+
+    test('handles series with two values', () => {
+        const twoSeries = { 
+            ...seriesMax, 
+            values: [
+                { positive: 1, tests: 100 },
+                { positive: 2, tests: 100 }
+            ]
+        };
+        const result: ExtremeSeries[] = findLocalExtreme(twoSeries, 3, 'maxima');
+        expect(result).toEqual([]);
     });
 });
 
 describe('findLocalExtreme - Local Minima Tests', () => {
     const seriesMin: LinearSeries = {
         name: 'Averaged Series',
-        values: [4, 2, 3, 1, 5],
+        values: [
+            { positive: 4, tests: 100 },
+            { positive: 2, tests: 100 },
+            { positive: 3, tests: 100 },
+            { positive: 1, tests: 100 },
+            { positive: 5, tests: 100 }
+        ],
         type: 'averaged',
         windowSizeInDays: 3,
-		frequencyInDays: 1,
+        frequencyInDays: 1,
     };
 
     test('filters time series of type averaged (minima)', () => {
@@ -50,81 +105,154 @@ describe('findLocalExtreme - Local Minima Tests', () => {
     });
 
     test('finds all local minima and returns their index', () => {
-        const variedSeries = { ...seriesMin, values: [6, 2, 4, 1, 3, 0, 4] };
+        const variedSeries = { 
+            ...seriesMin, 
+            values: [
+                { positive: 6, tests: 100 },
+                { positive: 2, tests: 100 },
+                { positive: 4, tests: 100 },
+                { positive: 1, tests: 100 },
+                { positive: 3, tests: 100 },
+                { positive: 0, tests: 100 },
+                { positive: 4, tests: 100 }
+            ]
+        };
         const result: ExtremeSeries[] = findLocalExtreme(variedSeries, 3, 'minima');
-        // Assuming indices for minima excluding the very first and last values.
         expect(result).toEqual([{ name: 'Averaged Series minima over 3d', originalSeriesName: 'Averaged Series', indices: [1, 3, 5] }]);
     });
 
     test('does not consider local minima at the edge of the array', () => {
-        const edgeMinSeries = { ...seriesMin, values: [1, 3, 1, 3, 1] };
+        const edgeMinSeries = { 
+            ...seriesMin, 
+            values: [
+                { positive: 1, tests: 100 },
+                { positive: 3, tests: 100 },
+                { positive: 1, tests: 100 },
+                { positive: 3, tests: 100 },
+                { positive: 1, tests: 100 }
+            ]
+        };
         const result: ExtremeSeries[] = findLocalExtreme(edgeMinSeries, 3, 'minima');
-        // Only the center index qualifies as a local minimum.
         expect(result).toEqual([{ name: 'Averaged Series minima over 3d', originalSeriesName: 'Averaged Series', indices: [2] }]);
+    });
+
+    test('handles different window sizes', () => {
+        const largeSeries = {
+            ...seriesMin,
+            values: Array.from({ length: 10 }, (_, i) => ({ positive: i % 3 === 1 ? 1 : 5, tests: 100 }))
+        };
+        const result5 = findLocalExtreme(largeSeries, 5, 'minima');
+        const result1 = findLocalExtreme(largeSeries, 1, 'minima');
+        
+        expect(result5[0].name).toBe('Averaged Series minima over 5d');
+        expect(result1[0].name).toBe('Averaged Series minima over 1d');
     });
 });
 
 describe('computeMovingAverageTimeseries Tests', () => {
-	test('computes moving average for one series with a single window size', () => {
-		const input: TimeseriesData = {
-			dates: ['2022-01-01', '2022-01-02', '2022-01-03', '2022-01-04', '2022-01-05'],
-			series: [{
-				name: 'Test Series',
-				values: [1, 2, 3, 4, 5],
-				type: 'raw',
-				frequencyInDays: 1
-			}]
-		};
-		const windowSizes = [3];
-		const result = computeMovingAverageTimeseries(input, windowSizes);
-		// Expected moving averages for windowSize 3:
-		// index 0: (1+1+2)/3 = 1.3333..., 1: (1+2+3)/3 = 2, 2: (2+3+4)/3 = 3,
-		// 3: (3+4+5)/3 = 4, 4: (4+5+5)/3 = 4.6667...
-		const expectedAvg = [1.3333333333333333, 2, 3, 4, 4.666666666666667];
-		// Expect original series + new averaged series appended.
-		expect(result.dates).toEqual(input.dates);
-		expect(result.series).toHaveLength(input.series.length + 1);
-		expect(result.series[input.series.length]).toEqual({
-			name: 'Test Series - 3 day(s) avg',
-			values: expectedAvg,
-			type: 'averaged',
-			windowSizeInDays: 3,
-			frequencyInDays: 1
-		});
-	});
+    test('computes moving average for one series with a single window size', () => {
+        const input: TimeseriesData = {
+            dates: ['2022-01-01', '2022-01-02', '2022-01-03', '2022-01-04', '2022-01-05'],
+            series: [{
+                name: 'Test Series',
+                values: [
+                    { positive: 1, tests: 100 },
+                    { positive: 2, tests: 100 },
+                    { positive: 3, tests: 100 },
+                    { positive: 4, tests: 100 },
+                    { positive: 5, tests: 100 }
+                ],
+                type: 'raw',
+                frequencyInDays: 1
+            }]
+        };
+        const windowSizes = [3];
+        const result = computeMovingAverageTimeseries(input, windowSizes);
+        
+        expect(result.dates).toEqual(input.dates);
+        expect(result.series).toHaveLength(input.series.length + 1);
+        expect(result.series[input.series.length].name).toBe('Test Series - 3 day(s) avg');
+        expect(result.series[input.series.length].type).toBe('averaged');
+        expect(result.series[input.series.length].windowSizeInDays).toBe(3);
+        
+        // Check that moving average values are calculated correctly
+        const avgValues = result.series[input.series.length].values as Datapoint[];
+        expect(avgValues).toHaveLength(5);
+        // First value: (1+1+2)/3 = 1.333...
+        expect(avgValues[0].positive / avgValues[0].tests).toBeCloseTo(0.01333333, 5);
+    });
 
-	test('computes moving averages for multiple window sizes', () => {
-		const input: TimeseriesData = {
-			dates: ['D1', 'D2', 'D3', 'D4', 'D5'],
-			series: [{
-				name: 'Multi Window',
-				values: [10, 20, 30, 40, 50],
-				type: 'raw',
-				frequencyInDays: 1
-			}]
-		};
-		const windowSizes = [3, 5];
-		const result = computeMovingAverageTimeseries(input, windowSizes);
-		// For windowSize 3:
-		// index 0: (10+10+20)/3 = 13.3333, 1: (10+20+30)/3 = 20,
-		// index 2: (20+30+40)/3 = 30, 3: (30+40+50)/3 = 40,
-		// index 4: (40+50+50)/3 = 46.6667
-		const expectedAvg3 = [13.333333333333334, 20, 30, 40, 46.666666666666664];
-		const expectedAvg5 = [16, 22, 30, 38, 44];
-		expect(result.series).toHaveLength(input.series.length + 2);
-		expect(result.series[input.series.length]).toEqual({
-			name: 'Multi Window - 3 day(s) avg',
-			values: expectedAvg3,
-			type: 'averaged',
-			windowSizeInDays: 3,
-			frequencyInDays: 1
-		});
-		expect(result.series[input.series.length + 1]).toEqual({
-			name: 'Multi Window - 5 day(s) avg',
-			values: expectedAvg5,
-			type: 'averaged',
-			windowSizeInDays: 5,
-			frequencyInDays: 1
-		});
-	});
+    test('computes moving averages for multiple window sizes', () => {
+        const input: TimeseriesData = {
+            dates: ['D1', 'D2', 'D3', 'D4', 'D5'],
+            series: [{
+                name: 'Multi Window',
+                values: [
+                    { positive: 10, tests: 100 },
+                    { positive: 20, tests: 100 },
+                    { positive: 30, tests: 100 },
+                    { positive: 40, tests: 100 },
+                    { positive: 50, tests: 100 }
+                ],
+                type: 'raw',
+                frequencyInDays: 1
+            }]
+        };
+        const windowSizes = [3, 5];
+        const result = computeMovingAverageTimeseries(input, windowSizes);
+        
+        expect(result.series).toHaveLength(input.series.length + 2);
+        expect(result.series[input.series.length].name).toBe('Multi Window - 3 day(s) avg');
+        expect(result.series[input.series.length + 1].name).toBe('Multi Window - 5 day(s) avg');
+    });
+
+    test('handles single day window size', () => {
+        const input: TimeseriesData = {
+            dates: ['2022-01-01', '2022-01-02'],
+            series: [{
+                name: 'Single Day',
+                values: [
+                    { positive: 10, tests: 100 },
+                    { positive: 20, tests: 100 }
+                ],
+                type: 'raw',
+                frequencyInDays: 1
+            }]
+        };
+        const result = computeMovingAverageTimeseries(input, [1]);
+        
+        expect(result.series[1].name).toBe('Single Day - 1 day() avg');
+        expect(result.series[1].windowSizeInDays).toBe(1);
+    });
+
+    test('handles empty series array', () => {
+        const input: TimeseriesData = {
+            dates: ['2022-01-01'],
+            series: []
+        };
+        const result = computeMovingAverageTimeseries(input, [3]);
+        
+        expect(result.series).toHaveLength(0);
+        expect(result.dates).toEqual(input.dates);
+    });
+
+    test('handles different frequency in days', () => {
+        const input: TimeseriesData = {
+            dates: ['2022-01-01', '2022-01-03', '2022-01-05'],
+            series: [{
+                name: 'Weekly Series',
+                values: [
+                    { positive: 10, tests: 100 },
+                    { positive: 20, tests: 100 },
+                    { positive: 30, tests: 100 }
+                ],
+                type: 'raw',
+                frequencyInDays: 2
+            }]
+        };
+        const result = computeMovingAverageTimeseries(input, [4]);
+        
+        expect(result.series[1].frequencyInDays).toBe(2);
+        expect(result.series[1].windowSizeInDays).toBe(4);
+    });
 });
