@@ -29,6 +29,20 @@
   </head>
   <body>
     <div id="root">
+      <div id="ratioTableContainer">
+        <h3>Current Trends</h3>
+        <table id="ratioTable" style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <thead>
+            <tr style="background-color: #f5f5f5;">
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Series</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">7-day trend<br><small>(recent vs prior)</small></th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">28-day trend<br><small>(recent vs prior)</small></th>
+            </tr>
+          </thead>
+          <tbody id="ratioTableBody">
+          </tbody>
+        </table>
+      </div>
       <div id="czechDataContainer"></div>
       <div id="euDataContainer"></div>
       <button id="hideAllButton">Hide All Series</button>

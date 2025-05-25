@@ -3,7 +3,7 @@ import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_d
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, addShiftedToAlignExtremeDates, type TimeseriesData, type ExtremeSeries } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, addShiftedToAlignExtremeDates as getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -19,23 +19,39 @@ const DATASET_VISIBILITY_KEY = "datasetVisibility";
 const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
 const INCLUDE_FUTURE_KEY = "includeFuture";
 
+interface ChartConfig {
+    containerId: string;
+    canvasId: string;
+    data: TimeseriesData;
+    title: string;
+    shortTitle: string;
+    visibilityKey: string;
+    chartHolder: { chart: Chart | undefined };
+    datasetVisibility: { [key: string]: boolean };
+    canvas?: HTMLCanvasElement | null;
+}
+
 // Global chart holders for hideAllSeries
-const chartConfigs = [
+const chartConfigs : ChartConfig[] = [
     {
         containerId: "czechDataContainer",
         canvasId: "czechPositivityChart",
         data: mzcrPositivityEnhanced,
         title: "COVID Test Positivity (MZCR Data)",
+        shortTitle: "MZCR",
         visibilityKey: DATASET_VISIBILITY_KEY,
         chartHolder: { chart: undefined as Chart | undefined },
+        datasetVisibility: { }
     },
     {
         containerId: "euDataContainer",
         canvasId: "euPositivityChart",
         data: euPositivityEnhanced,
         title: "EU ECDC Respiratory Viruses",
+        shortTitle: "ECDC",
         visibilityKey: EU_DATASET_VISIBILITY_KEY,
         chartHolder: { chart: undefined as Chart | undefined },
+        datasetVisibility: { }
     }
 ];
 
@@ -114,7 +130,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     // Prepare chart canvases and holders
     chartConfigs.forEach(cfg => {
         const canvas = createChartContainerAndCanvas(cfg.containerId, cfg.canvasId);
-        (cfg as any).canvas = canvas;
+        cfg.canvas = canvas;
     });
 
     // Unified state
@@ -129,15 +145,12 @@ function renderPage(rootDiv: HTMLElement | null) {
             if ((cfg as any).canvas) {
                 cfg.chartHolder.chart = updateChart(
                     currentTimeRange,
-                    cfg.data,
-                    (cfg as any).canvas,
-                    cfg.chartHolder.chart,
-                    cfg.title,
-                    cfg.visibilityKey,
+                    cfg,
                     currentIncludeFuture
                 );
             }
         });
+        updateRatioTable(); // Update ratio table on options change
     }
 
     // Controls
@@ -195,12 +208,13 @@ function createChartContainerAndCanvas(containerId: string, canvasId: string): H
     return canvas;
 }
 
-function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvasElement, previousChartInstance?: Chart, title?: string, visibilityKey: string = DATASET_VISIBILITY_KEY, includeFuture: boolean = true) {
+function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true) {
     // Destroy existing chart if it exists
-    if (previousChartInstance) {
-        previousChartInstance.destroy();
+    if (cfg.chartHolder.chart) {
+        cfg.chartHolder.chart.destroy();
     }
 
+    let data = cfg.data;
     let cutoffDateString = data.dates[0] ?? new Date().toISOString().split('T')[0];
     if (timeRange !== "all") {
         const days = parseInt(timeRange);
@@ -210,10 +224,9 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
     }
 
     // Retrieve dataset visibility from local storage
-    let datasetVisibility: { [key: string]: boolean } = {};
     try {
-        const storedVisibility = localStorage.getItem(visibilityKey);
-        datasetVisibility = storedVisibility ? JSON.parse(storedVisibility) : {};
+        const storedVisibility = localStorage.getItem(cfg.visibilityKey);
+        cfg.datasetVisibility = storedVisibility ? JSON.parse(storedVisibility) : {};
     } catch (error) {
         console.error("Error parsing dataset visibility from local storage:", error);
     }
@@ -226,9 +239,9 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
         .filter(series => series.type === 'averaged')
         .filter(series => extremesForWindow == series.windowSizeInDays)
         .map(series => findLocalExtreme(series, extremeWindow, 'minima'))
-    const localMaximaDatasets = generateLocalExtremeDataset(localMaximaSeries, data, datasetVisibility, cutoffDateString, "red", includeFuture);
-    const localMinimaDatasets = generateLocalExtremeDataset(localMinimaSeries, data, datasetVisibility, cutoffDateString, "blue", includeFuture);
-    data = addShiftedToAlignExtremeDates(data, localMaximaSeries.flat(), 1, 2, true);
+    const localMaximaDatasets = generateLocalExtremeDataset(localMaximaSeries, data, cfg.datasetVisibility, cutoffDateString, "red", includeFuture);
+    const localMinimaDatasets = generateLocalExtremeDataset(localMinimaSeries, data, cfg.datasetVisibility, cutoffDateString, "blue", includeFuture);
+    data = getNewWithSifterToAlignExtremeDates(data, localMaximaSeries.flat(), 1, 2, true);
 
     // End cutoff based on future inclusion flag
     const todayString = new Date().toISOString().split('T')[0];
@@ -251,7 +264,7 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
         "#dbdb8d", "#17becf", "#9edae5", "#ff7f0e", "#ffbb78"
     ];
     const datasets = data.series.map((series, index) => {
-        const isVisible = datasetVisibility[series.name] !== undefined ? datasetVisibility[series.name] : true;
+        const isVisible = cfg.datasetVisibility[series.name] !== undefined ? cfg.datasetVisibility[series.name] : true;
         const colorPalette = series.name.toLowerCase().includes("pcr") ? colorPalettePCR : colorPaletteNonPCR;
         return {
             label: series.name,
@@ -267,7 +280,7 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
     datasets.push(...localMaximaDatasets);
     datasets.push(...localMinimaDatasets);
 
-    return new Chart(canvas, {
+    return new Chart(cfg.canvas as HTMLCanvasElement, {
         type: "line",
         data: {
             labels,
@@ -284,15 +297,18 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
             plugins: {
                 title: {
                     display: true,
-                    text: title || "Positivity Data"
+                    text: cfg.title
                 },
                 legend: {
                     onClick: (evt, item, legend) => {
                         Legend.defaults!.onClick(evt, item, legend)
 
                         // Store the new visibility state
-                        datasetVisibility[item.text] = !item.hidden;
-                        localStorage.setItem(visibilityKey, JSON.stringify(datasetVisibility));
+                        cfg.datasetVisibility[item.text] = !item.hidden;
+                        localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
+
+                        // Update ratio table after legend click
+                        updateRatioTable()
                     }
                 },
                 tooltip: {
@@ -366,5 +382,84 @@ function hideAllSeries(onOptionsChange: () => void) {
             localStorage.setItem(cfg.visibilityKey, JSON.stringify(visibilityMap));
             onOptionsChange();
         }
+    });
+}
+
+function updateRatioTable() { 
+    console.log('Updating ratio table...');
+    const ratioTableBody = document.getElementById('ratioTableBody');
+    if (!ratioTableBody) {
+        console.error('ratioTableBody not found');
+        return;
+    }
+    
+    // Clear existing table content
+    ratioTableBody.innerHTML = '';
+    
+    // Collect all visible main series (non-averaged, non-extreme series)
+    const visiblePerChart: [ChartConfig, string[]][] = [];
+    
+    console.log('Checking charts for visible main series...');
+    chartConfigs.forEach((cfg, index) => {
+        const chart = cfg.chartHolder.chart;
+        if (!chart) {
+            console.error(`Chart ${index} not found`);
+            return;
+        }
+
+        const visibleInThisChart = cfg.data.series.filter(series =>
+            series.type === 'raw' && // Only consider raw series
+            cfg.datasetVisibility[series.name] // Only consider series that are not hidden
+        ).map(series => series.name);
+
+        visiblePerChart.push([cfg, visibleInThisChart]);
+    });
+    console.log('visiblePerChart:', visiblePerChart);
+    
+    if (visiblePerChart.length === 0) {
+        console.error('No visible main series found');
+        ratioTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 8px; border: 1px solid #ddd;">No main series visible</td></tr>';
+        return;
+    }
+    
+    // Calculate ratios for all datasets
+    const allRatios: RatioData[] = [];
+    visiblePerChart.forEach(([cfg, seriesNames]) => {
+        const ratios = calculateRatios(cfg.data, seriesNames);
+        ratios.forEach(ratio => {
+            ratio.seriesName =  `${ratio.seriesName} - ${cfg.shortTitle}`; 
+        });
+        allRatios.push(...ratios);
+    });
+        
+    // Populate table
+    allRatios.forEach(ratio => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td style="border: 1px solid #ddd; padding: 8px;">${ratio.seriesName}</td>
+            <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                ${ratio.ratio7days !== null ? ratio.ratio7days.toFixed(2) + 'x' : 'N/A'}
+            </td>
+            <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                ${ratio.ratio28days !== null ? ratio.ratio28days.toFixed(2) + 'x' : 'N/A'}
+            </td>
+        `;
+        
+        // Add color coding based on ratio values
+        const cells = row.querySelectorAll('td');
+        [ratio.ratio7days, ratio.ratio28days].forEach((ratioValue, index) => {
+            if (ratioValue !== null && index > 0) { // Skip the series name column
+                const cell = cells[index + 1];
+                if (ratioValue > 1.1) {
+                    cell.style.backgroundColor = '#ffebee'; // Light red for increasing
+                    cell.style.color = '#c62828';
+                } else if (ratioValue < 0.9) {
+                    cell.style.backgroundColor = '#e8f5e8'; // Light green for decreasing
+                    cell.style.color = '#2e7d32';
+                }
+            }
+        });
+        
+        ratioTableBody.appendChild(row);
     });
 }

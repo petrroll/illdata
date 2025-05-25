@@ -27,3 +27,26 @@ This project processes and visualizes illness data (COVID, respiratory viruses) 
 - `src/utils.ts` - Shared utilities for data manipulation
 - `data_processor/` - Data processing scripts
 - `data_processed/*.json` - Processed data consumed by visualization
+
+## To run the project
+The project uses [just](https://github.com/casey/just) as its command runner. Here are the available commands:
+
+- **Build**: Install dependencies and process data.
+    ```bash
+    just build
+    ```
+
+- **Process Data**: Process the raw data files (also included in build).
+    ```bash
+    just process-data
+    ```
+    
+- **Launch**: Start the dashboard (default command, runs build first).
+    ```bash
+    just launch
+    ```
+
+- **Test**: Run type checks and tests.
+    ```bash
+    just test
+    ```
