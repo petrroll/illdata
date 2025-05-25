@@ -233,17 +233,22 @@ function updateChart(timeRange: string, data: TimeseriesData, canvas: HTMLCanvas
         
         // Filter out entries that don't correspond to any series
         const filteredDatasetVisibility: { [key: string]: boolean } = {};
+        let hasRemovedEntries = false;
         Object.keys(datasetVisibility).forEach(seriesName => {
             if (validSeriesNames.has(seriesName)) {
                 filteredDatasetVisibility[seriesName] = datasetVisibility[seriesName];
+            } else {
+                hasRemovedEntries = true;
             }
         });
         
         // Update datasetVisibility with filtered version
         datasetVisibility = filteredDatasetVisibility;
         
-        // Save filtered version back to localStorage
-        localStorage.setItem(visibilityKey, JSON.stringify(datasetVisibility));
+        // Save filtered version back to localStorage only if we removed entries
+        if (hasRemovedEntries) {
+            localStorage.setItem(visibilityKey, JSON.stringify(datasetVisibility));
+        }
     } catch (error) {
         console.error("Error parsing dataset visibility from local storage:", error);
     }
