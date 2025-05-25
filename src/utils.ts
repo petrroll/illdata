@@ -168,26 +168,28 @@ export interface RatioData {
     seriesName: string;
     ratio7days: number | null;
     ratio28days: number | null;
+    lastDataDate: Date | null;
 }
 
 export function calculateRatios(data: TimeseriesData, visibleMainSeries: string[]): RatioData[] {
     const today = new Date().toISOString().split('T')[0];
-    const todayIndex = data.dates.findLastIndex(date => date <= today);
+    const preTodayIndex = data.dates.findLastIndex(date => date <= today);
     
-    if (todayIndex < 0) return [];
+    if (preTodayIndex < 0) return [];
     
     return visibleMainSeries.map(seriesName => {
         const series = data.series.find(s => s.name === seriesName);
-        if (!series) return { seriesName, ratio7days: null, ratio28days: null };
+        if (!series) return { seriesName, ratio7days: null, ratio28days: null, lastDataDate: null };
         
         console.log(`Calculating ratios for series: ${seriesName}`);
-        const ratio7days = calculatePeriodRatio(series, todayIndex, 7);
-        const ratio28days = calculatePeriodRatio(series, todayIndex, 28);
+        const ratio7days = calculatePeriodRatio(series, preTodayIndex, 7);
+        const ratio28days = calculatePeriodRatio(series, preTodayIndex, 28);
         
         return {
             seriesName,
             ratio7days,
-            ratio28days
+            ratio28days,
+            lastDataDate: new Date(data.dates[preTodayIndex])
         };
     });
 }

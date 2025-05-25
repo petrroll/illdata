@@ -27,7 +27,7 @@ interface ChartConfig {
     shortTitle: string;
     visibilityKey: string;
     chartHolder: { chart: Chart | undefined };
-    datasetVisibility: { [key: string]: boolean }; // TODO: THIS NEEDS TO HANDLE no longer existing / new data series better
+    datasetVisibility: { [key: string]: boolean };
     canvas?: HTMLCanvasElement | null;
 }
 
@@ -445,15 +445,14 @@ function updateRatioTable() {
         ratioTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 8px; border: 1px solid #ddd;">No main series visible</td></tr>';
         return;
     }
-
-    //TODO: If we don't have data until today, the ratio of this week vs last can be completely off, it could  be last vs pre-last
     
     // Calculate ratios for all datasets
     const allRatios: RatioData[] = [];
     visiblePerChart.forEach(([cfg, seriesNames]) => {
         const ratios = calculateRatios(cfg.data, seriesNames);
         ratios.forEach(ratio => {
-            ratio.seriesName =  `${ratio.seriesName} - ${cfg.shortTitle}`; 
+            const daysSinceLastData = (new Date().getTime() - (ratio.lastDataDate ?? new Date()).getTime()) / (1000 * 60 * 60 * 24);
+            ratio.seriesName =  `${ratio.seriesName} - ${cfg.shortTitle} (last data: ${Math.ceil(daysSinceLastData)} days ago)`; 
         });
         allRatios.push(...ratios);
     });
