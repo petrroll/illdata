@@ -223,14 +223,6 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         cutoffDateString = cutoffDate.toISOString().split('T')[0]; // YYYY-MM-DD
     }
 
-    // Retrieve dataset visibility from local storage
-    try {
-        const storedVisibility = localStorage.getItem(cfg.visibilityKey);
-        cfg.datasetVisibility = storedVisibility ? JSON.parse(storedVisibility) : {};
-    } catch (error) {
-        console.error("Error parsing dataset visibility from local storage:", error);
-    }
-
     const localMaximaSeries = data.series
         .filter(series => series.type === 'averaged')
         .filter(series => extremesForWindow == series.windowSizeInDays)
@@ -239,8 +231,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         .filter(series => series.type === 'averaged')
         .filter(series => extremesForWindow == series.windowSizeInDays)
         .map(series => findLocalExtreme(series, extremeWindow, 'minima'))
-    const localMaximaDatasets = generateLocalExtremeDataset(localMaximaSeries, data, cfg.datasetVisibility, cutoffDateString, "red", includeFuture);
-    const localMinimaDatasets = generateLocalExtremeDataset(localMinimaSeries, data, cfg.datasetVisibility, cutoffDateString, "blue", includeFuture);
+    const localMaximaDatasets = generateLocalExtremeDataset(localMaximaSeries, data, cutoffDateString, "red", includeFuture);
+    const localMinimaDatasets = generateLocalExtremeDataset(localMinimaSeries, data, cutoffDateString, "blue", includeFuture);
     data = getNewWithSifterToAlignExtremeDates(data, localMaximaSeries.flat(), 2, 3, true);
 
     // End cutoff based on future inclusion flag
@@ -289,6 +281,27 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
 
     datasets.push(...localMaximaDatasets);
     datasets.push(...localMinimaDatasets);
+
+    const validSeriesNames = new Set<string>(datasets.map(ds => ds.label));
+
+    // Retrieve dataset visibility from local storage
+    try {
+        const storedVisibility = localStorage.getItem(cfg.visibilityKey);
+        cfg.datasetVisibility = storedVisibility ? JSON.parse(storedVisibility) : {};
+    } catch (error) {
+        console.error("Error parsing dataset visibility from local storage:", error);
+    }
+
+    validSeriesNames.forEach(seriesName => { cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[seriesName]  ?? true; });
+    Object.keys(cfg.datasetVisibility).forEach(seriesName => {
+        if (!validSeriesNames.has(seriesName)) {
+            console.log(`Removing visibility for non-existing series: ${seriesName}`);
+            delete cfg.datasetVisibility[seriesName];
+        }
+    });
+    localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
+
+    datasets.forEach(dataset => { dataset.hidden = !cfg.datasetVisibility[dataset.label]; });
 
     return new Chart(cfg.canvas as HTMLCanvasElement, {
         type: "line",
@@ -356,10 +369,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     });
 }
 
-function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData: TimeseriesData, datasetVisibility: { [key: string]: boolean; }, cutoffDateString: string, color: string, includeFuture: boolean) {
+function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData: TimeseriesData, cutoffDateString: string, color: string, includeFuture: boolean) {
     const todayString = new Date().toISOString().split('T')[0];
     return extremeData.flat().map(extrSeries => {
-        const isVisible = datasetVisibility[extrSeries.name] !== undefined ? datasetVisibility[extrSeries.name] : true;
         return {
             label: extrSeries.name,
             data: extrSeries.indices.map(index => ({
@@ -369,7 +381,7 @@ function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData:
             borderColor: color,
             backgroundColor: color,
             fill: false,
-            hidden: !isVisible,
+            hidden: false,
             borderWidth: 1,
             pointRadius: 5,
             type: "scatter",
