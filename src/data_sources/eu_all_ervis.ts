@@ -68,9 +68,10 @@ export function computeEuEcdcData(data: Record<string, string>[]): TimeseriesDat
             name: `${pathogen} Positivity`,
             values: dates.map(date => {
                 const stats = groupedData.get(date)?.get(pathogen);
-                return stats && stats.tests > 0 
-                    ? (stats.detections / stats.tests) * 100 
-                    : 0;
+                return {
+                    positive: stats ? stats.detections : 0,
+                    tests: stats ? stats.tests : 0
+                };
             }),
             type: 'raw',
             frequencyInDays: 7

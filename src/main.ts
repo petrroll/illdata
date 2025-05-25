@@ -3,7 +3,7 @@ import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_d
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, addShiftedToAlignExtremeDates as getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, addShiftedToAlignExtremeDates as getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, datapointToPercentage } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -27,7 +27,7 @@ interface ChartConfig {
     shortTitle: string;
     visibilityKey: string;
     chartHolder: { chart: Chart | undefined };
-    datasetVisibility: { [key: string]: boolean };
+    datasetVisibility: { [key: string]: boolean }; // TODO: THIS NEEDS TO HANDLE no longer existing / new data series better
     canvas?: HTMLCanvasElement | null;
 }
 
@@ -241,7 +241,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         .map(series => findLocalExtreme(series, extremeWindow, 'minima'))
     const localMaximaDatasets = generateLocalExtremeDataset(localMaximaSeries, data, cfg.datasetVisibility, cutoffDateString, "red", includeFuture);
     const localMinimaDatasets = generateLocalExtremeDataset(localMinimaSeries, data, cfg.datasetVisibility, cutoffDateString, "blue", includeFuture);
-    data = getNewWithSifterToAlignExtremeDates(data, localMaximaSeries.flat(), 1, 2, true);
+    data = getNewWithSifterToAlignExtremeDates(data, localMaximaSeries.flat(), 2, 3, true);
 
     // End cutoff based on future inclusion flag
     const todayString = new Date().toISOString().split('T')[0];
@@ -266,9 +266,19 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const datasets = data.series.map((series, index) => {
         const isVisible = cfg.datasetVisibility[series.name] !== undefined ? cfg.datasetVisibility[series.name] : true;
         const colorPalette = series.name.toLowerCase().includes("pcr") ? colorPalettePCR : colorPaletteNonPCR;
+
+        series.values.forEach((element, i) => {
+            if (element === undefined || element === null) {
+                console.warn(`Missing value in series ${series.name} at index ${i}`);
+            }
+            if (element.tests == 0 && element.positive > 0) {
+                console.warn(`Invalid data in series ${series.name} at index ${i}: positive tests ${element.positive} without total tests ${data.dates[i]}`);
+            }
+        });
+
         return {
             label: series.name,
-            data: series.values.slice(startIdx, endIdx),
+            data: series.values.slice(startIdx, endIdx).map(datapointToPercentage),
             borderColor: colorPalette[index % colorPalette.length],
             fill: false,
             hidden: !isVisible,
@@ -354,7 +364,7 @@ function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData:
             label: extrSeries.name,
             data: extrSeries.indices.map(index => ({
                 x: normalData.dates[index],
-                y: normalData.series.find(series => series.name === extrSeries.originalSeriesName)?.values[index] ?? -10
+                y: datapointToPercentage(normalData.series.find(series => series.name === extrSeries.originalSeriesName)?.values[index]) ?? -10
             })).filter(dp => dp.x > cutoffDateString && (includeFuture || dp.x <= todayString)) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
             borderColor: color,
             backgroundColor: color,
@@ -386,7 +396,6 @@ function hideAllSeries(onOptionsChange: () => void) {
 }
 
 function updateRatioTable() { 
-    console.log('Updating ratio table...');
     const ratioTableBody = document.getElementById('ratioTableBody');
     if (!ratioTableBody) {
         console.error('ratioTableBody not found');
@@ -399,7 +408,6 @@ function updateRatioTable() {
     // Collect all visible main series (non-averaged, non-extreme series)
     const visiblePerChart: [ChartConfig, string[]][] = [];
     
-    console.log('Checking charts for visible main series...');
     chartConfigs.forEach((cfg, index) => {
         const chart = cfg.chartHolder.chart;
         if (!chart) {
@@ -407,20 +415,26 @@ function updateRatioTable() {
             return;
         }
 
-        const visibleInThisChart = cfg.data.series.filter(series =>
-            series.type === 'raw' && // Only consider raw series
-            cfg.datasetVisibility[series.name] // Only consider series that are not hidden
-        ).map(series => series.name);
+        const visibleInThisChart = cfg.data.series.filter(series => {
+            if (series.type !== 'raw') return false;
+            
+            // Check if any key in datasetVisibility contains this series name and has a true value
+            return Object.entries(cfg.datasetVisibility).some(([key, isVisible]) => {
+                console.log(`Checking visibility for ${series.name} in ${key}: ${isVisible}`);
+                return key.includes(series.name) && isVisible;
+            });
+        }).map(series => series.name);
 
         visiblePerChart.push([cfg, visibleInThisChart]);
     });
-    console.log('visiblePerChart:', visiblePerChart);
     
     if (visiblePerChart.length === 0) {
         console.error('No visible main series found');
         ratioTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 8px; border: 1px solid #ddd;">No main series visible</td></tr>';
         return;
     }
+
+    //TOOD: If we don't have data until today, the ratio of this week vs last can be completely off, it could  be last vs pre-last
     
     // Calculate ratios for all datasets
     const allRatios: RatioData[] = [];
