@@ -473,8 +473,8 @@ function updateRatioTable() {
         // Add color coding based on ratio values
         const cells = row.querySelectorAll('td');
         [ratio.ratio7days, ratio.ratio28days].forEach((ratioValue, index) => {
-            if (ratioValue !== null && index > 0) { // Skip the series name column
-                const cell = cells[index + 1];
+            if (ratioValue !== null && index >= 0) {
+                const cell = cells[index + 1]; // Skip the series name column
                 if (ratioValue > 1.1) {
                     cell.style.backgroundColor = '#ffebee'; // Light red for increasing
                     cell.style.color = '#c62828';
