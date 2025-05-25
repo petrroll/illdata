@@ -409,8 +409,9 @@ function hideAllSeries(onOptionsChange: () => void) {
 
 function updateRatioTable() { 
     const ratioTableBody = document.getElementById('ratioTableBody');
-    if (!ratioTableBody) {
-        console.error('ratioTableBody not found');
+    const ratioTableHead = document.getElementById('ratioTableHead');
+    if (!ratioTableBody || !ratioTableHead) {
+        console.error('ratioTableBody or ratioTableHead not found');
         return;
     }
     
@@ -442,7 +443,7 @@ function updateRatioTable() {
     
     if (visiblePerChart.length === 0) {
         console.error('No visible main series found');
-        ratioTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 8px; border: 1px solid #ddd;">No main series visible</td></tr>';
+        ratioTableBody.innerHTML = '<tr><td colspan="2" style="text-align: center; padding: 8px; border: 1px solid #ddd;">No main series visible</td></tr>';
         return;
     }
     
@@ -456,33 +457,67 @@ function updateRatioTable() {
         });
         allRatios.push(...ratios);
     });
+    
+    // Build the header row with series names
+    const headerRow = ratioTableHead.querySelector('tr');
+    if (headerRow) {
+        // Clear existing headers except the first one
+        while (headerRow.children.length > 1) {
+            headerRow.removeChild(headerRow.lastChild!);
+        }
         
-    // Populate table
-    allRatios.forEach(ratio => {
+        // Add column headers for each series
+        allRatios.forEach(ratio => {
+            const th = document.createElement('th');
+            th.style.border = '1px solid #ddd';
+            th.style.padding = '8px';
+            th.style.textAlign = 'center';
+            th.style.fontSize = '0.85em';
+            th.innerHTML = ratio.seriesName;
+            headerRow.appendChild(th);
+        });
+    }
+    
+    // Create rows for 7-day and 28-day trends
+    const trendPeriods = [
+        { label: '7-day trend<br><small>(recent vs prior)</small>', getValue: (ratio: RatioData) => ratio.ratio7days },
+        { label: '28-day trend<br><small>(recent vs prior)</small>', getValue: (ratio: RatioData) => ratio.ratio28days }
+    ];
+    
+    trendPeriods.forEach(period => {
         const row = document.createElement('tr');
-        row.innerHTML = `
-            <td style="border: 1px solid #ddd; padding: 8px;">${ratio.seriesName}</td>
-            <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
-                ${ratio.ratio7days !== null ? ratio.ratio7days.toFixed(2) + 'x' : 'N/A'}
-            </td>
-            <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
-                ${ratio.ratio28days !== null ? ratio.ratio28days.toFixed(2) + 'x' : 'N/A'}
-            </td>
-        `;
         
-        // Add color coding based on ratio values
-        const cells = row.querySelectorAll('td');
-        [ratio.ratio7days, ratio.ratio28days].forEach((ratioValue, index) => {
-            if (ratioValue !== null && index >= 0) {
-                const cell = cells[index + 1]; // Skip the series name column
-                if (ratioValue > 1.1) {
+        // First cell: trend period label
+        const labelCell = document.createElement('td');
+        labelCell.style.border = '1px solid #ddd';
+        labelCell.style.padding = '8px';
+        labelCell.style.backgroundColor = '#f5f5f5';
+        labelCell.style.fontWeight = 'bold';
+        labelCell.innerHTML = period.label;
+        row.appendChild(labelCell);
+        
+        // Data cells for each series
+        allRatios.forEach(ratio => {
+            const cell = document.createElement('td');
+            cell.style.border = '1px solid #ddd';
+            cell.style.padding = '8px';
+            cell.style.textAlign = 'center';
+            
+            const value = period.getValue(ratio);
+            cell.textContent = value !== null ? value.toFixed(2) + 'x' : 'N/A';
+            
+            // Add color coding based on ratio values
+            if (value !== null) {
+                if (value > 1.1) {
                     cell.style.backgroundColor = '#ffebee'; // Light red for increasing
                     cell.style.color = '#c62828';
-                } else if (ratioValue < 0.9) {
+                } else if (value < 0.9) {
                     cell.style.backgroundColor = '#e8f5e8'; // Light green for decreasing
                     cell.style.color = '#2e7d32';
                 }
             }
+            
+            row.appendChild(cell);
         });
         
         ratioTableBody.appendChild(row);
