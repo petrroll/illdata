@@ -153,3 +153,59 @@ function isExtremeWindow(series: number[], index: number, windowSizeInIndex: num
 
     return true;
 }
+
+export interface RatioData {
+    seriesName: string;
+    ratio7days: number | null;
+    ratio28days: number | null;
+}
+
+export function calculateRatios(data: TimeseriesData, visibleMainSeries: string[]): RatioData[] {
+    const today = new Date().toISOString().split('T')[0];
+    const todayIndex = data.dates.findLastIndex(date => date <= today);
+    
+    if (todayIndex < 0) return [];
+    
+    return visibleMainSeries.map(seriesName => {
+        const series = data.series.find(s => s.name === seriesName);
+        if (!series) return { seriesName, ratio7days: null, ratio28days: null };
+        
+        console.log(`Calculating ratios for series: ${seriesName}`);
+        const ratio7days = calculatePeriodRatio(series.values, todayIndex, 7, series.frequencyInDays);
+        const ratio28days = calculatePeriodRatio(series.values, todayIndex, 28, series.frequencyInDays);
+        
+        return {
+            seriesName,
+            ratio7days,
+            ratio28days
+        };
+    });
+}
+
+function calculatePeriodRatio(values: number[], endIndex: number, periodDays: number, frequencyInDays: number): number | null {
+    const periodIndices = Math.floor(periodDays / frequencyInDays);
+    
+    // Calculate current period average (last N days)
+    const currentStart = Math.max(0, endIndex - periodIndices + 1);
+    const currentEnd = endIndex + 1;
+    
+    // Calculate previous period average (N days before that)
+    const previousStart = Math.max(0, currentStart - periodIndices);
+    const previousEnd = currentStart;
+    
+    if (previousStart >= previousEnd || currentStart >= currentEnd) return null;
+    
+    const currentValues = values.slice(currentStart, currentEnd).filter(v => !isNaN(v) && v !== null);
+    const previousValues = values.slice(previousStart, previousEnd).filter(v => !isNaN(v) && v !== null);
+    
+    if (currentValues.length === 0 || previousValues.length === 0) return null;
+    
+    const currentAvg = currentValues.reduce((sum, val) => sum + val, 0) / currentValues.length;
+    const previousAvg = previousValues.reduce((sum, val) => sum + val, 0) / previousValues.length;
+
+    console.log(`Current Avg: ${currentAvg}, Previous Avg: ${previousAvg}`);
+    
+    if (previousAvg === 0) return null;
+    
+    return currentAvg / previousAvg;
+}
