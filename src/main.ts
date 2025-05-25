@@ -446,7 +446,7 @@ function updateRatioTable() {
         return;
     }
 
-    //TOOD: If we don't have data until today, the ratio of this week vs last can be completely off, it could  be last vs pre-last
+    //TODO: If we don't have data until today, the ratio of this week vs last can be completely off, it could  be last vs pre-last
     
     // Calculate ratios for all datasets
     const allRatios: RatioData[] = [];
