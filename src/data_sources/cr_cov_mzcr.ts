@@ -5,15 +5,20 @@ export function computeCzCovPositivityData(data: Record<string, string>[]): Time
     const processedData = data.map(row => {
         const datum = normalizeDate(row["datum"] || row["Datum"] || "");
 
-        const pcrTotal = toFloat(row, "pocet_PCR_testy");
-        const antigenTotal = toFloat(row, "pocet_AG_testy");
+        let pcr = getPositivity("pocet_PCR_testy", ["PCR_pozit_sympt", "PCR_pozit_asymp"]);
+        let ag = getPositivity("pocet_AG_testy", ["AG_pozit_symp", "AG_pozit_asymp_PCR_conf"]);
+        return { datum, pcr, ag };
 
-        const antigenPos = toFloat(row, "AG_pozit_symp") + toFloat(row, "AG_pozit_asymp_PCR_conf");
-        const pcrPos = toFloat(row, "PCR_pozit_sympt") + toFloat(row, "PCR_pozit_asymp");
+        function getPositivity(totalColumn: string ,positiveColumns: string[]) {
+            var total = toFloat(row, totalColumn);
+            var positives = positiveColumns.map(col => toFloat(row, col)).reduce((a, b) => a + b, 0);
 
-        const pcrRate = pcrTotal ? (pcrPos / pcrTotal) * 100 : 0;
-        const antigenRate = antigenTotal ? (antigenPos / antigenTotal) * 100 : 0;
-        return { datum, pcrRate, antigenRate };
+            if (positives > 0 && total === 0) {
+                console.log(`Warning: PCR positivity is greater than zero ${positives} but total PCR tests are zero on date ${datum}. This may indicate an issue with the data.`);
+                positives = 0; // Reset to zero to avoid misleading positivity rate
+            }
+            return { positive: positives, tests: total };
+        }
     });
 
     return {
@@ -21,13 +26,13 @@ export function computeCzCovPositivityData(data: Record<string, string>[]): Time
         series: [
             {
                 name: "PCR Positivity",
-                values: processedData.map(row => row.pcrRate),
+                values: processedData.map(row => row.pcr),
                 type: 'raw',
                 frequencyInDays: 1
             },
             {
                 name: "Antigen Positivity",
-                values: processedData.map(row => row.antigenRate),
+                values: processedData.map(row => row.ag),
                 type: 'raw',
                 frequencyInDays: 1,
             }

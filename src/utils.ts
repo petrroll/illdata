@@ -5,9 +5,14 @@ export interface TimeseriesData {
     series: LinearSeries[];
 }
 
+export interface Datapoint {
+    positive: number;
+    tests: number;
+}
+
 export interface LinearSeries {
     name: string;
-    values: number[];
+    values: Datapoint[];
     type: 'raw' | 'averaged';
     windowSizeInDays?: number;
     frequencyInDays: number;
@@ -65,7 +70,7 @@ export function addShiftedToAlignExtremeDates(
                 const length = series.values.length + (includeFutureDates ? extraCount : 0);
                 const shiftedValues = Array.from({ length }, (_, i) => {
                     const idx = i + shiftByIndexes;
-                    return idx < 0 || idx >= series.values.length ? NaN : series.values[idx];
+                    return idx < 0 || idx >= series.values.length ? { positive: 0, tests: NaN } : series.values[idx];
                 });
                 return {
                     name: `${series.name} SHIFTED -${shiftByIndexes * series.frequencyInDays} day(s)`,
@@ -94,20 +99,17 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
         const adjustedWindowSizes = windowSizes.map(w => windowSizeDaysToIndex(w, series.frequencyInDays));
         return adjustedWindowSizes.map((windowSizeInIndex, i) => {
             const averagedValues = series.values.map((v, j) => {
-                let sum = 0;
-                let count = 0;
+                let sumPos = 0;
+                let sumTotal = 0;
                 for (let k = -Math.floor(windowSizeInIndex/2); k <= Math.floor(windowSizeInIndex/2); k++) {
-                    const index = j + k;
-                    count += 1;
-                    if (index >= 0 && index < series.values.length) {
-                        sum += series.values[index];
-                    } else if (index < 0) {
-                        sum += series.values[0];
-                    } else if (index >= series.values.length) {
-                        sum += series.values[series.values.length - 1];
-                    }
+                    let index = j + k;
+                    if (index < 0) { index = 0; }
+                    if (index >= series.values.length) { index = series.values.length - 1; }
+                    
+                    sumPos += series.values[index].positive;
+                    sumTotal += series.values[index].tests;
                 }
-                return sum / count;
+                return { positive: sumPos, tests: sumTotal };
             })
             const originalWindowSize = windowSizes[i];
             return {
@@ -131,24 +133,32 @@ export function findLocalExtreme(series: LinearSeries, desiredWindowSizeInDays: 
 
     const localMaximaIndices: number[] = [];
     for (let i = 1; i < series.values.length - 1; i++) {
-        if (isExtremeWindow(series.values, i, windowSizeDaysToIndex(desiredWindowSizeInDays, series.frequencyInDays), extreme)) {
+        if (isExtremeWindow(series, i, windowSizeDaysToIndex(desiredWindowSizeInDays, series.frequencyInDays), extreme)) {
             localMaximaIndices.push(i);
         }
     }
+    if (localMaximaIndices.length === 0) {
+        console.warn(`No ${extreme} found in series ${series.name} with window size ${desiredWindowSizeInDays} days`);
+        return [];
+    }
+
     maximaSeries.push({ name: `${series.name} ${extreme} over ${desiredWindowSizeInDays}d`, originalSeriesName: series.name, indices: localMaximaIndices });
 
     return maximaSeries;
 }
 
-function isExtremeWindow(series: number[], index: number, windowSizeInIndex: number, extreme: 'maxima'|'minima'): boolean {
+function isExtremeWindow(series: LinearSeries, index: number, windowSizeInIndex: number, extreme: 'maxima'|'minima'): boolean {
     const halfWindowSize = Math.floor(windowSizeInIndex / 2);
     const start = Math.max(0, index - halfWindowSize);
-    const end = Math.min(series.length - 1, index + halfWindowSize);
+    const end = Math.min(series.values.length - 1, index + halfWindowSize);
 
+    const indexVal = datapointToPercentage(series.values[index]);
     for (let i = start; i <= end; i++) {
         if (i === index) continue; // Skip self-comparison
-        if (extreme === 'maxima' && series[i] >= series[index]) { return false; }
-        else if (extreme === 'minima' && series[i] <= series[index]) { return false; }
+
+        const iVal = datapointToPercentage(series.values[i]);
+        if (extreme === 'maxima' && iVal >= indexVal) { return false; }
+        else if (extreme === 'minima' && iVal <= indexVal) { return false; }
     }
 
     return true;
@@ -171,8 +181,8 @@ export function calculateRatios(data: TimeseriesData, visibleMainSeries: string[
         if (!series) return { seriesName, ratio7days: null, ratio28days: null };
         
         console.log(`Calculating ratios for series: ${seriesName}`);
-        const ratio7days = calculatePeriodRatio(series.values, todayIndex, 7, series.frequencyInDays);
-        const ratio28days = calculatePeriodRatio(series.values, todayIndex, 28, series.frequencyInDays);
+        const ratio7days = calculatePeriodRatio(series, todayIndex, 7);
+        const ratio28days = calculatePeriodRatio(series, todayIndex, 28);
         
         return {
             seriesName,
@@ -182,8 +192,8 @@ export function calculateRatios(data: TimeseriesData, visibleMainSeries: string[
     });
 }
 
-function calculatePeriodRatio(values: number[], endIndex: number, periodDays: number, frequencyInDays: number): number | null {
-    const periodIndices = Math.floor(periodDays / frequencyInDays);
+function calculatePeriodRatio(serie: LinearSeries, endIndex: number, periodDays: number): number | null {
+    const periodIndices = Math.floor(periodDays / serie.frequencyInDays);
     
     // Calculate current period average (last N days)
     const currentStart = Math.max(0, endIndex - periodIndices + 1);
@@ -195,17 +205,21 @@ function calculatePeriodRatio(values: number[], endIndex: number, periodDays: nu
     
     if (previousStart >= previousEnd || currentStart >= currentEnd) return null;
     
-    const currentValues = values.slice(currentStart, currentEnd).filter(v => !isNaN(v) && v !== null);
-    const previousValues = values.slice(previousStart, previousEnd).filter(v => !isNaN(v) && v !== null);
+    const currentValues = serie.values.slice(currentStart, currentEnd);
+    const previousValues = serie.values.slice(previousStart, previousEnd);
     
     if (currentValues.length === 0 || previousValues.length === 0) return null;
     
-    const currentAvg = currentValues.reduce((sum, val) => sum + val, 0) / currentValues.length;
-    const previousAvg = previousValues.reduce((sum, val) => sum + val, 0) / previousValues.length;
+    const current = currentValues.reduce((sum, val) => {sum.positive += val.positive; sum.tests += val.tests; return sum;}, {positive: 0, tests: 0});
+    const previous = previousValues.reduce((sum, val) => {sum.positive += val.positive; sum.tests += val.tests; return sum;}, {positive: 0, tests: 0});
 
-    console.log(`Current Avg: ${currentAvg}, Previous Avg: ${previousAvg}`);
-    
-    if (previousAvg === 0) return null;
-    
+    const currentAvg = datapointToPercentage(current);
+    const previousAvg = datapointToPercentage(previous);
+
     return currentAvg / previousAvg;
+}
+
+export function datapointToPercentage(datapoint: Datapoint | undefined): number {
+    if (!datapoint || datapoint.tests === 0) return NaN;
+    return (datapoint.positive / datapoint.tests) * 100;
 }
