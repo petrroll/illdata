@@ -332,6 +332,10 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
 
                         // Update ratio table after legend click
                         updateRatioTable()
+                    },
+                    labels: {
+                        usePointStyle: true,
+                        pointStyle: 'circle'
                     }
                 },
                 tooltip: {
