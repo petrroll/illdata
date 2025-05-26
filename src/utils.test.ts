@@ -171,7 +171,7 @@ describe('computeMovingAverageTimeseries Tests', () => {
         
         expect(result.dates).toEqual(input.dates);
         expect(result.series).toHaveLength(input.series.length + 1);
-        expect(result.series[input.series.length].name).toBe('Test Series - 3 day(s) avg');
+        expect(result.series[input.series.length].name).toBe('Test Series (3d avg)');
         expect(result.series[input.series.length].type).toBe('averaged');
         expect(result.series[input.series.length].windowSizeInDays).toBe(3);
         
@@ -202,8 +202,8 @@ describe('computeMovingAverageTimeseries Tests', () => {
         const result = computeMovingAverageTimeseries(input, windowSizes);
         
         expect(result.series).toHaveLength(input.series.length + 2);
-        expect(result.series[input.series.length].name).toBe('Multi Window - 3 day(s) avg');
-        expect(result.series[input.series.length + 1].name).toBe('Multi Window - 5 day(s) avg');
+        expect(result.series[input.series.length].name).toBe('Multi Window (3d avg)');
+        expect(result.series[input.series.length + 1].name).toBe('Multi Window (5d avg)');
     });
 
     test('handles single day window size', () => {
@@ -221,7 +221,7 @@ describe('computeMovingAverageTimeseries Tests', () => {
         };
         const result = computeMovingAverageTimeseries(input, [1]);
         
-        expect(result.series[1].name).toBe('Single Day - 1 day() avg');
+        expect(result.series[1].name).toBe('Single Day (1d avg)');
         expect(result.series[1].windowSizeInDays).toBe(1);
     });
 

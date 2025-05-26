@@ -73,7 +73,7 @@ export function addShiftedToAlignExtremeDates(
                     return idx < 0 || idx >= series.values.length ? { positive: 0, tests: NaN } : series.values[idx];
                 });
                 return {
-                    name: `${series.name} SHIFTED -${shiftByIndexes * series.frequencyInDays} day(s)`,
+                    name: `${series.name} shifted by ${shiftByIndexes * series.frequencyInDays}d`,
                     type: 'raw' as const,
                     values: shiftedValues,
                     frequencyInDays: series.frequencyInDays
@@ -113,7 +113,7 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
             })
             const originalWindowSize = windowSizes[i];
             return {
-                name: `${series.name} - ${originalWindowSize} day(${originalWindowSize === 1 ? '' : 's'}) avg`,
+                name: `${series.name} (${originalWindowSize}d avg)`,
                 values: averagedValues,
                 type: 'averaged',
                 windowSizeInDays: windowSizes[i],

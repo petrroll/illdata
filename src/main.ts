@@ -453,7 +453,7 @@ function updateRatioTable() {
         const ratios = calculateRatios(cfg.data, seriesNames);
         ratios.forEach(ratio => {
             const daysSinceLastData = (new Date().getTime() - (ratio.lastDataDate ?? new Date()).getTime()) / (1000 * 60 * 60 * 24);
-            ratio.seriesName =  `${ratio.seriesName} - ${cfg.shortTitle} (last data: ${Math.ceil(daysSinceLastData)} days ago)`; 
+            ratio.seriesName =  `${ratio.seriesName} - ${cfg.shortTitle} (last: -${Math.ceil(daysSinceLastData)}d)`; 
         });
         allRatios.push(...ratios);
     });
@@ -480,8 +480,8 @@ function updateRatioTable() {
     
     // Create rows for 7-day and 28-day trends
     const trendPeriods = [
-        { label: '7-day trend<br><small>(recent vs prior)</small>', getValue: (ratio: RatioData) => ratio.ratio7days },
-        { label: '28-day trend<br><small>(recent vs prior)</small>', getValue: (ratio: RatioData) => ratio.ratio28days }
+        { label: '7d trend<br><small>(vs prior)</small>', getValue: (ratio: RatioData) => ratio.ratio7days },
+        { label: '28d trend<br><small>(vs prior)</small>', getValue: (ratio: RatioData) => ratio.ratio28days }
     ];
     
     trendPeriods.forEach(period => {
