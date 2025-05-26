@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
   schedule:
     - cron: "0 0 * * 1" # Every Monday at midnight UTC
 
@@ -13,6 +15,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  pull-requests: write
 
 jobs:
   build:
@@ -24,7 +27,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
 
-      - name: Insteall dependencies
+      - name: Install dependencies
         run: bun install
 
       - name: Run data processor script
@@ -41,15 +44,66 @@ jobs:
         with:
           path: './dist/'
 
+  # Deploy to the github-pages environment for main branch
   deploy:
+    if: github.event_name == 'push' || github.event_name == 'schedule'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     needs: build
     runs-on: ubuntu-latest
-    name: Deploy
+    name: Deploy Production
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  # Deploy PR previews
+  deploy-preview:
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    environment:
+      name: github-pages-preview
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
+    name: Deploy Preview
+    steps:
+      - name: Deploy PR Preview
+        id: deployment
+        uses: actions/deploy-pages@v4
+        with:
+          preview: true
+          
+      - name: Comment on PR with preview URL
+        uses: actions/github-script@v6
+        if: success()
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue_number = context.issue.number;
+            const url = '${{ steps.deployment.outputs.page_url }}';
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue_number,
+              body: `📝 Preview deployment for this PR is ready!\n\n🔗 [View Preview](${url})`
+            });
       
+  # Clean up PR preview when PR is closed
+  cleanup-preview:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    name: Cleanup Preview
+    steps:
+      - name: Comment on PR about cleanup
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue_number = context.issue.number;
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue_number,
+              body: `🧹 Preview deployment has been cleaned up as this PR is now closed.`
+            });
