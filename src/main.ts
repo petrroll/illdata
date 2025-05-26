@@ -335,7 +335,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     },
                     labels: {
                         usePointStyle: true,
-                        pointStyle: 'circle'
+                        pointStyle: 'circle',
+                        boxWidth: 6,
+                        padding: 15
                     }
                 },
                 tooltip: {
