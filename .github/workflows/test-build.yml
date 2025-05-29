@@ -1,0 +1,29 @@
+name: Test Build
+
+on:
+  workflow_dispatch:
+  
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run data processor script
+        run: bun run ./src/data_processor.ts
+
+      - name: Build index.html with Bun
+        run: bun build ./index.html --outdir=./dist
+
+      - name: List build output
+        run: |
+          echo "Build output:"
+          ls -la dist/
+          echo "Build completed successfully!"

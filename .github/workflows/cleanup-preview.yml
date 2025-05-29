@@ -1,0 +1,76 @@
+name: Cleanup PR Preview
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  pull-requests: write
+
+jobs:
+  cleanup-preview:
+    runs-on: ubuntu-latest
+    outputs:
+      cleanup_performed: ${{ steps.cleanup.outputs.CLEANUP_PERFORMED }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download existing site artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+          path: ./existing-site/
+        continue-on-error: true
+
+      - name: Extract existing site if available
+        run: ./.github/scripts/extract-existing-site.sh ./existing-site/ ./existing-site-extracted/
+
+      - name: Cleanup preview deployment
+        id: cleanup
+        run: ./.github/scripts/cleanup-specific-preview.sh ${{ github.event.number }} "$EXISTING_SITE_PATH"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+        if: steps.cleanup.outputs.CLEANUP_PERFORMED == 'true'
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        if: steps.cleanup.outputs.CLEANUP_PERFORMED == 'true'
+        with:
+          path: './deployment/'
+
+  deploy-cleanup:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: cleanup-preview
+    runs-on: ubuntu-latest
+    name: Deploy After Cleanup
+    if: needs.cleanup-preview.outputs.cleanup_performed == 'true'
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `🧹 **Preview cleanup completed!**
+              
+              The preview deployment for this PR has been removed from GitHub Pages.
+              
+              ---
+              
+              ℹ️ This is an automated cleanup for closed PR #${context.payload.pull_request.number}`
+            });
