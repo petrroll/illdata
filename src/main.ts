@@ -334,9 +334,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                         updateRatioTable()
                     },
                     labels: {
-                        usePointStyle: true,
-                        pointStyle: 'circle',
-                        boxWidth: 6,
+                        boxWidth: 0,
                         padding: 15
                     }
                 },
