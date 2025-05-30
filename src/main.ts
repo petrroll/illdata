@@ -263,13 +263,12 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         .filter(series => series.type === 'averaged')
         .filter(series => extremesForWindow == series.windowSizeInDays)
         .map(series => findLocalExtreme(series, extremeWindow, 'minima'))
+    // Always process extreme dates for shifting, regardless of whether they're shown
+    data = getNewWithSifterToAlignExtremeDates(data, localMaximaSeries.flat(), 2, 3, true);
+    
+    // Only create the datasets for extremes when showExtremes is true
     const localMaximaDatasets = showExtremes ? generateLocalExtremeDataset(localMaximaSeries, data, cutoffDateString, "red", includeFuture) : [];
     const localMinimaDatasets = showExtremes ? generateLocalExtremeDataset(localMinimaSeries, data, cutoffDateString, "blue", includeFuture) : [];
-    
-    // Only process extreme dates when showExtremes is true
-    if (showExtremes) {
-        data = getNewWithSifterToAlignExtremeDates(data, localMaximaSeries.flat(), 2, 3, true);
-    }
 
     // End cutoff based on future inclusion flag
     const todayString = new Date().toISOString().split('T')[0];
