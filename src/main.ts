@@ -188,30 +188,15 @@ function renderPage(rootDiv: HTMLElement | null) {
         onChange: (val) => onOptionsChange(undefined, val, undefined)
     });
 
-    // Add settings to the footer element
-    const footer = document.getElementsByTagName("footer")[0];
-    const settingsContainer = document.createElement("div");
-    settingsContainer.style.marginTop = "10px";
-    settingsContainer.style.display = "flex";
-    settingsContainer.style.justifyContent = "center";
-    settingsContainer.style.alignItems = "center";
-    
-    const settingsLabel = document.createElement("span");
-    settingsLabel.textContent = "Settings: ";
-    settingsLabel.style.marginRight = "10px";
-    settingsContainer.appendChild(settingsLabel);
-    
     currentShowExtremes = createPreferenceControl<boolean>({
         type: 'checkbox',
         id: 'showExtremesCheckbox',
         label: 'Show Min/Max Series',
-        container: settingsContainer,
+        container: rootDiv,
         localStorageKey: SHOW_EXTREMES_KEY,
         defaultValue: false,
         onChange: (val) => onOptionsChange(undefined, undefined, val)
     });
-    
-    footer.appendChild(settingsContainer);
 
     // Initial render
     onOptionsChange();
