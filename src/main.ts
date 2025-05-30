@@ -137,13 +137,16 @@ function renderPage(rootDiv: HTMLElement | null) {
     // Unified state
     let currentTimeRange: string;
     let currentIncludeFuture: boolean;
-    let currentShowExtremes: boolean;
+    let currentShowExtremes: boolean = false; // Initialize with default value
 
     // Unified callback
     function onOptionsChange(newTimeRange?: string, newIncludeFuture?: boolean, newShowExtremes?: boolean) {
         if (typeof newTimeRange !== 'undefined') currentTimeRange = newTimeRange;
         if (typeof newIncludeFuture !== 'undefined') currentIncludeFuture = newIncludeFuture;
         if (typeof newShowExtremes !== 'undefined') currentShowExtremes = newShowExtremes;
+        
+        console.log(`Options changed: timeRange=${currentTimeRange}, includeFuture=${currentIncludeFuture}, showExtremes=${currentShowExtremes}`);
+        
         chartConfigs.forEach(cfg => {
             if ((cfg as any).canvas) {
                 cfg.chartHolder.chart = updateChart(
