@@ -404,6 +404,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
             cursor: pointer;
             user-select: none;
             opacity: ${dataset.hidden ? '0.5' : '1'};
+            text-decoration: ${dataset.hidden ? 'line-through' : 'none'};
             font-family: Arial, sans-serif;
         `;
         legendItem.textContent = dataset.label || `Dataset ${index}`;
@@ -426,6 +427,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
             // Update chart and legend item opacity
             chart.update();
             legendItem.style.opacity = newVisibility ? '1' : '0.5';
+            legendItem.style.textDecoration = newVisibility ? 'none' : 'line-through';
             
             // Update ratio table
             updateRatioTable();
