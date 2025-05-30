@@ -1,4 +1,4 @@
-name: main-deploy-gh-pages
+name: ghp-deploy-main
 
 on:
   workflow_dispatch:
@@ -21,17 +21,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-
-      - name: Get run ID of "Deploy to GitHub Pages" workflow
+      - name: Get run ID of latest workflow that deployed to GitHub Pages
         id: get-run-id
-        run: |
-          OTHER_REPO="${{ github.repository }}"
-          WF_NAME="main-deploy-gh-pages"
-          RUN_MAIN=`gh run --repo ${OTHER_REPO} list --workflow ${WF_NAME} --json databaseId,status,startedAt --jq '[.[] | select(.status == "completed")][0]'`
-          RUN_ID=`echo $RUN_MAIN | jq -r '.databaseId'`
-          RUN_DATE=`echo $RUN_MAIN | jq -r '.startedAt'`
-          echo "Detected latest run id of ${RUN_ID} at ${RUN_DATE} for workflow ${WF_NAME}"
-          echo "run-id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+        run: ./.github/scripts/get-latest-run-id.sh
         env:
           GH_TOKEN: ${{ github.token }}
 
@@ -82,4 +74,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-      

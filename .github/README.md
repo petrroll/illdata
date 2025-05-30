@@ -16,11 +16,12 @@ GitHub Pages (gh-pages branch):
 
 ## 📋 Workflows
 
-### 1. Main Deployment (`deploy.yml`)
+### 1. Main Deployment (`ghp-deploy-main.yml`)
 
 **Triggers:**
 - Push to `main` branch
 - Scheduled daily (every day at midnight UTC)
+- Manual workflow dispatch
 
 **Actions:**
 - Builds the project using Bun
@@ -28,7 +29,7 @@ GitHub Pages (gh-pages branch):
 - Preserves existing PR previews
 - Deploys to GitHub Pages root
 
-### 2. PR Preview (`pr-preview.yml`)
+### 2. PR Preview (`ghp-deploy-pr.yml`)
 
 **Triggers:**
 - Pull request opened, updated, or reopened against `main` branch
@@ -43,7 +44,7 @@ GitHub Pages (gh-pages branch):
 - Individual PR: `https://{username}.github.io/{repo}/previews/pr-{number}/`
 - All previews: `https://{username}.github.io/{repo}/previews/`
 
-### 3. Preview Cleanup (`cleanup-preview.yml`)
+### 3. Preview Cleanup (`ghp-clean-pr-closed.yml`)
 
 **Triggers:**
 - Pull request closed
@@ -67,6 +68,7 @@ GitHub Pages (gh-pages branch):
 
 The system uses reusable bash scripts for DRY (Don't Repeat Yourself) implementation:
 
+- **`.github/scripts/get-latest-run-id.sh`** - Finds the most recent completed GitHub Pages deployment run across all workflows
 - **`.github/scripts/prepare-deployment.sh`** - Unified deployment preparation for main and PR modes
 - **`.github/scripts/extract-existing-site.sh`** - Standardized artifact extraction across all workflows
 - **`.github/scripts/cleanup-specific-preview.sh`** - Handles cleanup of specific PR previews
@@ -96,9 +98,21 @@ The workflows require the following permissions (automatically configured):
 
 ## 🔄 How It Works
 
+### Artifact-Based Deployment Strategy
+
+The system uses a sophisticated artifact-based approach to manage GitHub Pages deployments:
+
+1. **Artifact Discovery**: The `get-latest-run-id.sh` script automatically finds the most recent completed deployment across all workflows (`ghp-deploy-main`, `ghp-deploy-pr`, `ghp-clean-pr-closed`)
+
+2. **Site Preservation**: Before any deployment, the current GitHub Pages content is downloaded as an artifact and extracted using `extract-existing-site.sh`
+
+3. **Selective Updates**: Each workflow only modifies its specific area (main site or specific PR preview) while preserving all other content
+
+4. **Conditional Deployment**: Workflows only trigger actual deployments when changes are detected, preventing unnecessary GitHub Pages updates
+
 ### PR Preview Workflow
 1. **When a PR is opened or updated:**
-   - Downloads existing GitHub Pages artifact
+   - Downloads existing GitHub Pages artifact using latest run ID
    - Extracts current site content
    - Builds PR changes
    - Deploys to `/previews/pr-{number}/` while preserving main site
@@ -112,7 +126,7 @@ The workflows require the following permissions (automatically configured):
 
 ### Main Site Deployment
 1. **When main branch is updated:**
-   - Downloads existing site artifact
+   - Downloads existing site artifact using latest run ID
    - Builds new main site
    - Preserves all existing PR previews
    - Deploys updated main site to root
@@ -123,6 +137,9 @@ The workflows require the following permissions (automatically configured):
 ```bash
 # Trigger test build workflow
 gh workflow run test-build.yml
+
+# Trigger main deployment workflow manually
+gh workflow run ghp-deploy-main.yml
 ```
 
 ### View Workflow Status
@@ -182,6 +199,11 @@ ls -la dist/
 
 3. **Test scripts locally:**
    ```bash
+   # Test latest run ID script (requires GitHub CLI and GITHUB_REPOSITORY env var)
+   export GITHUB_REPOSITORY="owner/repo"
+   export GITHUB_OUTPUT="/tmp/test_output"
+   ./.github/scripts/get-latest-run-id.sh
+   
    # Test extraction script
    ./.github/scripts/extract-existing-site.sh ./test-artifact/ ./test-output/
    
@@ -200,7 +222,9 @@ ls -la dist/
 ## 🎯 Key Benefits
 
 - **Reliability**: Artifact-based deployment prevents conflicts
-- **Maintainability**: DRY implementation with reusable scripts
+- **Maintainability**: DRY implementation with reusable scripts eliminates code duplication
 - **Efficiency**: Conditional deployments only when changes occur
 - **Isolation**: PR previews don't interfere with main site
 - **Cleanup**: Automatic removal when PRs are closed
+- **Consistency**: Common script ensures identical artifact discovery logic across all workflows
+- **Debugging**: Centralized run ID detection makes troubleshooting easier

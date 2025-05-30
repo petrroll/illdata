@@ -1,4 +1,4 @@
-name: PR Preview Build
+name: ghp-deploy-pr
 
 on:
   pull_request:
@@ -20,10 +20,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download existing site artifact
+      - name: Get run ID of latest workflow that deployed to GitHub Pages
+        id: get-run-id
+        run: ./.github/scripts/get-latest-run-id.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Download artifact from "Deploy to GitHub Pages" workflow
         uses: actions/download-artifact@v4
         with:
-          name: github-pages
+          name: github-pages # Match name used in test.yml upload artifact step
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.get-run-id.outputs.run-id }}
           path: ./existing-site/
         continue-on-error: true
 
