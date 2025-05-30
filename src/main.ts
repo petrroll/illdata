@@ -410,17 +410,22 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
         
         // Add click handler for toggling visibility
         legendItem.addEventListener('click', () => {
-            const meta = chart.getDatasetMeta(index);
-            const currentlyHidden = meta.hidden === true;
-            meta.hidden = !currentlyHidden;
+            const datasetLabel = dataset.label || `Dataset ${index}`;
+            const currentlyHidden = !cfg.datasetVisibility[datasetLabel];
+            const newVisibility = currentlyHidden;
             
-            // Update visibility state
-            cfg.datasetVisibility[dataset.label || `Dataset ${index}`] = !meta.hidden;
+            // Update visibility state first
+            cfg.datasetVisibility[datasetLabel] = newVisibility;
             localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
+            
+            // Update chart metadata and dataset
+            const meta = chart.getDatasetMeta(index);
+            meta.hidden = !newVisibility;
+            dataset.hidden = !newVisibility;
             
             // Update chart and legend item opacity
             chart.update();
-            legendItem.style.opacity = meta.hidden ? '0.5' : '1';
+            legendItem.style.opacity = newVisibility ? '1' : '0.5';
             
             // Update ratio table
             updateRatioTable();
