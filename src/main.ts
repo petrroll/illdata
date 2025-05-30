@@ -411,8 +411,16 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
     // Clear existing legend items
     legendContainer.innerHTML = '';
     
-    // Create legend items for each dataset
-    chart.data.datasets.forEach((dataset, index) => {
+    // Create sorted list of datasets with their original indices for proper chart interaction
+    const datasetsWithIndices = chart.data.datasets.map((dataset, index) => ({ dataset, index }));
+    datasetsWithIndices.sort((a, b) => {
+        const labelA = a.dataset.label || `Dataset ${a.index}`;
+        const labelB = b.dataset.label || `Dataset ${b.index}`;
+        return labelA.localeCompare(labelB);
+    });
+    
+    // Create legend items for each dataset in sorted order
+    datasetsWithIndices.forEach(({ dataset, index }) => {
         const legendItem = document.createElement('span');
         legendItem.style.cssText = `
             display: inline-block;
