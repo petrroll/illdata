@@ -18,6 +18,7 @@ const TIME_RANGE_KEY = "selectedTimeRange";
 const DATASET_VISIBILITY_KEY = "datasetVisibility";
 const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
 const INCLUDE_FUTURE_KEY = "includeFuture";
+const SHOW_EXTREMES_KEY = "showExtremes";
 
 interface ChartConfig {
     containerId: string;
@@ -136,17 +137,20 @@ function renderPage(rootDiv: HTMLElement | null) {
     // Unified state
     let currentTimeRange: string;
     let currentIncludeFuture: boolean;
+    let currentShowExtremes: boolean;
 
     // Unified callback
-    function onOptionsChange(newTimeRange?: string, newIncludeFuture?: boolean) {
+    function onOptionsChange(newTimeRange?: string, newIncludeFuture?: boolean, newShowExtremes?: boolean) {
         if (typeof newTimeRange !== 'undefined') currentTimeRange = newTimeRange;
         if (typeof newIncludeFuture !== 'undefined') currentIncludeFuture = newIncludeFuture;
+        if (typeof newShowExtremes !== 'undefined') currentShowExtremes = newShowExtremes;
         chartConfigs.forEach(cfg => {
             if ((cfg as any).canvas) {
                 cfg.chartHolder.chart = updateChart(
                     currentTimeRange,
                     cfg,
-                    currentIncludeFuture
+                    currentIncludeFuture,
+                    currentShowExtremes
                 );
             }
         });
@@ -178,8 +182,25 @@ function renderPage(rootDiv: HTMLElement | null) {
         container: rootDiv,
         localStorageKey: INCLUDE_FUTURE_KEY,
         defaultValue: true,
-        onChange: (val) => onOptionsChange(undefined, val)
+        onChange: (val) => onOptionsChange(undefined, val, undefined)
     });
+
+    // Add settings to the footer element
+    const footer = document.getElementsByTagName("footer")[0];
+    const settingsContainer = document.createElement("div");
+    settingsContainer.style.marginTop = "5px";
+    
+    currentShowExtremes = createPreferenceControl<boolean>({
+        type: 'checkbox',
+        id: 'showExtremesCheckbox',
+        label: 'Show Min/Max Series',
+        container: settingsContainer,
+        localStorageKey: SHOW_EXTREMES_KEY,
+        defaultValue: false,
+        onChange: (val) => onOptionsChange(undefined, undefined, val)
+    });
+    
+    footer.appendChild(settingsContainer);
 
     // Initial render
     onOptionsChange();
@@ -208,7 +229,7 @@ function createChartContainerAndCanvas(containerId: string, canvasId: string): H
     return canvas;
 }
 
-function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true) {
+function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false) {
     // Destroy existing chart if it exists
     if (cfg.chartHolder.chart) {
         cfg.chartHolder.chart.destroy();
@@ -231,8 +252,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         .filter(series => series.type === 'averaged')
         .filter(series => extremesForWindow == series.windowSizeInDays)
         .map(series => findLocalExtreme(series, extremeWindow, 'minima'))
-    const localMaximaDatasets = generateLocalExtremeDataset(localMaximaSeries, data, cutoffDateString, "red", includeFuture);
-    const localMinimaDatasets = generateLocalExtremeDataset(localMinimaSeries, data, cutoffDateString, "blue", includeFuture);
+    const localMaximaDatasets = showExtremes ? generateLocalExtremeDataset(localMaximaSeries, data, cutoffDateString, "red", includeFuture) : [];
+    const localMinimaDatasets = showExtremes ? generateLocalExtremeDataset(localMinimaSeries, data, cutoffDateString, "blue", includeFuture) : [];
     data = getNewWithSifterToAlignExtremeDates(data, localMaximaSeries.flat(), 2, 3, true);
 
     // End cutoff based on future inclusion flag
