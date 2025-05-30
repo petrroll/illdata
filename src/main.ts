@@ -303,7 +303,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
 
     datasets.forEach(dataset => { dataset.hidden = !cfg.datasetVisibility[dataset.label]; });
 
-    return new Chart(cfg.canvas as HTMLCanvasElement, {
+    const newChart = new Chart(cfg.canvas as HTMLCanvasElement, {
         type: "line",
         data: {
             labels,
@@ -323,20 +323,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     text: cfg.title
                 },
                 legend: {
-                    onClick: (evt, item, legend) => {
-                        Legend.defaults!.onClick(evt, item, legend)
-
-                        // Store the new visibility state
-                        cfg.datasetVisibility[item.text] = !item.hidden;
-                        localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
-
-                        // Update ratio table after legend click
-                        updateRatioTable()
-                    },
-                    labels: {
-                        boxWidth: 0,
-                        padding: 15
-                    }
+                    display: false // We'll create a custom HTML legend instead
                 },
                 tooltip: {
                     mode: 'index', // Snap tooltip to vertical line
@@ -370,6 +357,76 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                 }
             }
         }
+    });
+
+    // Create custom HTML legend with colored background boxes
+    createCustomHtmlLegend(newChart, cfg);
+    
+    return newChart;
+}
+
+function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
+    // Find or create legend container
+    const containerId = cfg.containerId;
+    let legendContainer = document.getElementById(`${containerId}-legend`);
+    
+    if (!legendContainer) {
+        legendContainer = document.createElement('div');
+        legendContainer.id = `${containerId}-legend`;
+        legendContainer.style.cssText = `
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 10px 0;
+            justify-content: center;
+        `;
+        
+        // Insert legend after the chart container
+        const chartContainer = document.getElementById(containerId);
+        if (chartContainer && chartContainer.parentNode) {
+            chartContainer.parentNode.insertBefore(legendContainer, chartContainer.nextSibling);
+        }
+    }
+    
+    // Clear existing legend items
+    legendContainer.innerHTML = '';
+    
+    // Create legend items for each dataset
+    chart.data.datasets.forEach((dataset, index) => {
+        const legendItem = document.createElement('span');
+        legendItem.style.cssText = `
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background-color: ${dataset.borderColor || dataset.backgroundColor || '#666'};
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            user-select: none;
+            opacity: ${dataset.hidden ? '0.5' : '1'};
+            font-family: Arial, sans-serif;
+        `;
+        legendItem.textContent = dataset.label || `Dataset ${index}`;
+        
+        // Add click handler for toggling visibility
+        legendItem.addEventListener('click', () => {
+            const meta = chart.getDatasetMeta(index);
+            const currentlyHidden = meta.hidden === true;
+            meta.hidden = !currentlyHidden;
+            
+            // Update visibility state
+            cfg.datasetVisibility[dataset.label || `Dataset ${index}`] = !meta.hidden;
+            localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
+            
+            // Update chart and legend item opacity
+            chart.update();
+            legendItem.style.opacity = meta.hidden ? '0.5' : '1';
+            
+            // Update ratio table
+            updateRatioTable();
+        });
+        
+        legendContainer.appendChild(legendItem);
     });
 }
 
