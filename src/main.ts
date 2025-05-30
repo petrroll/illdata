@@ -188,7 +188,15 @@ function renderPage(rootDiv: HTMLElement | null) {
     // Add settings to the footer element
     const footer = document.getElementsByTagName("footer")[0];
     const settingsContainer = document.createElement("div");
-    settingsContainer.style.marginTop = "5px";
+    settingsContainer.style.marginTop = "10px";
+    settingsContainer.style.display = "flex";
+    settingsContainer.style.justifyContent = "center";
+    settingsContainer.style.alignItems = "center";
+    
+    const settingsLabel = document.createElement("span");
+    settingsLabel.textContent = "Settings: ";
+    settingsLabel.style.marginRight = "10px";
+    settingsContainer.appendChild(settingsLabel);
     
     currentShowExtremes = createPreferenceControl<boolean>({
         type: 'checkbox',
@@ -254,7 +262,11 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         .map(series => findLocalExtreme(series, extremeWindow, 'minima'))
     const localMaximaDatasets = showExtremes ? generateLocalExtremeDataset(localMaximaSeries, data, cutoffDateString, "red", includeFuture) : [];
     const localMinimaDatasets = showExtremes ? generateLocalExtremeDataset(localMinimaSeries, data, cutoffDateString, "blue", includeFuture) : [];
-    data = getNewWithSifterToAlignExtremeDates(data, localMaximaSeries.flat(), 2, 3, true);
+    
+    // Only process extreme dates when showExtremes is true
+    if (showExtremes) {
+        data = getNewWithSifterToAlignExtremeDates(data, localMaximaSeries.flat(), 2, 3, true);
+    }
 
     // End cutoff based on future inclusion flag
     const todayString = new Date().toISOString().split('T')[0];
