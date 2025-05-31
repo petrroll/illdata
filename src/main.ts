@@ -3,7 +3,7 @@ import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_d
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, addShiftedToAlignExtremeDates as getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type LinearSeries, datapointToPercentage } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, addShiftedToAlignExtremeDates as getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type LinearSeries, datapointToPercentage } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -269,12 +269,26 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         .filter(series => series.type === 'averaged')
         .filter(series => extremesForWindow == series.windowSizeInDays)
         .map(series => findLocalExtreme(series, extremeWindow, 'minima'))
+    
+    // Apply filtering as a separate step
+    const filteredExtremesResults = data.series
+        .filter(series => series.type === 'averaged')
+        .filter(series => extremesForWindow == series.windowSizeInDays)
+        .map(series => filterExtremesByMedianThreshold(
+            series, 
+            localMaximaSeries.flat().filter(extreme => extreme.originalSeriesName === series.name),
+            localMinimaSeries.flat().filter(extreme => extreme.originalSeriesName === series.name)
+        ));
+    
+    const filteredMaximaSeries = filteredExtremesResults.flatMap(result => result.filteredMaxima);
+    const filteredMinimaSeries = filteredExtremesResults.flatMap(result => result.filteredMinima);
+    
     // Always process extreme dates for shifting, regardless of whether they're shown
-    data = getNewWithSifterToAlignExtremeDates(data, localMaximaSeries.flat(), 1, 2, true);
+    data = getNewWithSifterToAlignExtremeDates(data, filteredMaximaSeries, 1, 2, true);
     
     // Only create the datasets for extremes when showExtremes is true
-    const localMaximaDatasets = showExtremes ? generateLocalExtremeDataset(localMaximaSeries, data, cutoffDateString, "red", includeFuture) : [];
-    const localMinimaDatasets = showExtremes ? generateLocalExtremeDataset(localMinimaSeries, data, cutoffDateString, "blue", includeFuture) : [];
+    const localMaximaDatasets = showExtremes ? generateLocalExtremeDataset([filteredMaximaSeries], data, cutoffDateString, "red", includeFuture) : [];
+    const localMinimaDatasets = showExtremes ? generateLocalExtremeDataset([filteredMinimaSeries], data, cutoffDateString, "blue", includeFuture) : [];
 
     // End cutoff based on future inclusion flag
     const todayString = new Date().toISOString().split('T')[0];

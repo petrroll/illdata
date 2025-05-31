@@ -136,38 +136,54 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
 export function findLocalExtreme(series: LinearSeries, desiredWindowSizeInDays: number, extreme: 'maxima'|'minima'): ExtremeSeries[] {
     const maximaSeries: ExtremeSeries[] = [];
 
-    // First pass: find all local extremes
-    const localMaximaIndices: number[] = [];
-    const localMinimaIndices: number[] = [];
+    // Find all local extremes without filtering
+    const extremeIndices: number[] = [];
     
     for (let i = 1; i < series.values.length - 1; i++) {
-        if (isExtremeWindow(series, i, windowSizeDaysToIndex(desiredWindowSizeInDays, series.frequencyInDays), 'maxima')) {
-            localMaximaIndices.push(i);
+        if (isExtremeWindow(series, i, windowSizeDaysToIndex(desiredWindowSizeInDays, series.frequencyInDays), extreme)) {
+            extremeIndices.push(i);
         }
-        if (isExtremeWindow(series, i, windowSizeDaysToIndex(desiredWindowSizeInDays, series.frequencyInDays), 'minima')) {
-            localMinimaIndices.push(i);
-        }
-    }
-
-    // Apply filtering based on median values
-    let filteredIndices: number[];
-    if (extreme === 'maxima') {
-        filteredIndices = filterExtremes(series, localMaximaIndices, localMinimaIndices, 'maxima');
-    } else {
-        filteredIndices = filterExtremes(series, localMaximaIndices, localMinimaIndices, 'minima');
     }
     
-    if (filteredIndices.length === 0) {
+    if (extremeIndices.length === 0) {
         console.warn(`No ${extreme} found in series ${series.name} with window size ${desiredWindowSizeInDays} days`);
         return [];
     }
 
-    maximaSeries.push({ name: `${series.name} ${extreme} over ${desiredWindowSizeInDays}d`, originalSeriesName: series.name, indices: filteredIndices });
+    maximaSeries.push({ name: `${series.name} ${extreme} over ${desiredWindowSizeInDays}d`, originalSeriesName: series.name, indices: extremeIndices });
 
     return maximaSeries;
 }
 
+export function filterExtremesByMedianThreshold(series: LinearSeries, maximaSeries: ExtremeSeries[], minimaSeries: ExtremeSeries[]): { filteredMaxima: ExtremeSeries[], filteredMinima: ExtremeSeries[] } {
+    // Extract all maxima and minima indices from all extreme series
+    const allMaximaIndices = maximaSeries.flatMap(extremeSeries => extremeSeries.indices);
+    const allMinimaIndices = minimaSeries.flatMap(extremeSeries => extremeSeries.indices);
+
+    // Filter maxima
+    const filteredMaximaSeries = maximaSeries.map(extremeSeries => ({
+        ...extremeSeries,
+        indices: filterExtremes(series, allMaximaIndices, allMinimaIndices, 'maxima').filter(index => 
+            extremeSeries.indices.includes(index)
+        )
+    })).filter(extremeSeries => extremeSeries.indices.length > 0);
+
+    // Filter minima
+    const filteredMinimaSeries = minimaSeries.map(extremeSeries => ({
+        ...extremeSeries,
+        indices: filterExtremes(series, allMaximaIndices, allMinimaIndices, 'minima').filter(index => 
+            extremeSeries.indices.includes(index)
+        )
+    })).filter(extremeSeries => extremeSeries.indices.length > 0);
+
+    return {
+        filteredMaxima: filteredMaximaSeries,
+        filteredMinima: filteredMinimaSeries
+    };
+}
+
 function filterExtremes(series: LinearSeries, maximaIndices: number[], minimaIndices: number[], requestedExtreme: 'maxima'|'minima'): number[] {
+
     // If we don't have both maxima and minima, return original indices
     if (maximaIndices.length === 0 || minimaIndices.length === 0) {
         return requestedExtreme === 'maxima' ? maximaIndices : minimaIndices;

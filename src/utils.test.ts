@@ -1,5 +1,6 @@
 import { 
     findLocalExtreme, 
+    filterExtremesByMedianThreshold,
     computeMovingAverageTimeseries,
     addShiftedToAlignExtremeDates,
     type LinearSeries, 
@@ -333,7 +334,7 @@ describe('addShiftedToAlignExtremeDates Tests', () => {
 });
 
 describe('findLocalExtreme - Filtering Tests', () => {
-    test('filters extremes based on median threshold', () => {
+    test('separates extremes detection from filtering', () => {
         // Test series with mix of significant and insignificant extremes
         const testSeries: LinearSeries = {
             name: 'Test Series',
@@ -355,19 +356,27 @@ describe('findLocalExtreme - Filtering Tests', () => {
             frequencyInDays: 1
         };
 
-        const maxima = findLocalExtreme(testSeries, 3, 'maxima');
-        const minima = findLocalExtreme(testSeries, 3, 'minima');
+        // Step 1: Find all local extremes (unfiltered)
+        const rawMaxima = findLocalExtreme(testSeries, 3, 'maxima');
+        const rawMinima = findLocalExtreme(testSeries, 3, 'minima');
 
-        // Should have found some extremes after filtering
-        expect(maxima).toHaveLength(1);
-        expect(minima).toHaveLength(1);
+        // Should have found raw extremes
+        expect(rawMaxima).toHaveLength(1);
+        expect(rawMinima).toHaveLength(1);
         
-        // Check that we get reasonable results - filtered based on median threshold
-        expect(maxima[0].indices.length).toBeGreaterThan(0);
-        expect(minima[0].indices.length).toBeGreaterThan(0);
+        // Raw results should include all local extremes
+        expect(rawMaxima[0].indices.length).toBeGreaterThan(0);
+        expect(rawMinima[0].indices.length).toBeGreaterThan(0);
+        
+        // Step 2: Apply filtering as separate step
+        const filtered = filterExtremesByMedianThreshold(testSeries, rawMaxima, rawMinima);
+        
+        // After filtering, should have fewer or equal extremes
+        expect(filtered.filteredMaxima[0].indices.length).toBeLessThanOrEqual(rawMaxima[0].indices.length);
+        expect(filtered.filteredMinima[0].indices.length).toBeLessThanOrEqual(rawMinima[0].indices.length);
         
         // The filtering should preserve meaningful extremes
-        expect(maxima[0].indices.length).toBeLessThanOrEqual(4); // Should not exceed max possible
-        expect(minima[0].indices.length).toBeLessThanOrEqual(5); // Should not exceed max possible
+        expect(filtered.filteredMaxima[0].indices.length).toBeGreaterThan(0);
+        expect(filtered.filteredMinima[0].indices.length).toBeGreaterThan(0);
     });
 });
