@@ -14,7 +14,7 @@ echo "🔍 Finding latest GitHub Pages deployment run..."
 
 for WF_NAME in "${WF_NAMES[@]}"; do
   echo "Checking workflow: ${WF_NAME}"
-  WF_RUNS=$(gh run --repo "${OTHER_REPO}" list --workflow "${WF_NAME}" --json databaseId,status,startedAt,workflowName --jq '[.[] | select(.status == "completed")]')
+  WF_RUNS=$(gh run --repo "${OTHER_REPO}" list --workflow "${WF_NAME}" --json databaseId,status,startedAt,workflowName,displayTitle --jq '[.[] | select(.status == "completed")]')
   ALL_RUNS=$(echo "${ALL_RUNS}" "${WF_RUNS}" | jq -s 'add')
 done
 
@@ -23,5 +23,6 @@ RUN_ID=$(echo "$RUN_MAIN" | jq -r '.databaseId')
 RUN_DATE=$(echo "$RUN_MAIN" | jq -r '.startedAt')
 RUN_WORKFLOW_NAME=$(echo "$RUN_MAIN" | jq -r '.workflowName')
 
-echo "✅ Detected latest run id of ${RUN_ID} at ${RUN_DATE}"
+echo "✅ Detected latest run id of ${RUN_ID} at ${RUN_DATE} for workflow ${RUN_WORKFLOW_NAME}"
+echo "Run details: ${RUN_MAIN}"
 echo "run-id=${RUN_ID}" >> "$GITHUB_OUTPUT"
