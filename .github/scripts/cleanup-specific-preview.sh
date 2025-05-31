@@ -17,7 +17,6 @@ fi
 
 if [ -z "$EXISTING_SITE_PATH" ] || [ ! -d "$EXISTING_SITE_PATH" ]; then
     echo "ℹ No existing site found, nothing to cleanup"
-    exit 0
 fi
 
 PREVIEW_PATH="$EXISTING_SITE_PATH/previews/pr-$PR_NUMBER"
