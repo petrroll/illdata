@@ -245,13 +245,7 @@ export interface RatioData {
 
 export function calculateRatios(data: TimeseriesData, visibleMainSeries: string[]): RatioData[] {
     const today = new Date().toISOString().split('T')[0];
-    let preTodayIndex = -1;
-    for (let i = data.dates.length - 1; i >= 0; i--) {
-        if (data.dates[i] <= today) {
-            preTodayIndex = i;
-            break;
-        }
-    }
+    const preTodayIndex = data.dates.findLastIndex(date => date <= today);
     
     if (preTodayIndex < 0) return [];
     
