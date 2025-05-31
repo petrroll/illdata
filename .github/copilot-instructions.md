@@ -55,3 +55,10 @@ The project uses [Bun](https://bun.sh/) as its runtime and package manager, whic
     ```bash
     just test
     ```
+
+## Guidelines
+
+When contributing to this project, please follow these coding principles:
+
+- **Keep It Simple (KISS)**: Prefer simple, readable code over complex solutions. Clear and straightforward implementations are easier to understand, maintain, and debug.
+- **Don't Repeat Yourself (DRY)**: When it doesn't conflict with keeping the code simple, avoid duplication by extracting common functionality into reusable components or utilities.
