@@ -73,7 +73,7 @@ export function addShiftedToAlignExtremeDates(
                     return idx < 0 || idx >= series.values.length ? { positive: 0, tests: NaN } : series.values[idx];
                 });
                 return {
-                    name: `${series.name} shifted by ${shiftByIndexes * series.frequencyInDays}d`,
+                    name: `${series.name} shifted by ${extremeIndexShiftTo - extremeIndexShiftFrom} wave ${shiftByIndexes * series.frequencyInDays}d`,
                     type: series.type,
                     values: shiftedValues,
                     frequencyInDays: series.frequencyInDays,
