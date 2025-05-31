@@ -8,7 +8,7 @@ This project processes and visualizes illness data (COVID, respiratory viruses) 
    - Handles user preferences (time range, dataset visibility) via localStorage
    - Entry point: `src/main.ts` and `index.html`
 
-2. **Data Processing** (`/data_processor`)
+2. **Data Processing** (`/src/data_processor.ts`)
    - Runs during build or when new data needs to be processed
    - Processes raw data into JSON format consumed by the visualization
    - Outputs to `data_processed/` directory
@@ -25,11 +25,11 @@ This project processes and visualizes illness data (COVID, respiratory viruses) 
 - `index.html` - Browser visualisation HTML serving point that's manipulated by `src/main.ts`
 - `src/main.ts` - Browser visualization entry point
 - `src/utils.ts` - Shared utilities for data manipulation
-- `data_processor/` - Data processing scripts
+- `src/data_processor.ts` - Data processing script that fetches and transforms data
 - `data_processed/*.json` - Processed data consumed by visualization
 
 ## To run the project
-The project uses [just](https://github.com/casey/just) as its command runner. Here are the available commands:
+The project uses [Bun](https://bun.sh/) as its runtime and package manager, which provides built-in TypeScript support and testing capabilities (no need for npx or jest). [Just](https://github.com/casey/just) is used as the command runner. Here are the available commands:
 
 - **Build**: Install dependencies and process data.
     ```bash
@@ -41,9 +41,14 @@ The project uses [just](https://github.com/casey/just) as its command runner. He
     just process-data
     ```
     
-- **Launch**: Start the dashboard (default command, runs build first).
+- **Serve**: Start the dashboard (default command).
     ```bash
-    just launch
+    just serve
+    ```
+    
+    You can also run just the default command:
+    ```bash
+    just
     ```
 
 - **Test**: Run type checks and tests.
