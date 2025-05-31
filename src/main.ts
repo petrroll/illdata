@@ -416,6 +416,17 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
     datasetsWithIndices.sort((a, b) => {
         const labelA = a.dataset.label || `Dataset ${a.index}`;
         const labelB = b.dataset.label || `Dataset ${b.index}`;
+        
+        // Count words (sections separated by whitespace)
+        const wordsA = labelA.trim().split(/\s+/).filter(word => word.length > 0).length;
+        const wordsB = labelB.trim().split(/\s+/).filter(word => word.length > 0).length;
+        
+        // Sort by word count first
+        if (wordsA !== wordsB) {
+            return wordsA - wordsB; // fewer words first
+        }
+        
+        // If word count is the same, fall back to alphabetical
         return labelA.localeCompare(labelB);
     });
     
