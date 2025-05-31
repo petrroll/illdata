@@ -338,15 +338,17 @@ describe('findLocalExtreme - Filtering Tests', () => {
         const testSeries: LinearSeries = {
             name: 'Test Series',
             values: [
-                { positive: 5, tests: 100 },   // 5%
-                { positive: 1, tests: 100 },   // 1% - small minimum
-                { positive: 8, tests: 100 },   // 8% - medium maximum
-                { positive: 2, tests: 100 },   // 2% - small minimum
-                { positive: 15, tests: 100 },  // 15% - large maximum
-                { positive: 3, tests: 100 },   // 3% - small minimum
-                { positive: 12, tests: 100 },  // 12% - large maximum
-                { positive: 1, tests: 100 },   // 1% - significant minimum
-                { positive: 6, tests: 100 }    // 6%
+                { positive: 10, tests: 100 },  // 10%
+                { positive: 8, tests: 100 },   // 8% - small minimum (will be compared against threshold)
+                { positive: 12, tests: 100 },  // 12% - small maximum (will be compared against threshold)
+                { positive: 9, tests: 100 },   // 9% - small minimum (will be compared against threshold)
+                { positive: 25, tests: 100 },  // 25% - large maximum (should keep)
+                { positive: 2, tests: 100 },   // 2% - large minimum (should keep)
+                { positive: 20, tests: 100 },  // 20% - large maximum (should keep)  
+                { positive: 5, tests: 100 },   // 5% - medium minimum (should keep)
+                { positive: 15, tests: 100 },  // 15% - medium maximum (should keep)
+                { positive: 3, tests: 100 },   // 3% - large minimum (should keep)
+                { positive: 10, tests: 100 }   // 10%
             ],
             type: 'averaged',
             windowSizeInDays: 3,
@@ -356,12 +358,16 @@ describe('findLocalExtreme - Filtering Tests', () => {
         const maxima = findLocalExtreme(testSeries, 3, 'maxima');
         const minima = findLocalExtreme(testSeries, 3, 'minima');
 
-        // Should have filtered out some extremes based on median threshold
+        // Should have found some extremes after filtering
         expect(maxima).toHaveLength(1);
         expect(minima).toHaveLength(1);
         
-        // Check that we get reasonable results
+        // Check that we get reasonable results - filtered based on median threshold
         expect(maxima[0].indices.length).toBeGreaterThan(0);
         expect(minima[0].indices.length).toBeGreaterThan(0);
+        
+        // The filtering should preserve meaningful extremes
+        expect(maxima[0].indices.length).toBeLessThanOrEqual(4); // Should not exceed max possible
+        expect(minima[0].indices.length).toBeLessThanOrEqual(5); // Should not exceed max possible
     });
 });
