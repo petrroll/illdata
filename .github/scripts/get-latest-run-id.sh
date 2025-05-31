@@ -14,7 +14,7 @@ echo "🔍 Finding latest GitHub Pages deployment run..."
 
 for WF_NAME in "${WF_NAMES[@]}"; do
   echo "Checking workflow: ${WF_NAME}"
-  WF_RUNS=$(gh run --repo "${OTHER_REPO}" list --workflow "${WF_NAME}" --json databaseId,status,startedAt,workflowName,displayTitle --jq '[.[] | select(.status == "completed")]')
+  WF_RUNS=$(gh run --repo "${OTHER_REPO}" list --workflow "${WF_NAME}" --json databaseId,status,conclusion,startedAt,workflowName,displayTitle,number --jq '[.[] | select(.status == "completed" and .conclusion == "success")]')
   ALL_RUNS=$(echo "${ALL_RUNS}" "${WF_RUNS}" | jq -s 'add')
 done
 
