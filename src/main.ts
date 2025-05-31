@@ -3,7 +3,7 @@ import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_d
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, addShiftedToAlignExtremeDates as getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, datapointToPercentage } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, addShiftedToAlignExtremeDates as getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type LinearSeries, datapointToPercentage } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -225,6 +225,27 @@ function createChartContainerAndCanvas(containerId: string, canvasId: string): H
     return canvas;
 }
 
+function getSortedSeriesWithIndices(series: LinearSeries[]): { series: LinearSeries, originalIndex: number }[] {
+    const seriesWithIndices = series.map((s, index) => ({ series: s, originalIndex: index }));
+    seriesWithIndices.sort((a, b) => {
+        const labelA = a.series.name;
+        const labelB = b.series.name;
+        
+        // Count words (sections separated by whitespace)
+        const wordsA = labelA.trim().split(/\s+/).filter((word: string) => word.length > 0).length;
+        const wordsB = labelB.trim().split(/\s+/).filter((word: string) => word.length > 0).length;
+        
+        // Sort by word count first
+        if (wordsA !== wordsB) {
+            return wordsA - wordsB; // fewer words first
+        }
+        
+        // If word count is the same, fall back to alphabetical
+        return labelA.localeCompare(labelB);
+    });
+    return seriesWithIndices;
+}
+
 function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false) {
     // Destroy existing chart if it exists
     if (cfg.chartHolder.chart) {
@@ -267,19 +288,30 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const labels = data.dates.slice(startIdx, endIdx);
 
     // Prepare data for chart
-    const colorPalettePCR = [
-        "#1f77b4", "#aec7e8", "#ffbb78", "#2ca02c", "#98df8a", 
-        "#d62728", "#ff9896", "#9467bd", "#c5b0d5", "#8c564b"
+    const colorPalettes = [
+        // Blues palette
+        ["#1f77b4", "#4a90e2", "#7bb3f0", "#9cc5f7", "#bed8ff"],
+        // Greens palette  
+        ["#2ca02c", "#4db84d", "#6bcf6b", "#8ae68a", "#a9fda9"],
+        // Reds palette
+        ["#d62728", "#e74c3c", "#f16c6c", "#f78b8b", "#fdaaaa"],
+        // Purples palette
+        ["#9467bd", "#a569d4", "#b86beb", "#cb8dff", "#deadff"]
     ];
-    const colorPaletteNonPCR = [
-        "#e377c2", "#f7b6d2", "#7f7f7f", "#c7c7c7", "#bcbd22", 
-        "#dbdb8d", "#17becf", "#9edae5", "#ff7f0e", "#ffbb78"
-    ];
-    const datasets = data.series.map((series, index) => {
+    // Sort series and calculate color assignments
+    const sortedSeriesWithIndices = getSortedSeriesWithIndices(data.series);
+    const numberOfRawData = data.series.filter(series => series.type === 'raw').length;
+    
+    const datasets = sortedSeriesWithIndices.map(({ series, originalIndex }, sortedIndex) => {
         const isVisible = cfg.datasetVisibility[series.name] !== undefined ? cfg.datasetVisibility[series.name] : true;
-        const colorPalette = series.name.toLowerCase().includes("pcr") ? colorPalettePCR : colorPaletteNonPCR;
+        
+        // New color assignment logic
+        const paletteIndex = sortedIndex % numberOfRawData;
+        const colorIndex = Math.floor(sortedIndex / numberOfRawData);
+        const selectedPalette = colorPalettes[paletteIndex % colorPalettes.length];
+        const borderColor = selectedPalette[colorIndex % selectedPalette.length];
 
-        series.values.forEach((element, i) => {
+        series.values.forEach((element: any, i: number) => {
             if (element === undefined || element === null) {
                 console.warn(`Missing value in series ${series.name} at index ${i}`);
             }
@@ -291,7 +323,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         return {
             label: series.name,
             data: series.values.slice(startIdx, endIdx).map(datapointToPercentage),
-            borderColor: colorPalette[index % colorPalette.length],
+            borderColor: borderColor,
             fill: false,
             hidden: !isVisible,
             borderWidth: 1,
