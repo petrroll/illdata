@@ -1,6 +1,7 @@
 import { 
     findLocalExtreme, 
     computeMovingAverageTimeseries,
+    addShiftedToAlignExtremeDates,
     type LinearSeries, 
     type ExtremeSeries,
     type TimeseriesData,
@@ -254,5 +255,79 @@ describe('computeMovingAverageTimeseries Tests', () => {
         
         expect(result.series[1].frequencyInDays).toBe(2);
         expect(result.series[1].windowSizeInDays).toBe(4);
+    });
+});
+
+describe('addShiftedToAlignExtremeDates Tests', () => {
+    test('shifted dataset inherits type from original series', () => {
+        // Test data with an 'averaged' type series
+        const averagedSeries: LinearSeries = {
+            name: 'Test Averaged Series',
+            values: [
+                { positive: 1, tests: 100 },
+                { positive: 3, tests: 100 },
+                { positive: 2, tests: 100 },
+                { positive: 4, tests: 100 },
+                { positive: 1, tests: 100 }
+            ],
+            type: 'averaged',
+            windowSizeInDays: 7,
+            frequencyInDays: 1
+        };
+
+        // Test data with a 'raw' type series
+        const rawSeries: LinearSeries = {
+            name: 'Test Raw Series',
+            values: [
+                { positive: 2, tests: 100 },
+                { positive: 4, tests: 100 },
+                { positive: 3, tests: 100 },
+                { positive: 5, tests: 100 },
+                { positive: 2, tests: 100 }
+            ],
+            type: 'raw',
+            frequencyInDays: 1
+        };
+
+        const data: TimeseriesData = {
+            dates: ['2022-01-01', '2022-01-02', '2022-01-03', '2022-01-04', '2022-01-05'],
+            series: [averagedSeries, rawSeries]
+        };
+
+        // Extreme series for shifting
+        const extremeSeries: ExtremeSeries[] = [
+            {
+                name: 'Test Averaged Series maxima over 3d',
+                originalSeriesName: 'Test Averaged Series',
+                indices: [1, 3]
+            },
+            {
+                name: 'Test Raw Series maxima over 3d',
+                originalSeriesName: 'Test Raw Series',
+                indices: [1, 3]
+            }
+        ];
+
+        // Apply shifting
+        const result = addShiftedToAlignExtremeDates(data, extremeSeries, 1, 2, false);
+
+        // Should have original series + shifted series
+        expect(result.series.length).toBeGreaterThan(data.series.length);
+
+        // Find shifted series
+        const shiftedAveragedSeries = result.series.find(s => 
+            s.name.includes('Test Averaged Series') && s.name.includes('shifted by'));
+        const shiftedRawSeries = result.series.find(s => 
+            s.name.includes('Test Raw Series') && s.name.includes('shifted by'));
+
+        // Verify shifted averaged series inherits 'averaged' type and windowSizeInDays
+        expect(shiftedAveragedSeries).toBeDefined();
+        expect(shiftedAveragedSeries?.type).toBe('averaged');
+        expect(shiftedAveragedSeries?.windowSizeInDays).toBe(7);
+
+        // Verify shifted raw series inherits 'raw' type and no windowSizeInDays
+        expect(shiftedRawSeries).toBeDefined();
+        expect(shiftedRawSeries?.type).toBe('raw');
+        expect(shiftedRawSeries?.windowSizeInDays).toBeUndefined();
     });
 });

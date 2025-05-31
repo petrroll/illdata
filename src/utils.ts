@@ -74,9 +74,10 @@ export function addShiftedToAlignExtremeDates(
                 });
                 return {
                     name: `${series.name} shifted by ${shiftByIndexes * series.frequencyInDays}d`,
-                    type: 'raw' as const,
+                    type: series.type,
                     values: shiftedValues,
-                    frequencyInDays: series.frequencyInDays
+                    frequencyInDays: series.frequencyInDays,
+                    ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {})
                 };
             });
         const originalPadded = includeFutureDates && extraCount > 0
