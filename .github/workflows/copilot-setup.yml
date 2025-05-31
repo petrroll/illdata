@@ -1,0 +1,38 @@
+name: Copilot Setup
+
+# Allow testing of the setup steps from your repository's "Actions" tab.
+on: workflow_dispatch
+
+jobs:
+  test-copilot-setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Install bun (JavaScript runtime and package manager)
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      # Install just (command runner)
+      - name: Install just
+        run: |
+          mkdir -p ~/bin
+          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to ~/bin
+          echo "$HOME/bin" >> $GITHUB_PATH
+        
+      # Verify installations
+      - name: Verify bun installation
+        run: bun --version
+        
+      - name: Verify just installation
+        run: just --version
+
+      # Test that project commands work
+      - name: Test bun install
+        run: bun install
+
+      - name: Test just commands
+        run: |
+          just check-ts
+          just process-data
