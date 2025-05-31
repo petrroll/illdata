@@ -46,11 +46,9 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
-        if: steps.cleanup.outputs.CLEANUP_PERFORMED == 'true'
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
-        if: steps.cleanup.outputs.CLEANUP_PERFORMED == 'true'
         with:
           path: './deployment/'
 
