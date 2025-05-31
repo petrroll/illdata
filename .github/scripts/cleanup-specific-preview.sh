@@ -27,16 +27,19 @@ if [ -d "$PREVIEW_PATH" ]; then
     echo "✓ Found preview directory for PR #$PR_NUMBER, removing..."
     rm -rf "$PREVIEW_PATH"
     echo "✓ Removed preview for PR #$PR_NUMBER"
-    
-    # Set up deployment directory
-    mkdir -p ./deployment
-    cp -r "$EXISTING_SITE_PATH"/* ./deployment/
-    
-    echo "✓ Prepared deployment directory"
     echo "CLEANUP_PERFORMED=true" >> $GITHUB_OUTPUT
 else
     echo "ℹ No preview found for PR #$PR_NUMBER, nothing to cleanup"
     echo "CLEANUP_PERFORMED=false" >> $GITHUB_OUTPUT
+fi
+
+# Always set up deployment directory to ensure artifact can be uploaded
+mkdir -p ./deployment
+if [ -d "$EXISTING_SITE_PATH" ]; then
+    cp -r "$EXISTING_SITE_PATH"/* ./deployment/
+    echo "✓ Prepared deployment directory with existing site"
+else
+    echo "ℹ No existing site to copy, created empty deployment directory"
 fi
 
 echo "=== PR preview cleanup complete ==="
