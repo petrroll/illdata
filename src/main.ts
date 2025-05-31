@@ -284,7 +284,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const filteredMinimaSeries = filteredExtremesResults.flatMap(result => result.filteredMinima);
     
     // Always process extreme dates for shifting, regardless of whether they're shown
-    data = getNewWithSifterToAlignExtremeDates(data, filteredMaximaSeries, 1, 2, true);
+    data = getNewWithSifterToAlignExtremeDates(data, filteredMaximaSeries, 2, 3, true);
     
     // Only create the datasets for extremes when showExtremes is true
     const localMaximaDatasets = showExtremes ? generateLocalExtremeDataset([filteredMaximaSeries], data, cutoffDateString, "red", includeFuture) : [];
