@@ -319,10 +319,10 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                 console.warn(`Invalid data in series ${series.name} at index ${i}: positive tests ${element.positive} without total tests ${data.dates[i]}`);
             }
         });
-
+        const dataAsPercentage = series.values.slice(startIdx, endIdx).map(datapointToPercentage)
         return {
             label: series.name,
-            data: series.values.slice(startIdx, endIdx).map(datapointToPercentage),
+            data: dataAsPercentage,
             borderColor: borderColor,
             fill: false,
             hidden: !isVisible,

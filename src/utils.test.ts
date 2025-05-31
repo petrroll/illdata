@@ -180,7 +180,7 @@ describe('computeMovingAverageTimeseries Tests', () => {
         const avgValues = result.series[input.series.length].values as Datapoint[];
         expect(avgValues).toHaveLength(5);
         // First value: (1+1+2)/3 = 1.333...
-        expect(avgValues[0].positive / avgValues[0].tests).toBeCloseTo(0.01333333, 5);
+        expect(avgValues[0].positive / avgValues[0].tests).toBeCloseTo(0.015, 5);
     });
 
     test('computes moving averages for multiple window sizes', () => {

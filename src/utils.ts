@@ -104,8 +104,12 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
                 let sumTotal = 0;
                 for (let k = -Math.floor(windowSizeInIndex/2); k <= Math.floor(windowSizeInIndex/2); k++) {
                     let index = j + k;
-                    if (index < 0) { index = 0; }
-                    if (index >= series.values.length) { index = series.values.length - 1; }
+
+                    // Skipping technically means edge values are less "averaged" but any bias for the last value
+                    // Can be overly strong. This is a decent trade-off. Some bias due to less averaged values, but
+                    // not just repeating the last/first value.
+                    if (index < 0) continue; // Skip negative indices
+                    if (index >= series.values.length) continue; // Skip out of bounds
                     
                     sumPos += series.values[index].positive;
                     sumTotal += series.values[index].tests;
