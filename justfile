@@ -31,3 +31,6 @@ setup-playground: build
 clean-data:
     rm -rf ./data
     rm -rf ./data_processed
+
+clean: clean-data
+    rm -rf ./dist
