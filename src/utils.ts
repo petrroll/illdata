@@ -1,4 +1,4 @@
-import { LineController } from "chart.js";
+// Chart.js is used elsewhere in the project
 
 export interface TimeseriesData {
     dates: string[];
@@ -136,20 +136,71 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
 export function findLocalExtreme(series: LinearSeries, desiredWindowSizeInDays: number, extreme: 'maxima'|'minima'): ExtremeSeries[] {
     const maximaSeries: ExtremeSeries[] = [];
 
+    // First pass: find all local extremes
     const localMaximaIndices: number[] = [];
+    const localMinimaIndices: number[] = [];
+    
     for (let i = 1; i < series.values.length - 1; i++) {
-        if (isExtremeWindow(series, i, windowSizeDaysToIndex(desiredWindowSizeInDays, series.frequencyInDays), extreme)) {
+        if (isExtremeWindow(series, i, windowSizeDaysToIndex(desiredWindowSizeInDays, series.frequencyInDays), 'maxima')) {
             localMaximaIndices.push(i);
         }
+        if (isExtremeWindow(series, i, windowSizeDaysToIndex(desiredWindowSizeInDays, series.frequencyInDays), 'minima')) {
+            localMinimaIndices.push(i);
+        }
     }
-    if (localMaximaIndices.length === 0) {
+
+    // Apply filtering based on median values
+    let filteredIndices: number[];
+    if (extreme === 'maxima') {
+        filteredIndices = filterExtremes(series, localMaximaIndices, localMinimaIndices, 'maxima');
+    } else {
+        filteredIndices = filterExtremes(series, localMaximaIndices, localMinimaIndices, 'minima');
+    }
+    
+    if (filteredIndices.length === 0) {
         console.warn(`No ${extreme} found in series ${series.name} with window size ${desiredWindowSizeInDays} days`);
         return [];
     }
 
-    maximaSeries.push({ name: `${series.name} ${extreme} over ${desiredWindowSizeInDays}d`, originalSeriesName: series.name, indices: localMaximaIndices });
+    maximaSeries.push({ name: `${series.name} ${extreme} over ${desiredWindowSizeInDays}d`, originalSeriesName: series.name, indices: filteredIndices });
 
     return maximaSeries;
+}
+
+function filterExtremes(series: LinearSeries, maximaIndices: number[], minimaIndices: number[], requestedExtreme: 'maxima'|'minima'): number[] {
+    // If we don't have both maxima and minima, return original indices
+    if (maximaIndices.length === 0 || minimaIndices.length === 0) {
+        return requestedExtreme === 'maxima' ? maximaIndices : minimaIndices;
+    }
+
+    // Get values for all detected extremes
+    const maximaValues = maximaIndices.map(i => datapointToPercentage(series.values[i])).filter(v => !isNaN(v));
+    const minimaValues = minimaIndices.map(i => datapointToPercentage(series.values[i])).filter(v => !isNaN(v));
+
+    // Calculate medians
+    const medianMaxima = calculateMedian(maximaValues);
+    const medianMinima = calculateMedian(minimaValues);
+
+    // If we can't calculate medians, return original indices
+    if (isNaN(medianMaxima) || isNaN(medianMinima)) {
+        return requestedExtreme === 'maxima' ? maximaIndices : minimaIndices;
+    }
+
+    // Calculate halfway point
+    const halfwayValue = (medianMaxima + medianMinima) / 2;
+
+    // Filter based on requested extreme type
+    if (requestedExtreme === 'maxima') {
+        return maximaIndices.filter(i => {
+            const value = datapointToPercentage(series.values[i]);
+            return !isNaN(value) && value >= halfwayValue;
+        });
+    } else {
+        return minimaIndices.filter(i => {
+            const value = datapointToPercentage(series.values[i]);
+            return !isNaN(value) && value <= halfwayValue;
+        });
+    }
 }
 
 function isExtremeWindow(series: LinearSeries, index: number, windowSizeInIndex: number, extreme: 'maxima'|'minima'): boolean {
@@ -178,7 +229,13 @@ export interface RatioData {
 
 export function calculateRatios(data: TimeseriesData, visibleMainSeries: string[]): RatioData[] {
     const today = new Date().toISOString().split('T')[0];
-    const preTodayIndex = data.dates.findLastIndex(date => date <= today);
+    let preTodayIndex = -1;
+    for (let i = data.dates.length - 1; i >= 0; i--) {
+        if (data.dates[i] <= today) {
+            preTodayIndex = i;
+            break;
+        }
+    }
     
     if (preTodayIndex < 0) return [];
     
@@ -229,4 +286,15 @@ function calculatePeriodRatio(serie: LinearSeries, endIndex: number, periodDays:
 export function datapointToPercentage(datapoint: Datapoint | undefined): number {
     if (!datapoint || datapoint.tests === 0) return NaN;
     return (datapoint.positive / datapoint.tests) * 100;
+}
+
+function calculateMedian(values: number[]): number {
+    if (values.length === 0) return NaN;
+    const sortedValues = [...values].sort((a, b) => a - b);
+    const middle = Math.floor(sortedValues.length / 2);
+    if (sortedValues.length % 2 === 0) {
+        return (sortedValues[middle - 1] + sortedValues[middle]) / 2;
+    } else {
+        return sortedValues[middle];
+    }
 }

@@ -331,3 +331,37 @@ describe('addShiftedToAlignExtremeDates Tests', () => {
         expect(shiftedRawSeries?.windowSizeInDays).toBeUndefined();
     });
 });
+
+describe('findLocalExtreme - Filtering Tests', () => {
+    test('filters extremes based on median threshold', () => {
+        // Test series with mix of significant and insignificant extremes
+        const testSeries: LinearSeries = {
+            name: 'Test Series',
+            values: [
+                { positive: 5, tests: 100 },   // 5%
+                { positive: 1, tests: 100 },   // 1% - small minimum
+                { positive: 8, tests: 100 },   // 8% - medium maximum
+                { positive: 2, tests: 100 },   // 2% - small minimum
+                { positive: 15, tests: 100 },  // 15% - large maximum
+                { positive: 3, tests: 100 },   // 3% - small minimum
+                { positive: 12, tests: 100 },  // 12% - large maximum
+                { positive: 1, tests: 100 },   // 1% - significant minimum
+                { positive: 6, tests: 100 }    // 6%
+            ],
+            type: 'averaged',
+            windowSizeInDays: 3,
+            frequencyInDays: 1
+        };
+
+        const maxima = findLocalExtreme(testSeries, 3, 'maxima');
+        const minima = findLocalExtreme(testSeries, 3, 'minima');
+
+        // Should have filtered out some extremes based on median threshold
+        expect(maxima).toHaveLength(1);
+        expect(minima).toHaveLength(1);
+        
+        // Check that we get reasonable results
+        expect(maxima[0].indices.length).toBeGreaterThan(0);
+        expect(minima[0].indices.length).toBeGreaterThan(0);
+    });
+});

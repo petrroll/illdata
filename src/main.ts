@@ -270,7 +270,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         .filter(series => extremesForWindow == series.windowSizeInDays)
         .map(series => findLocalExtreme(series, extremeWindow, 'minima'))
     // Always process extreme dates for shifting, regardless of whether they're shown
-    data = getNewWithSifterToAlignExtremeDates(data, localMaximaSeries.flat(), 2, 3, true);
+    data = getNewWithSifterToAlignExtremeDates(data, localMaximaSeries.flat(), 1, 2, true);
     
     // Only create the datasets for extremes when showExtremes is true
     const localMaximaDatasets = showExtremes ? generateLocalExtremeDataset(localMaximaSeries, data, cutoffDateString, "red", includeFuture) : [];
