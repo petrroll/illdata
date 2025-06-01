@@ -28,11 +28,11 @@ jobs:
       - name: Verify just installation
         run: just --version
 
-      # Test that project commands work
+      # Install bun deps & also test bun works
       - name: Test bun install
         run: bun install
 
+      # Download data (must be done in prepare step due to network filtering) & also tests just works
       - name: Test just commands
         run: |
-          just check-ts
           just process-data
