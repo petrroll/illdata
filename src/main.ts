@@ -13,12 +13,141 @@ const extremeWindow = 3*28;
 const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, averagingWindows);
 const euPositivityEnhanced = computeMovingAverageTimeseries(euPositivity, averagingWindows);
 
-// Local storage keys
-const TIME_RANGE_KEY = "selectedTimeRange";
-const DATASET_VISIBILITY_KEY = "datasetVisibility";
-const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
-const INCLUDE_FUTURE_KEY = "includeFuture";
-const SHOW_EXTREMES_KEY = "showExtremes";
+// Unified settings interface
+interface AppSettings {
+    timeRange: string;
+    includeFuture: boolean;
+    showExtremes: boolean;
+    datasetVisibility: { [key: string]: boolean };
+    euDatasetVisibility: { [key: string]: boolean };
+}
+
+// Default settings
+const DEFAULT_SETTINGS: AppSettings = {
+    timeRange: "all",
+    includeFuture: true,
+    showExtremes: false,
+    datasetVisibility: {},
+    euDatasetVisibility: {}
+};
+
+// Unified settings storage key
+const SETTINGS_KEY = "appSettings";
+
+// Settings manager
+class SettingsManager {
+    private settings: AppSettings;
+
+    constructor() {
+        this.settings = this.loadSettings();
+    }
+
+    private loadSettings(): AppSettings {
+        try {
+            const stored = localStorage.getItem(SETTINGS_KEY);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                // Merge with defaults to handle missing properties
+                return { ...DEFAULT_SETTINGS, ...parsed };
+            } else {
+                // Migration: Check for old localStorage keys and migrate them
+                return this.migrateFromOldSettings();
+            }
+        } catch (error) {
+            console.error("Error loading settings from localStorage:", error);
+            return this.migrateFromOldSettings();
+        }
+    }
+
+    private migrateFromOldSettings(): AppSettings {
+        const migratedSettings = { ...DEFAULT_SETTINGS };
+        
+        try {
+            // Migrate old settings keys
+            const oldTimeRange = localStorage.getItem("selectedTimeRange");
+            if (oldTimeRange) {
+                migratedSettings.timeRange = oldTimeRange;
+            }
+
+            const oldIncludeFuture = localStorage.getItem("includeFuture");
+            if (oldIncludeFuture !== null) {
+                migratedSettings.includeFuture = JSON.parse(oldIncludeFuture);
+            }
+
+            const oldShowExtremes = localStorage.getItem("showExtremes");
+            if (oldShowExtremes !== null) {
+                migratedSettings.showExtremes = JSON.parse(oldShowExtremes);
+            }
+
+            const oldDatasetVisibility = localStorage.getItem("datasetVisibility");
+            if (oldDatasetVisibility) {
+                migratedSettings.datasetVisibility = JSON.parse(oldDatasetVisibility);
+            }
+
+            const oldEuDatasetVisibility = localStorage.getItem("euDatasetVisibility");
+            if (oldEuDatasetVisibility) {
+                migratedSettings.euDatasetVisibility = JSON.parse(oldEuDatasetVisibility);
+            }
+
+            // Save migrated settings and clean up old keys
+            this.saveMigratedSettings(migratedSettings);
+            this.cleanupOldSettings();
+            
+            console.log("Successfully migrated settings from old localStorage keys");
+        } catch (error) {
+            console.error("Error during settings migration:", error);
+        }
+
+        return migratedSettings;
+    }
+
+    private saveMigratedSettings(settings: AppSettings): void {
+        try {
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        } catch (error) {
+            console.error("Error saving migrated settings:", error);
+        }
+    }
+
+    private cleanupOldSettings(): void {
+        // Remove old localStorage keys
+        const oldKeys = [
+            "selectedTimeRange",
+            "datasetVisibility", 
+            "euDatasetVisibility",
+            "includeFuture",
+            "showExtremes"
+        ];
+        
+        oldKeys.forEach(key => {
+            localStorage.removeItem(key);
+        });
+    }
+
+    private saveSettings(): void {
+        try {
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(this.settings));
+        } catch (error) {
+            console.error("Error saving settings to localStorage:", error);
+        }
+    }
+
+    get<K extends keyof AppSettings>(key: K): AppSettings[K] {
+        return this.settings[key];
+    }
+
+    set<K extends keyof AppSettings>(key: K, value: AppSettings[K]): void {
+        this.settings[key] = value;
+        this.saveSettings();
+    }
+
+    getSettings(): AppSettings {
+        return { ...this.settings };
+    }
+}
+
+// Global settings manager instance
+const settingsManager = new SettingsManager();
 
 interface ChartConfig {
     containerId: string;
@@ -26,7 +155,7 @@ interface ChartConfig {
     data: TimeseriesData;
     title: string;
     shortTitle: string;
-    visibilityKey: string;
+    settingsKey: keyof Pick<AppSettings, 'datasetVisibility' | 'euDatasetVisibility'>;
     chartHolder: { chart: Chart | undefined };
     datasetVisibility: { [key: string]: boolean };
     canvas?: HTMLCanvasElement | null;
@@ -40,7 +169,7 @@ const chartConfigs : ChartConfig[] = [
         data: mzcrPositivityEnhanced,
         title: "COVID Test Positivity (MZCR Data)",
         shortTitle: "MZCR",
-        visibilityKey: DATASET_VISIBILITY_KEY,
+        settingsKey: "datasetVisibility",
         chartHolder: { chart: undefined as Chart | undefined },
         datasetVisibility: { }
     },
@@ -50,7 +179,7 @@ const chartConfigs : ChartConfig[] = [
         data: euPositivityEnhanced,
         title: "EU ECDC Respiratory Viruses",
         shortTitle: "ECDC",
-        visibilityKey: EU_DATASET_VISIBILITY_KEY,
+        settingsKey: "euDatasetVisibility",
         chartHolder: { chart: undefined as Chart | undefined },
         datasetVisibility: { }
     }
@@ -59,19 +188,20 @@ const chartConfigs : ChartConfig[] = [
 const container = document.getElementById("root");
 renderPage(container);
 
-// Generic function to create a control, initialize from localStorage, and handle change
+// Generic function to create a control, initialize from settings manager, and handle change
 function createPreferenceControl<T extends string | boolean>(options: {
     type: 'select' | 'checkbox',
     id: string,
     label?: string,
     container: HTMLElement,
-    localStorageKey: string,
+    settingsKey: keyof AppSettings,
     values?: { value: string, label: string }[], // for select
     defaultValue: T,
     onChange: (value: T) => void
 }) {
     let control: HTMLSelectElement | HTMLInputElement;
-    let value: T = options.defaultValue;
+    let value: T = (settingsManager.get(options.settingsKey) as T) || options.defaultValue;
+    
     if (options.type === 'select') {
         control = document.createElement('select');
         control.id = options.id;
@@ -81,23 +211,21 @@ function createPreferenceControl<T extends string | boolean>(options: {
             optionElement.textContent = opt.label;
             control.appendChild(optionElement);
         });
-        const stored = localStorage.getItem(options.localStorageKey);
-        value = (stored as T) || options.defaultValue;
         (control as HTMLSelectElement).value = value as string;
     } else {
         control = document.createElement('input');
         control.type = 'checkbox';
         control.id = options.id;
-        const stored = localStorage.getItem(options.localStorageKey);
-        value = stored !== null ? JSON.parse(stored) : options.defaultValue;
         (control as HTMLInputElement).checked = value as boolean;
     }
+    
     if (options.label) {
         const label = document.createElement('label');
         label.htmlFor = options.id;
         label.textContent = options.label;
         options.container.appendChild(label);
     }
+    
     options.container.appendChild(control);
     control.addEventListener('change', (event) => {
         let newValue: T;
@@ -106,7 +234,7 @@ function createPreferenceControl<T extends string | boolean>(options: {
         } else {
             newValue = (event.target as HTMLInputElement).checked as T;
         }
-        localStorage.setItem(options.localStorageKey, typeof newValue === 'string' ? newValue : JSON.stringify(newValue));
+        settingsManager.set(options.settingsKey, newValue);
         options.onChange(newValue);
     });
     return value;
@@ -166,7 +294,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         id: 'timeRangeSelect',
         label: undefined,
         container: rootDiv,
-        localStorageKey: TIME_RANGE_KEY,
+        settingsKey: 'timeRange',
         values: [
             { value: "30", label: "Last Month" },
             { value: "90", label: "Last 90 Days" },
@@ -183,7 +311,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         id: 'includeFutureCheckbox',
         label: 'Include Future Data',
         container: rootDiv,
-        localStorageKey: INCLUDE_FUTURE_KEY,
+        settingsKey: 'includeFuture',
         defaultValue: true,
         onChange: (val) => onOptionsChange(undefined, val, undefined)
     });
@@ -193,7 +321,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         id: 'showExtremesCheckbox',
         label: 'Show Min/Max Series',
         container: rootDiv,
-        localStorageKey: SHOW_EXTREMES_KEY,
+        settingsKey: 'showExtremes',
         defaultValue: false,
         onChange: (val) => onOptionsChange(undefined, undefined, val)
     });
@@ -350,12 +478,12 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
 
     const validSeriesNames = new Set<string>(datasets.map(ds => ds.label));
 
-    // Retrieve dataset visibility from local storage
+    // Retrieve dataset visibility from settings manager
     try {
-        const storedVisibility = localStorage.getItem(cfg.visibilityKey);
-        cfg.datasetVisibility = storedVisibility ? JSON.parse(storedVisibility) : {};
+        cfg.datasetVisibility = settingsManager.get(cfg.settingsKey);
     } catch (error) {
-        console.error("Error parsing dataset visibility from local storage:", error);
+        console.error("Error getting dataset visibility from settings:", error);
+        cfg.datasetVisibility = {};
     }
 
     validSeriesNames.forEach(seriesName => { cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[seriesName]  ?? true; });
@@ -365,7 +493,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
             delete cfg.datasetVisibility[seriesName];
         }
     });
-    localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
+    settingsManager.set(cfg.settingsKey, cfg.datasetVisibility);
 
     datasets.forEach(dataset => { dataset.hidden = !cfg.datasetVisibility[dataset.label]; });
 
@@ -502,7 +630,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
             
             // Update visibility state first
             cfg.datasetVisibility[datasetLabel] = newVisibility;
-            localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
+            settingsManager.set(cfg.settingsKey, cfg.datasetVisibility);
             
             // Update chart metadata and dataset
             const meta = chart.getDatasetMeta(index);
@@ -554,7 +682,7 @@ function hideAllSeries(onOptionsChange: () => void) {
                 }
                 dataset.hidden = true;
             });
-            localStorage.setItem(cfg.visibilityKey, JSON.stringify(visibilityMap));
+            settingsManager.set(cfg.settingsKey, visibilityMap);
             onOptionsChange();
         }
     });
