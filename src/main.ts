@@ -13,12 +13,134 @@ const extremeWindow = 3*28;
 const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, averagingWindows);
 const euPositivityEnhanced = computeMovingAverageTimeseries(euPositivity, averagingWindows);
 
-// Local storage keys
-const TIME_RANGE_KEY = "selectedTimeRange";
-const DATASET_VISIBILITY_KEY = "datasetVisibility";
-const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
-const INCLUDE_FUTURE_KEY = "includeFuture";
-const SHOW_EXTREMES_KEY = "showExtremes";
+// Unified settings interface
+interface AppSettings {
+    timeRange: string;
+    includeFuture: boolean;
+    showExtremes: boolean;
+    datasetVisibility: { [key: string]: boolean };
+    euDatasetVisibility: { [key: string]: boolean };
+}
+
+// Default settings
+const DEFAULT_SETTINGS: AppSettings = {
+    timeRange: "all",
+    includeFuture: true,
+    showExtremes: false,
+    datasetVisibility: {},
+    euDatasetVisibility: {}
+};
+
+// Legacy localStorage keys for migration
+const LEGACY_KEYS = {
+    TIME_RANGE: "selectedTimeRange",
+    DATASET_VISIBILITY: "datasetVisibility", 
+    EU_DATASET_VISIBILITY: "euDatasetVisibility",
+    INCLUDE_FUTURE: "includeFuture",
+    SHOW_EXTREMES: "showExtremes"
+};
+
+const SETTINGS_KEY = "appSettings";
+
+// Settings utility functions
+function loadSettings(): AppSettings {
+    try {
+        const stored = localStorage.getItem(SETTINGS_KEY);
+        if (stored) {
+            const parsedSettings = JSON.parse(stored);
+            // Merge with defaults to ensure all properties exist
+            return { ...DEFAULT_SETTINGS, ...parsedSettings };
+        }
+    } catch (error) {
+        console.error("Error parsing settings from localStorage:", error);
+    }
+    
+    // Migration: check for legacy keys
+    const migrated = migrateLegacySettings();
+    if (migrated) {
+        return migrated;
+    }
+    
+    return { ...DEFAULT_SETTINGS };
+}
+
+function saveSettings(settings: AppSettings): void {
+    try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    } catch (error) {
+        console.error("Error saving settings to localStorage:", error);
+    }
+}
+
+function migrateLegacySettings(): AppSettings | null {
+    let hasLegacyData = false;
+    const settings: AppSettings = { ...DEFAULT_SETTINGS };
+    
+    // Migrate time range
+    const timeRange = localStorage.getItem(LEGACY_KEYS.TIME_RANGE);
+    if (timeRange) {
+        settings.timeRange = timeRange;
+        hasLegacyData = true;
+    }
+    
+    // Migrate include future
+    const includeFuture = localStorage.getItem(LEGACY_KEYS.INCLUDE_FUTURE);
+    if (includeFuture !== null) {
+        try {
+            settings.includeFuture = JSON.parse(includeFuture);
+            hasLegacyData = true;
+        } catch (e) {
+            console.warn("Failed to parse legacy includeFuture setting");
+        }
+    }
+    
+    // Migrate show extremes
+    const showExtremes = localStorage.getItem(LEGACY_KEYS.SHOW_EXTREMES);
+    if (showExtremes !== null) {
+        try {
+            settings.showExtremes = JSON.parse(showExtremes);
+            hasLegacyData = true;
+        } catch (e) {
+            console.warn("Failed to parse legacy showExtremes setting");
+        }
+    }
+    
+    // Migrate dataset visibility
+    const datasetVisibility = localStorage.getItem(LEGACY_KEYS.DATASET_VISIBILITY);
+    if (datasetVisibility) {
+        try {
+            settings.datasetVisibility = JSON.parse(datasetVisibility);
+            hasLegacyData = true;
+        } catch (e) {
+            console.warn("Failed to parse legacy datasetVisibility setting");
+        }
+    }
+    
+    // Migrate EU dataset visibility
+    const euDatasetVisibility = localStorage.getItem(LEGACY_KEYS.EU_DATASET_VISIBILITY);
+    if (euDatasetVisibility) {
+        try {
+            settings.euDatasetVisibility = JSON.parse(euDatasetVisibility);
+            hasLegacyData = true;
+        } catch (e) {
+            console.warn("Failed to parse legacy euDatasetVisibility setting");
+        }
+    }
+    
+    if (hasLegacyData) {
+        console.log("Migrated legacy settings to unified format");
+        saveSettings(settings);
+        
+        // Clean up legacy keys
+        Object.values(LEGACY_KEYS).forEach(key => {
+            localStorage.removeItem(key);
+        });
+        
+        return settings;
+    }
+    
+    return null;
+}
 
 interface ChartConfig {
     containerId: string;
@@ -26,7 +148,7 @@ interface ChartConfig {
     data: TimeseriesData;
     title: string;
     shortTitle: string;
-    visibilityKey: string;
+    visibilityKey: 'datasetVisibility' | 'euDatasetVisibility';
     chartHolder: { chart: Chart | undefined };
     datasetVisibility: { [key: string]: boolean };
     canvas?: HTMLCanvasElement | null;
@@ -40,7 +162,7 @@ const chartConfigs : ChartConfig[] = [
         data: mzcrPositivityEnhanced,
         title: "COVID Test Positivity (MZCR Data)",
         shortTitle: "MZCR",
-        visibilityKey: DATASET_VISIBILITY_KEY,
+        visibilityKey: 'datasetVisibility',
         chartHolder: { chart: undefined as Chart | undefined },
         datasetVisibility: { }
     },
@@ -50,7 +172,7 @@ const chartConfigs : ChartConfig[] = [
         data: euPositivityEnhanced,
         title: "EU ECDC Respiratory Viruses",
         shortTitle: "ECDC",
-        visibilityKey: EU_DATASET_VISIBILITY_KEY,
+        visibilityKey: 'euDatasetVisibility',
         chartHolder: { chart: undefined as Chart | undefined },
         datasetVisibility: { }
     }
@@ -59,19 +181,21 @@ const chartConfigs : ChartConfig[] = [
 const container = document.getElementById("root");
 renderPage(container);
 
-// Generic function to create a control, initialize from localStorage, and handle change
+// Generic function to create a control, initialize from unified settings, and handle change
 function createPreferenceControl<T extends string | boolean>(options: {
     type: 'select' | 'checkbox',
     id: string,
     label?: string,
     container: HTMLElement,
-    localStorageKey: string,
+    settingsKey: keyof AppSettings,
     values?: { value: string, label: string }[], // for select
     defaultValue: T,
     onChange: (value: T) => void
 }) {
     let control: HTMLSelectElement | HTMLInputElement;
-    let value: T = options.defaultValue;
+    const settings = loadSettings();
+    let value: T = (settings[options.settingsKey] as T) ?? options.defaultValue;
+    
     if (options.type === 'select') {
         control = document.createElement('select');
         control.id = options.id;
@@ -81,15 +205,11 @@ function createPreferenceControl<T extends string | boolean>(options: {
             optionElement.textContent = opt.label;
             control.appendChild(optionElement);
         });
-        const stored = localStorage.getItem(options.localStorageKey);
-        value = (stored as T) || options.defaultValue;
         (control as HTMLSelectElement).value = value as string;
     } else {
         control = document.createElement('input');
         control.type = 'checkbox';
         control.id = options.id;
-        const stored = localStorage.getItem(options.localStorageKey);
-        value = stored !== null ? JSON.parse(stored) : options.defaultValue;
         (control as HTMLInputElement).checked = value as boolean;
     }
     if (options.label) {
@@ -106,7 +226,12 @@ function createPreferenceControl<T extends string | boolean>(options: {
         } else {
             newValue = (event.target as HTMLInputElement).checked as T;
         }
-        localStorage.setItem(options.localStorageKey, typeof newValue === 'string' ? newValue : JSON.stringify(newValue));
+        
+        // Update settings and save
+        const updatedSettings = loadSettings();
+        (updatedSettings as any)[options.settingsKey] = newValue;
+        saveSettings(updatedSettings);
+        
         options.onChange(newValue);
     });
     return value;
@@ -164,7 +289,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         id: 'timeRangeSelect',
         label: undefined,
         container: rootDiv,
-        localStorageKey: TIME_RANGE_KEY,
+        settingsKey: 'timeRange',
         values: [
             { value: "30", label: "Last Month" },
             { value: "90", label: "Last 90 Days" },
@@ -181,7 +306,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         id: 'includeFutureCheckbox',
         label: 'Include Future Data',
         container: rootDiv,
-        localStorageKey: INCLUDE_FUTURE_KEY,
+        settingsKey: 'includeFuture',
         defaultValue: true,
         onChange: (val) => onOptionsChange(undefined, val, undefined)
     });
@@ -191,7 +316,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         id: 'showExtremesCheckbox',
         label: 'Show Min/Max Series',
         container: rootDiv,
-        localStorageKey: SHOW_EXTREMES_KEY,
+        settingsKey: 'showExtremes',
         defaultValue: false,
         onChange: (val) => onOptionsChange(undefined, undefined, val)
     });
@@ -310,10 +435,11 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const numberOfRawData = data.series.filter(series => series.type === 'raw').length;
     
     try {
-        const storedVisibility = localStorage.getItem(cfg.visibilityKey);
-        cfg.datasetVisibility = storedVisibility ? JSON.parse(storedVisibility) : {};
+        const settings = loadSettings();
+        cfg.datasetVisibility = settings[cfg.visibilityKey];
     } catch (error) {
-        console.error("Error parsing dataset visibility from local storage:", error);
+        console.error("Error loading dataset visibility from settings:", error);
+        cfg.datasetVisibility = {};
     }
 
     const datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx);
@@ -334,7 +460,11 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
             delete cfg.datasetVisibility[seriesName];
         }
     });
-    localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
+    
+    // Save updated visibility to settings
+    const settings = loadSettings();
+    settings[cfg.visibilityKey] = cfg.datasetVisibility;
+    saveSettings(settings);
 
     if (showExtremes) {
         datasets.push(...localExtremeDatasets);
@@ -472,7 +602,11 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
             
             // Update visibility state first
             cfg.datasetVisibility[datasetLabel] = newVisibility;
-            localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
+            
+            // Save to unified settings
+            const settings = loadSettings();
+            settings[cfg.visibilityKey] = cfg.datasetVisibility;
+            saveSettings(settings);
             
             // Update chart metadata and dataset
             const meta = chart.getDatasetMeta(index);
@@ -547,6 +681,8 @@ function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData:
 }
 
 function hideAllSeries(onOptionsChange: () => void) {
+    const settings = loadSettings();
+    
     chartConfigs.forEach(cfg => {
         const chart = cfg.chartHolder.chart;
         if (chart) {
@@ -557,10 +693,15 @@ function hideAllSeries(onOptionsChange: () => void) {
                 }
                 dataset.hidden = true;
             });
-            localStorage.setItem(cfg.visibilityKey, JSON.stringify(visibilityMap));
-            onOptionsChange();
+            
+            // Update settings
+            settings[cfg.visibilityKey] = visibilityMap;
+            cfg.datasetVisibility = visibilityMap;
         }
     });
+    
+    saveSettings(settings);
+    onOptionsChange();
 }
 
 function updateRatioTable() { 
