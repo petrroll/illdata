@@ -15,6 +15,7 @@ export interface LinearSeries {
     values: Datapoint[];
     type: 'raw' | 'averaged';
     windowSizeInDays?: number;
+    shiftedByIndexes?: number;
     frequencyInDays: number;
 }
 
@@ -79,6 +80,7 @@ export function getNewWithSifterToAlignExtremeDates(
                 return {
                     name: `${series.name} shifted by ${extremeIndexShiftTo - extremeIndexShiftFrom} wave ${shiftByIndexes * series.frequencyInDays}d`,
                     type: series.type,
+                    shiftedByIndexes: shiftByIndexes,
                     values: shiftedValues,
                     frequencyInDays: series.frequencyInDays,
                     ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {})
