@@ -22,7 +22,11 @@ export interface ExtremeSeries {
     name: string;
     originalSeriesName: string;
     indices: number[];
+    type: 'extreme';
+    extreme: 'maxima'|'minima';
 }
+
+export type Series = LinearSeries | ExtremeSeries;
 
 export function getNewWithSifterToAlignExtremeDates(
     data: TimeseriesData,
@@ -150,7 +154,13 @@ export function findLocalExtreme(series: LinearSeries, desiredWindowSizeInDays: 
         return [];
     }
 
-    maximaSeries.push({ name: `${series.name} ${extreme} over ${desiredWindowSizeInDays}d`, originalSeriesName: series.name, indices: extremeIndices });
+    maximaSeries.push({ 
+        name: `${series.name} ${extreme} over ${desiredWindowSizeInDays}d`, 
+        originalSeriesName: series.name, 
+        indices: extremeIndices,
+        type: 'extreme',
+        extreme: extreme
+    });
 
     return maximaSeries;
 }
