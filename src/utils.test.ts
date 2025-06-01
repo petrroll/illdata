@@ -26,7 +26,7 @@ describe('findLocalExtreme - Local Maxima Tests', () => {
 
     test('filters time series of type averaged (maxima)', () => {
         const result: ExtremeSeries[] = findLocalExtreme(seriesMax, 3, 'maxima');
-        expect(result).toEqual([{ name: 'Averaged Series maxima over 3d', originalSeriesName: 'Averaged Series', indices: [1, 3] }]);
+        expect(result).toEqual([{ name: 'Averaged Series maxima over 3d', originalSeriesName: 'Averaged Series', indices: [1, 3], type: 'extreme', extreme: 'maxima' }]);
     });
 
     test('selects the provided window size (maxima)', () => {
@@ -43,7 +43,7 @@ describe('findLocalExtreme - Local Maxima Tests', () => {
             ]
         };
         const result: ExtremeSeries[] = findLocalExtreme(alteredSeries, 3, 'maxima');
-        expect(result).toEqual([{ name: 'Averaged Series maxima over 3d', originalSeriesName: 'Averaged Series', indices: [1, 3, 5] }]);
+        expect(result).toEqual([{ name: 'Averaged Series maxima over 3d', originalSeriesName: 'Averaged Series', indices: [1, 3, 5], type: 'extreme', extreme: 'maxima' }]);
     });
 
     test('does not consider local maxima at the edge of the array', () => {
@@ -58,7 +58,7 @@ describe('findLocalExtreme - Local Maxima Tests', () => {
             ]
         };
         const result: ExtremeSeries[] = findLocalExtreme(edgeSeries, 3, 'maxima');
-        expect(result).toEqual([{ name: 'Averaged Series maxima over 3d', originalSeriesName: 'Averaged Series', indices: [2] }]);
+        expect(result).toEqual([{ name: 'Averaged Series maxima over 3d', originalSeriesName: 'Averaged Series', indices: [2], type: 'extreme', extreme: 'maxima' }]);
     });
 
     test('handles empty series', () => {
@@ -103,7 +103,7 @@ describe('findLocalExtreme - Local Minima Tests', () => {
 
     test('filters time series of type averaged (minima)', () => {
         const result: ExtremeSeries[] = findLocalExtreme(seriesMin, 3, 'minima');
-        expect(result).toEqual([{ name: 'Averaged Series minima over 3d', originalSeriesName: 'Averaged Series', indices: [1, 3] }]);
+        expect(result).toEqual([{ name: 'Averaged Series minima over 3d', originalSeriesName: 'Averaged Series', indices: [1, 3], type: 'extreme', extreme: 'minima' }]);
     });
 
     test('finds all local minima and returns their index', () => {
@@ -120,7 +120,7 @@ describe('findLocalExtreme - Local Minima Tests', () => {
             ]
         };
         const result: ExtremeSeries[] = findLocalExtreme(variedSeries, 3, 'minima');
-        expect(result).toEqual([{ name: 'Averaged Series minima over 3d', originalSeriesName: 'Averaged Series', indices: [1, 3, 5] }]);
+        expect(result).toEqual([{ name: 'Averaged Series minima over 3d', originalSeriesName: 'Averaged Series', indices: [1, 3, 5], type: 'extreme', extreme: 'minima' }]);
     });
 
     test('does not consider local minima at the edge of the array', () => {
@@ -135,7 +135,7 @@ describe('findLocalExtreme - Local Minima Tests', () => {
             ]
         };
         const result: ExtremeSeries[] = findLocalExtreme(edgeMinSeries, 3, 'minima');
-        expect(result).toEqual([{ name: 'Averaged Series minima over 3d', originalSeriesName: 'Averaged Series', indices: [2] }]);
+        expect(result).toEqual([{ name: 'Averaged Series minima over 3d', originalSeriesName: 'Averaged Series', indices: [2], type: 'extreme', extreme: 'minima' }]);
     });
 
     test('handles different window sizes', () => {
@@ -300,12 +300,16 @@ describe('addShiftedToAlignExtremeDates Tests', () => {
             {
                 name: 'Test Averaged Series maxima over 3d',
                 originalSeriesName: 'Test Averaged Series',
-                indices: [1, 3]
+                indices: [1, 3],
+                type: 'extreme',
+                extreme: 'maxima'
             },
             {
                 name: 'Test Raw Series maxima over 3d',
                 originalSeriesName: 'Test Raw Series',
-                indices: [1, 3]
+                indices: [1, 3],
+                type: 'extreme',
+                extreme: 'maxima'
             }
         ];
 
