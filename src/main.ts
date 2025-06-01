@@ -3,7 +3,7 @@ import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_d
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, addShiftedToAlignExtremeDates as getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type LinearSeries, datapointToPercentage } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type LinearSeries, datapointToPercentage } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -144,9 +144,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         if (typeof newTimeRange !== 'undefined') currentTimeRange = newTimeRange;
         if (typeof newIncludeFuture !== 'undefined') currentIncludeFuture = newIncludeFuture;
         if (typeof newShowExtremes !== 'undefined') currentShowExtremes = newShowExtremes;
-        
-        console.log(`Options changed: timeRange=${currentTimeRange}, includeFuture=${currentIncludeFuture}, showExtremes=${currentShowExtremes}`);
-        
+                
         chartConfigs.forEach(cfg => {
             if ((cfg as any).canvas) {
                 cfg.chartHolder.chart = updateChart(
@@ -283,12 +281,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const filteredMaximaSeries = filteredExtremesResults.flatMap(result => result.filteredMaxima);
     const filteredMinimaSeries = filteredExtremesResults.flatMap(result => result.filteredMinima);
     
-    // Always process extreme dates for shifting, regardless of whether they're shown
     data = getNewWithSifterToAlignExtremeDates(data, filteredMaximaSeries, 1, 2, true);
-    
-    // Always create the extreme datasets
-    const localMaximaDatasets = generateLocalExtremeDataset([filteredMaximaSeries], data, cutoffDateString, "red", includeFuture);
-    const localMinimaDatasets = generateLocalExtremeDataset([filteredMinimaSeries], data, cutoffDateString, "blue", includeFuture);
 
     // End cutoff based on future inclusion flag
     const todayString = new Date().toISOString().split('T')[0];
@@ -316,47 +309,6 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const sortedSeriesWithIndices = getSortedSeriesWithIndices(data.series);
     const numberOfRawData = data.series.filter(series => series.type === 'raw').length;
     
-    const datasets = sortedSeriesWithIndices.map(({ series, originalIndex }, sortedIndex) => {
-        const isVisible = cfg.datasetVisibility[series.name] !== undefined ? cfg.datasetVisibility[series.name] : true;
-        
-        // New color assignment logic
-        const paletteIndex = sortedIndex % numberOfRawData;
-        const colorIndex = Math.floor(sortedIndex / numberOfRawData);
-        const selectedPalette = colorPalettes[paletteIndex % colorPalettes.length];
-        const borderColor = selectedPalette[colorIndex % selectedPalette.length];
-
-        series.values.forEach((element: any, i: number) => {
-            if (element === undefined || element === null) {
-                console.warn(`Missing value in series ${series.name} at index ${i}`);
-            }
-            if (element.tests == 0 && element.positive > 0) {
-                console.warn(`Invalid data in series ${series.name} at index ${i}: positive tests ${element.positive} without total tests ${data.dates[i]}`);
-            }
-        });
-        const dataAsPercentage = series.values.slice(startIdx, endIdx).map(datapointToPercentage)
-        return {
-            label: series.name,
-            data: dataAsPercentage,
-            borderColor: borderColor,
-            fill: false,
-            hidden: !isVisible,
-            borderWidth: 1,
-            pointRadius: 0,
-        };
-    });
-
-    datasets.push(...localMaximaDatasets);
-    datasets.push(...localMinimaDatasets);
-
-    // Build list of valid series names from all datasets (now includes extreme series always)
-    const validSeriesNames = new Set<string>();
-    datasets.forEach(ds => {
-        if (ds.label) {
-            validSeriesNames.add(ds.label);
-        }
-    });
-
-    // Retrieve dataset visibility from local storage
     try {
         const storedVisibility = localStorage.getItem(cfg.visibilityKey);
         cfg.datasetVisibility = storedVisibility ? JSON.parse(storedVisibility) : {};
@@ -364,6 +316,17 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         console.error("Error parsing dataset visibility from local storage:", error);
     }
 
+    const datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx);
+
+    const localExtremeDatasets = [
+        ...generateLocalExtremeDataset([filteredMaximaSeries], data, cutoffDateString, "red", includeFuture, cfg), 
+        ...generateLocalExtremeDataset([filteredMinimaSeries], data, cutoffDateString, "blue", includeFuture, cfg)
+    ];
+
+    // Build list of valid series names from all datasets (now includes extreme series always)
+    const allDatasetsWithExtremes = [...datasets, ...localExtremeDatasets];
+    const validSeriesNames = new Set<string>(allDatasetsWithExtremes.map(ds => ds.label));
+    
     validSeriesNames.forEach(seriesName => { cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[seriesName]  ?? true; });
     Object.keys(cfg.datasetVisibility).forEach(seriesName => {
         if (!validSeriesNames.has(seriesName)) {
@@ -373,19 +336,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     });
     localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
 
-    datasets.forEach(dataset => { 
-        const isExtremeDataset = dataset.label && (dataset.label.includes('maxima over') || dataset.label.includes('minima over'));
-        const individualVisibility = cfg.datasetVisibility[dataset.label];
-        
-        if (isExtremeDataset) {
-            // For extreme datasets, hide if showExtremes is false OR individual visibility is false
-            dataset.hidden = !showExtremes || !individualVisibility;
-        } else {
-            // For regular datasets, only use individual visibility
-            dataset.hidden = !individualVisibility;
-        }
-    });
-
+    if (showExtremes) {
+        datasets.push(...localExtremeDatasets);
+    }
     const newChart = new Chart(cfg.canvas as HTMLCanvasElement, {
         type: "line",
         data: {
@@ -539,9 +492,42 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
     });
 }
 
-function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData: TimeseriesData, cutoffDateString: string, color: string, includeFuture: boolean) {
+function generateNormalDatasets(sortedSeriesWithIndices: { series: LinearSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
+    return sortedSeriesWithIndices.map(({ series, originalIndex }, sortedIndex) => {
+        const isVisible = cfg.datasetVisibility[series.name] !== undefined ? cfg.datasetVisibility[series.name] : true;
+
+        // New color assignment logic
+        const paletteIndex = sortedIndex % numberOfRawData;
+        const colorIndex = Math.floor(sortedIndex / numberOfRawData);
+        const selectedPalette = colorPalettes[paletteIndex % colorPalettes.length];
+        const borderColor = selectedPalette[colorIndex % selectedPalette.length];
+
+        series.values.forEach((element: any, i: number) => {
+            if (element === undefined || element === null) {
+                console.warn(`Missing value in series ${series.name} at index ${i}`);
+            }
+            if (element.tests == 0 && element.positive > 0) {
+                console.warn(`Invalid data in series ${series.name} at index ${i}: positive tests ${element.positive} without total tests ${data.dates[i]}`);
+            }
+        });
+        const dataAsPercentage = series.values.slice(startIdx, endIdx).map(datapointToPercentage);
+        return {
+            label: series.name,
+            data: dataAsPercentage,
+            borderColor: borderColor,
+            fill: false,
+            hidden: !isVisible,
+            borderWidth: 1,
+            pointRadius: 0,
+        };
+    });
+}
+
+function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData: TimeseriesData, cutoffDateString: string, color: string, includeFuture: boolean, cfg: ChartConfig): any[] {
     const todayString = new Date().toISOString().split('T')[0];
     return extremeData.flat().map(extrSeries => {
+        const isVisible = cfg.datasetVisibility[extrSeries.name] !== undefined ? cfg.datasetVisibility[extrSeries.name] : true;
+
         return {
             label: extrSeries.name,
             data: extrSeries.indices.map(index => ({
@@ -551,7 +537,7 @@ function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData:
             borderColor: color,
             backgroundColor: color,
             fill: false,
-            hidden: false,
+            hidden: !isVisible,
             borderWidth: 1,
             pointRadius: 5,
             type: "scatter",
@@ -603,7 +589,6 @@ function updateRatioTable() {
             
             // Check if any key in datasetVisibility contains this series name and has a true value
             return Object.entries(cfg.datasetVisibility).some(([key, isVisible]) => {
-                console.log(`Checking visibility for ${series.name} in ${key}: ${isVisible}`);
                 return key.includes(series.name) && isVisible;
             });
         }).map(series => series.name);

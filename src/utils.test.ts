@@ -2,7 +2,7 @@ import {
     findLocalExtreme, 
     filterExtremesByMedianThreshold,
     computeMovingAverageTimeseries,
-    addShiftedToAlignExtremeDates,
+    getNewWithSifterToAlignExtremeDates,
     type LinearSeries, 
     type ExtremeSeries,
     type TimeseriesData,
@@ -310,7 +310,7 @@ describe('addShiftedToAlignExtremeDates Tests', () => {
         ];
 
         // Apply shifting
-        const result = addShiftedToAlignExtremeDates(data, extremeSeries, 1, 2, false);
+        const result = getNewWithSifterToAlignExtremeDates(data, extremeSeries, 1, 2, false);
 
         // Should have original series + shifted series
         expect(result.series.length).toBeGreaterThan(data.series.length);

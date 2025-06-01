@@ -24,7 +24,7 @@ export interface ExtremeSeries {
     indices: number[];
 }
 
-export function addShiftedToAlignExtremeDates(
+export function getNewWithSifterToAlignExtremeDates(
     data: TimeseriesData,
     extremeSeries: ExtremeSeries[],
     extremeIndexShiftFrom: number,
@@ -253,7 +253,6 @@ export function calculateRatios(data: TimeseriesData, visibleMainSeries: string[
         const series = data.series.find(s => s.name === seriesName);
         if (!series) return { seriesName, ratio7days: null, ratio28days: null, lastDataDate: null };
         
-        console.log(`Calculating ratios for series: ${seriesName}`);
         const ratio7days = calculatePeriodRatio(series, preTodayIndex, 7);
         const ratio28days = calculatePeriodRatio(series, preTodayIndex, 28);
         
