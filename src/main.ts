@@ -363,8 +363,10 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         .filter(series => series.type === 'averaged')
         .filter(series => extremesForWindow == series.windowSizeInDays)
         .forEach(series => {
-            validSeriesNames.add(`${series.name} maxima over ${extremeWindow}d`);
-            validSeriesNames.add(`${series.name} minima over ${extremeWindow}d`);
+            const maxSeries = findLocalExtreme(series, extremeWindow, 'maxima');
+            const minSeries = findLocalExtreme(series, extremeWindow, 'minima');
+            maxSeries.forEach(s => validSeriesNames.add(s.name));
+            minSeries.forEach(s => validSeriesNames.add(s.name));
         });
 
     // Retrieve dataset visibility from local storage
