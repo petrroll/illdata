@@ -327,7 +327,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const allDatasetsWithExtremes = [...datasets, ...localExtremeDatasets];
     const validSeriesNames = new Set<string>(allDatasetsWithExtremes.map(ds => ds.label));
     
-    validSeriesNames.forEach(seriesName => { cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[seriesName]  ?? true; });
+    validSeriesNames.forEach(seriesName => { 
+        cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[seriesName] ?? getVisibilityDefault(seriesName);
+    });
     Object.keys(cfg.datasetVisibility).forEach(seriesName => {
         if (!validSeriesNames.has(seriesName)) {
             console.log(`Removing visibility for non-existing series: ${seriesName}`);
@@ -339,6 +341,10 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     if (showExtremes) {
         datasets.push(...localExtremeDatasets);
     }
+    datasets.forEach(dataset => {
+        dataset.hidden = !cfg.datasetVisibility[dataset.label];
+    });
+
     const newChart = new Chart(cfg.canvas as HTMLCanvasElement, {
         type: "line",
         data: {
@@ -494,8 +500,6 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
 
 function generateNormalDatasets(sortedSeriesWithIndices: { series: LinearSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
     return sortedSeriesWithIndices.map(({ series, originalIndex }, sortedIndex) => {
-        const isVisible = cfg.datasetVisibility[series.name] !== undefined ? cfg.datasetVisibility[series.name] : true;
-
         // New color assignment logic
         const paletteIndex = sortedIndex % numberOfRawData;
         const colorIndex = Math.floor(sortedIndex / numberOfRawData);
@@ -516,7 +520,7 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: LinearSeries;
             data: dataAsPercentage,
             borderColor: borderColor,
             fill: false,
-            hidden: !isVisible,
+            hidden: false,
             borderWidth: 1,
             pointRadius: 0,
         };
@@ -526,8 +530,6 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: LinearSeries;
 function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData: TimeseriesData, cutoffDateString: string, color: string, includeFuture: boolean, cfg: ChartConfig): any[] {
     const todayString = new Date().toISOString().split('T')[0];
     return extremeData.flat().map(extrSeries => {
-        const isVisible = cfg.datasetVisibility[extrSeries.name] !== undefined ? cfg.datasetVisibility[extrSeries.name] : true;
-
         return {
             label: extrSeries.name,
             data: extrSeries.indices.map(index => ({
@@ -537,7 +539,7 @@ function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData:
             borderColor: color,
             backgroundColor: color,
             fill: false,
-            hidden: !isVisible,
+            hidden: false,
             borderWidth: 1,
             pointRadius: 5,
             type: "scatter",
@@ -678,3 +680,19 @@ function updateRatioTable() {
         ratioTableBody.appendChild(row);
     });
 }
+
+function getVisibilityDefault(label: string): boolean {
+    // Hide min/max datasets by default
+    if (label.toLowerCase().includes("max") || label.toLowerCase().includes("min")) {
+        return false;
+    }
+    
+    // Hide shifted datasets by default (these typically contain "shifted" in their name)
+    if (label.toLowerCase().includes("shifted")) {
+        return false;
+    }
+
+    // Show all other datasets by default
+    return true;
+}
+
