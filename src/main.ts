@@ -348,7 +348,24 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     datasets.push(...localMaximaDatasets);
     datasets.push(...localMinimaDatasets);
 
-    const validSeriesNames = new Set<string>(datasets.map(ds => ds.label));
+    // Build comprehensive list of valid series names including potential extreme series
+    const validSeriesNames = new Set<string>();
+    
+    // Add all regular series names
+    datasets.forEach(ds => {
+        if (ds.label) {
+            validSeriesNames.add(ds.label);
+        }
+    });
+    
+    // Add potential extreme series names even if not currently displayed
+    data.series
+        .filter(series => series.type === 'averaged')
+        .filter(series => extremesForWindow == series.windowSizeInDays)
+        .forEach(series => {
+            validSeriesNames.add(`${series.name} maxima over ${extremeWindow}d`);
+            validSeriesNames.add(`${series.name} minima over ${extremeWindow}d`);
+        });
 
     // Retrieve dataset visibility from local storage
     try {
