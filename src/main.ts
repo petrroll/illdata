@@ -13,12 +13,69 @@ const extremeWindow = 3*28;
 const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, averagingWindows);
 const euPositivityEnhanced = computeMovingAverageTimeseries(euPositivity, averagingWindows);
 
-// Local storage keys
-const TIME_RANGE_KEY = "selectedTimeRange";
+// Unified app settings
+interface AppSettings {
+    timeRange: string;
+    includeFuture: boolean;
+    showExtremes: boolean;
+}
+
+// Default values for app settings
+const DEFAULT_APP_SETTINGS: AppSettings = {
+    timeRange: "all",
+    includeFuture: true,
+    showExtremes: false
+};
+
+// Settings manager
+const APP_SETTINGS_KEY = "appSettings";
+
+function loadAppSettings(): AppSettings {
+    try {
+        const stored = localStorage.getItem(APP_SETTINGS_KEY);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            // Merge with defaults to handle missing properties
+            return { ...DEFAULT_APP_SETTINGS, ...parsed };
+        }
+    } catch (error) {
+        console.error("Error loading app settings:", error);
+    }
+    return { ...DEFAULT_APP_SETTINGS };
+}
+
+function saveAppSettings(settings: AppSettings): void {
+    try {
+        localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(settings));
+    } catch (error) {
+        console.error("Error saving app settings:", error);
+    }
+}
+
+// Legacy support - migrate old individual keys to unified settings
+function migrateOldSettings(): void {
+    const oldTimeRange = localStorage.getItem("selectedTimeRange");
+    const oldIncludeFuture = localStorage.getItem("includeFuture");
+    const oldShowExtremes = localStorage.getItem("showExtremes");
+    
+    if (oldTimeRange || oldIncludeFuture || oldShowExtremes) {
+        const settings: AppSettings = {
+            timeRange: oldTimeRange || DEFAULT_APP_SETTINGS.timeRange,
+            includeFuture: oldIncludeFuture ? JSON.parse(oldIncludeFuture) : DEFAULT_APP_SETTINGS.includeFuture,
+            showExtremes: oldShowExtremes ? JSON.parse(oldShowExtremes) : DEFAULT_APP_SETTINGS.showExtremes
+        };
+        saveAppSettings(settings);
+        
+        // Clean up old keys
+        localStorage.removeItem("selectedTimeRange");
+        localStorage.removeItem("includeFuture");
+        localStorage.removeItem("showExtremes");
+    }
+}
+
+// Dataset visibility keys (kept separate as recommended)
 const DATASET_VISIBILITY_KEY = "datasetVisibility";
 const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
-const INCLUDE_FUTURE_KEY = "includeFuture";
-const SHOW_EXTREMES_KEY = "showExtremes";
 
 interface ChartConfig {
     containerId: string;
@@ -59,19 +116,20 @@ const chartConfigs : ChartConfig[] = [
 const container = document.getElementById("root");
 renderPage(container);
 
-// Generic function to create a control, initialize from localStorage, and handle change
-function createPreferenceControl<T extends string | boolean>(options: {
+// Unified settings control creation function
+function createUnifiedSettingsControl<K extends keyof AppSettings>(options: {
     type: 'select' | 'checkbox',
     id: string,
     label?: string,
     container: HTMLElement,
-    localStorageKey: string,
+    settingKey: K,
     values?: { value: string, label: string }[], // for select
-    defaultValue: T,
-    onChange: (value: T) => void
-}) {
+    settings: AppSettings,
+    onChange: (key: K, value: AppSettings[K]) => void
+}): AppSettings[K] {
     let control: HTMLSelectElement | HTMLInputElement;
-    let value: T = options.defaultValue;
+    const currentValue = options.settings[options.settingKey];
+    
     if (options.type === 'select') {
         control = document.createElement('select');
         control.id = options.id;
@@ -81,17 +139,14 @@ function createPreferenceControl<T extends string | boolean>(options: {
             optionElement.textContent = opt.label;
             control.appendChild(optionElement);
         });
-        const stored = localStorage.getItem(options.localStorageKey);
-        value = (stored as T) || options.defaultValue;
-        (control as HTMLSelectElement).value = value as string;
+        (control as HTMLSelectElement).value = currentValue as string;
     } else {
         control = document.createElement('input');
         control.type = 'checkbox';
         control.id = options.id;
-        const stored = localStorage.getItem(options.localStorageKey);
-        value = stored !== null ? JSON.parse(stored) : options.defaultValue;
-        (control as HTMLInputElement).checked = value as boolean;
+        (control as HTMLInputElement).checked = currentValue as boolean;
     }
+    
     if (options.label) {
         const label = document.createElement('label');
         label.htmlFor = options.id;
@@ -99,17 +154,18 @@ function createPreferenceControl<T extends string | boolean>(options: {
         options.container.appendChild(label);
     }
     options.container.appendChild(control);
+    
     control.addEventListener('change', (event) => {
-        let newValue: T;
         if (options.type === 'select') {
-            newValue = (event.target as HTMLSelectElement).value as T;
+            const newValue = (event.target as HTMLSelectElement).value;
+            options.onChange(options.settingKey, newValue as AppSettings[K]);
         } else {
-            newValue = (event.target as HTMLInputElement).checked as T;
+            const newValue = (event.target as HTMLInputElement).checked;
+            options.onChange(options.settingKey, newValue as AppSettings[K]);
         }
-        localStorage.setItem(options.localStorageKey, typeof newValue === 'string' ? newValue : JSON.stringify(newValue));
-        options.onChange(newValue);
     });
-    return value;
+    
+    return currentValue;
 }
 
 // Refactored renderPage to use unified control creation and callback
@@ -118,6 +174,12 @@ function renderPage(rootDiv: HTMLElement | null) {
         console.error("Root element not found.");
         return;
     }
+
+    // Migrate old settings if needed
+    migrateOldSettings();
+
+    // Load unified settings
+    let appSettings = loadAppSettings();
 
     // Update last update timestamp
     const lastUpdateSpan = document.getElementById("lastUpdateTime");
@@ -134,37 +196,33 @@ function renderPage(rootDiv: HTMLElement | null) {
         cfg.canvas = canvas;
     });
 
-    // Unified state
-    let currentTimeRange: string;
-    let currentIncludeFuture: boolean;
-    let currentShowExtremes: boolean = false; // Initialize with default value
-
-    // Unified callback
-    function onOptionsChange(newTimeRange?: string, newIncludeFuture?: boolean, newShowExtremes?: boolean) {
-        if (typeof newTimeRange !== 'undefined') currentTimeRange = newTimeRange;
-        if (typeof newIncludeFuture !== 'undefined') currentIncludeFuture = newIncludeFuture;
-        if (typeof newShowExtremes !== 'undefined') currentShowExtremes = newShowExtremes;
+    // Unified callback for settings changes
+    function onSettingsChange(key?: keyof AppSettings, value?: string | boolean) {
+        if (key && value !== undefined) {
+            (appSettings as any)[key] = value;
+            saveAppSettings(appSettings);
+        }
                 
         chartConfigs.forEach(cfg => {
             if ((cfg as any).canvas) {
                 cfg.chartHolder.chart = updateChart(
-                    currentTimeRange,
+                    appSettings.timeRange,
                     cfg,
-                    currentIncludeFuture,
-                    currentShowExtremes
+                    appSettings.includeFuture,
+                    appSettings.showExtremes
                 );
             }
         });
         updateRatioTable(); // Update ratio table on options change
     }
 
-    // Controls
-    currentTimeRange = createPreferenceControl<string>({
+    // Controls using unified settings
+    createUnifiedSettingsControl({
         type: 'select',
         id: 'timeRangeSelect',
         label: undefined,
         container: rootDiv,
-        localStorageKey: TIME_RANGE_KEY,
+        settingKey: 'timeRange',
         values: [
             { value: "30", label: "Last Month" },
             { value: "90", label: "Last 90 Days" },
@@ -172,37 +230,37 @@ function renderPage(rootDiv: HTMLElement | null) {
             { value: `${365*2}`, label: "Last 2 Years" },
             { value: "all", label: "All Time" },
         ],
-        defaultValue: "all",
-        onChange: (val) => onOptionsChange(val, undefined)
+        settings: appSettings,
+        onChange: onSettingsChange
     });
 
-    currentIncludeFuture = createPreferenceControl<boolean>({
+    createUnifiedSettingsControl({
         type: 'checkbox',
         id: 'includeFutureCheckbox',
         label: 'Include Future Data',
         container: rootDiv,
-        localStorageKey: INCLUDE_FUTURE_KEY,
-        defaultValue: true,
-        onChange: (val) => onOptionsChange(undefined, val, undefined)
+        settingKey: 'includeFuture',
+        settings: appSettings,
+        onChange: onSettingsChange
     });
 
-    currentShowExtremes = createPreferenceControl<boolean>({
+    createUnifiedSettingsControl({
         type: 'checkbox',
         id: 'showExtremesCheckbox',
         label: 'Show Min/Max Series',
         container: rootDiv,
-        localStorageKey: SHOW_EXTREMES_KEY,
-        defaultValue: false,
-        onChange: (val) => onOptionsChange(undefined, undefined, val)
+        settingKey: 'showExtremes',
+        settings: appSettings,
+        onChange: onSettingsChange
     });
 
     // Initial render
-    onOptionsChange();
+    onSettingsChange();
 
     // Attach event listener to hide all button
     const hideAllButton = document.getElementById('hideAllButton');
     if (hideAllButton) {
-        hideAllButton.addEventListener('click', () => hideAllSeries(onOptionsChange));
+        hideAllButton.addEventListener('click', () => hideAllSeries(() => onSettingsChange()));
     }
 }
 
