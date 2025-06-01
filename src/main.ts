@@ -286,9 +286,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     // Always process extreme dates for shifting, regardless of whether they're shown
     data = getNewWithSifterToAlignExtremeDates(data, filteredMaximaSeries, 1, 2, true);
     
-    // Only create the datasets for extremes when showExtremes is true
-    const localMaximaDatasets = showExtremes ? generateLocalExtremeDataset([filteredMaximaSeries], data, cutoffDateString, "red", includeFuture) : [];
-    const localMinimaDatasets = showExtremes ? generateLocalExtremeDataset([filteredMinimaSeries], data, cutoffDateString, "blue", includeFuture) : [];
+    // Always create the extreme datasets
+    const localMaximaDatasets = generateLocalExtremeDataset([filteredMaximaSeries], data, cutoffDateString, "red", includeFuture);
+    const localMinimaDatasets = generateLocalExtremeDataset([filteredMinimaSeries], data, cutoffDateString, "blue", includeFuture);
 
     // End cutoff based on future inclusion flag
     const todayString = new Date().toISOString().split('T')[0];
@@ -348,26 +348,13 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     datasets.push(...localMaximaDatasets);
     datasets.push(...localMinimaDatasets);
 
-    // Build comprehensive list of valid series names including potential extreme series
+    // Build list of valid series names from all datasets (now includes extreme series always)
     const validSeriesNames = new Set<string>();
-    
-    // Add all regular series names
     datasets.forEach(ds => {
         if (ds.label) {
             validSeriesNames.add(ds.label);
         }
     });
-    
-    // Add potential extreme series names even if not currently displayed
-    data.series
-        .filter(series => series.type === 'averaged')
-        .filter(series => extremesForWindow == series.windowSizeInDays)
-        .forEach(series => {
-            const maxSeries = findLocalExtreme(series, extremeWindow, 'maxima');
-            const minSeries = findLocalExtreme(series, extremeWindow, 'minima');
-            maxSeries.forEach(s => validSeriesNames.add(s.name));
-            minSeries.forEach(s => validSeriesNames.add(s.name));
-        });
 
     // Retrieve dataset visibility from local storage
     try {
@@ -386,7 +373,18 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     });
     localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
 
-    datasets.forEach(dataset => { dataset.hidden = !cfg.datasetVisibility[dataset.label]; });
+    datasets.forEach(dataset => { 
+        const isExtremeDataset = dataset.label && (dataset.label.includes('maxima over') || dataset.label.includes('minima over'));
+        const individualVisibility = cfg.datasetVisibility[dataset.label];
+        
+        if (isExtremeDataset) {
+            // For extreme datasets, hide if showExtremes is false OR individual visibility is false
+            dataset.hidden = !showExtremes || !individualVisibility;
+        } else {
+            // For regular datasets, only use individual visibility
+            dataset.hidden = !individualVisibility;
+        }
+    });
 
     const newChart = new Chart(cfg.canvas as HTMLCanvasElement, {
         type: "line",
