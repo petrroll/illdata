@@ -22,8 +22,8 @@ interface AppSettings {
 
 // Default values for app settings
 const DEFAULT_APP_SETTINGS: AppSettings = {
-    timeRange: "all",
-    includeFuture: true,
+    timeRange: "365",
+    includeFuture: false,
     showExtremes: false
 };
 
