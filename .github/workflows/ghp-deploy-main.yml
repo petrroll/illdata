@@ -27,6 +27,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      # This runs every 24h and the expiry of the artifact is 24h so it sometimes fails
       - name: Download artifact from "Deploy to GitHub Pages" workflow
         uses: actions/download-artifact@v4
         with:
@@ -39,6 +40,7 @@ jobs:
 
       - name: Extract existing site if available
         run: ./.github/scripts/extract-existing-site.sh ./existing-site/ ./existing-site-extracted/
+        continue-on-error: true # We're ok in main deploy as at worst we'll loose preview builds (can be re-run)
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2

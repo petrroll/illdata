@@ -28,8 +28,6 @@ case "$MODE" in
                 cp -r "$EXISTING_SITE_PATH/previews" "deployment/"
                 echo "Preserved existing previews"
             fi
-        else 
-            exit 1  # We don't want to do any deployments if we couldn't download the existing site because we'd deploy empty in the main path
         fi
         ;;
         
