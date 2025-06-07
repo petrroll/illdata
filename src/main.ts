@@ -76,6 +76,8 @@ function migrateOldSettings(): void {
 // Dataset visibility keys (kept separate as recommended)
 const DATASET_VISIBILITY_KEY = "datasetVisibility";
 const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
+const CZ_TEST_COUNT_VISIBILITY_KEY = "czTestCountVisibility";
+const EU_TEST_COUNT_VISIBILITY_KEY = "euTestCountVisibility";
 
 interface ChartConfig {
     containerId: string;
@@ -87,6 +89,7 @@ interface ChartConfig {
     chartHolder: { chart: Chart | undefined };
     datasetVisibility: { [key: string]: boolean };
     canvas?: HTMLCanvasElement | null;
+    chartType: 'positivity' | 'testCount';
 }
 
 // Global chart holders for hideAllSeries
@@ -99,7 +102,19 @@ const chartConfigs : ChartConfig[] = [
         shortTitle: "MZCR",
         visibilityKey: DATASET_VISIBILITY_KEY,
         chartHolder: { chart: undefined as Chart | undefined },
-        datasetVisibility: { }
+        datasetVisibility: { },
+        chartType: 'positivity'
+    },
+    {
+        containerId: "czechTestCountContainer",
+        canvasId: "czechTestCountChart",
+        data: mzcrPositivity, // Use raw data without moving averages
+        title: "COVID Test Counts (MZCR Data)",
+        shortTitle: "MZCR Tests",
+        visibilityKey: CZ_TEST_COUNT_VISIBILITY_KEY,
+        chartHolder: { chart: undefined as Chart | undefined },
+        datasetVisibility: { },
+        chartType: 'testCount'
     },
     {
         containerId: "euDataContainer",
@@ -109,7 +124,19 @@ const chartConfigs : ChartConfig[] = [
         shortTitle: "ECDC",
         visibilityKey: EU_DATASET_VISIBILITY_KEY,
         chartHolder: { chart: undefined as Chart | undefined },
-        datasetVisibility: { }
+        datasetVisibility: { },
+        chartType: 'positivity'
+    },
+    {
+        containerId: "euTestCountContainer",
+        canvasId: "euTestCountChart",
+        data: euPositivity, // Use raw data without moving averages
+        title: "EU ECDC Test Counts",
+        shortTitle: "ECDC Tests",
+        visibilityKey: EU_TEST_COUNT_VISIBILITY_KEY,
+        chartHolder: { chart: undefined as Chart | undefined },
+        datasetVisibility: { },
+        chartType: 'testCount'
     }
 ];
 
@@ -317,6 +344,11 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         cutoffDateString = cutoffDate.toISOString().split('T')[0]; // YYYY-MM-DD
     }
 
+    // For test count charts, skip extremes processing and use raw data only
+    if (cfg.chartType === 'testCount') {
+        return updateTestCountChart(timeRange, cfg, includeFuture, cutoffDateString);
+    }
+
     const localMaximaSeries = data.series
         .filter(series => series.type === 'averaged')
         .filter(series => extremesForWindow == series.windowSizeInDays)
@@ -465,6 +497,128 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     return newChart;
 }
 
+function updateTestCountChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean, cutoffDateString: string) {
+    const data = cfg.data;
+    
+    // End cutoff based on future inclusion flag
+    const todayString = new Date().toISOString().split('T')[0];
+    let startIdx = data.dates.findIndex(d => d > cutoffDateString);
+    if (startIdx < 0) startIdx = 0;
+    let endIdx = data.dates.length;
+    if (!includeFuture) {
+        const futureIdx = data.dates.findIndex(d => d > todayString);
+        if (futureIdx >= 0) endIdx = futureIdx;
+    }
+    const labels = data.dates.slice(startIdx, endIdx);
+
+    // Prepare data for chart
+    const colorPalettes = [
+        // Blues palette
+        ["#1f77b4", "#4a90e2", "#7bb3f0", "#9cc5f7", "#bed8ff"],
+        // Greens palette  
+        ["#2ca02c", "#4db84d", "#6bcf6b", "#8ae68a", "#a9fda9"],
+        // Reds palette
+        ["#d62728", "#e74c3c", "#f16c6c", "#f78b8b", "#fdaaaa"],
+        // Purples palette
+        ["#9467bd", "#a569d4", "#b86beb", "#cb8dff", "#deadff"]
+    ];
+    
+    // Sort series and calculate color assignments
+    const sortedSeriesWithIndices = getSortedSeriesWithIndices(data.series);
+    const numberOfRawData = data.series.filter(series => series.type === 'raw').length;
+    
+    try {
+        const storedVisibility = localStorage.getItem(cfg.visibilityKey);
+        cfg.datasetVisibility = storedVisibility ? JSON.parse(storedVisibility) : {};
+    } catch (error) {
+        console.error("Error parsing dataset visibility from local storage:", error);
+    }
+
+    const datasets = generateTestCountDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx);
+
+    // Build list of valid series names from all datasets
+    const validSeriesNames = new Set<string>(datasets.map(ds => ds.label));
+    
+    validSeriesNames.forEach(seriesName => { 
+        cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[seriesName] ?? getVisibilityDefault(seriesName);
+    });
+    Object.keys(cfg.datasetVisibility).forEach(seriesName => {
+        if (!validSeriesNames.has(seriesName)) {
+            console.log(`Removing visibility for non-existing series: ${seriesName}`);
+            delete cfg.datasetVisibility[seriesName];
+        }
+    });
+    localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
+
+    datasets.forEach(dataset => {
+        dataset.hidden = !cfg.datasetVisibility[dataset.label];
+    });
+
+    const newChart = new Chart(cfg.canvas as HTMLCanvasElement, {
+        type: "bar",
+        data: {
+            labels,
+            datasets: datasets,
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+                axis: 'x',
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: cfg.title
+                },
+                legend: {
+                    display: false // We'll create a custom HTML legend instead
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    axis: 'x',
+                },
+            },
+            scales: {
+                x: {
+                    stacked: true,
+                    ticks: {
+                        color: function(context) {
+                            let label = context.tick.label;
+                            if (Array.isArray(label)) {
+                                label = label[0];
+                            }
+                            const date = new Date(label || '');
+                            return date > new Date() ? 'gray' : 'black';
+                        }
+                    }
+                },
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(tickValue: string | number) {
+                            if (typeof tickValue === 'number') {
+                                // Format large numbers with commas
+                                return tickValue.toLocaleString();
+                            }
+                            return tickValue;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Create custom HTML legend with colored background boxes
+    createCustomHtmlLegend(newChart, cfg);
+    
+    return newChart;
+}
+
 function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
     // Find or create legend container
     const containerId = cfg.containerId;
@@ -585,6 +739,70 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: LinearSeries;
     });
 }
 
+function generateTestCountDatasets(sortedSeriesWithIndices: { series: LinearSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
+    // Only use raw series (no moving averages) for test count charts
+    const rawSeriesOnly = sortedSeriesWithIndices.filter(({ series }) => series.type === 'raw');
+    
+    const datasets: any[] = [];
+    
+    rawSeriesOnly.forEach(({ series, originalIndex }, sortedIndex) => {
+        // Color assignment logic similar to normal datasets
+        const paletteIndex = sortedIndex % numberOfRawData;
+        const colorIndex = Math.floor(sortedIndex / numberOfRawData);
+        const selectedPalette = colorPalettes[paletteIndex % colorPalettes.length];
+        const baseColor = selectedPalette[colorIndex % selectedPalette.length];
+        
+        // Create positive tests dataset
+        const positiveData = series.values.slice(startIdx, endIdx).map(datapoint => datapoint ? datapoint.positive : 0);
+        const positiveDataset = {
+            label: `${series.name} - Positive Tests`,
+            data: positiveData,
+            backgroundColor: baseColor,
+            borderColor: baseColor,
+            borderWidth: 1,
+            stack: `stack-${series.name}`,
+            type: 'bar',
+            hidden: false,
+        };
+        
+        // Create negative tests dataset (total - positive)
+        const negativeData = series.values.slice(startIdx, endIdx).map(datapoint => 
+            datapoint && datapoint.tests > 0 ? Math.max(0, datapoint.tests - datapoint.positive) : 0
+        );
+        
+        // Use a lighter shade for negative tests
+        const negativeColor = lightenColor(baseColor, 0.3);
+        const negativeDataset = {
+            label: `${series.name} - Negative Tests`,
+            data: negativeData,
+            backgroundColor: negativeColor,
+            borderColor: negativeColor,
+            borderWidth: 1,
+            stack: `stack-${series.name}`,
+            type: 'bar',
+            hidden: false,
+        };
+        
+        datasets.push(positiveDataset, negativeDataset);
+    });
+    
+    return datasets;
+}
+
+// Helper function to lighten a color
+function lightenColor(color: string, factor: number): string {
+    // Simple color lightening - convert hex to RGB, lighten, convert back
+    if (color.startsWith('#')) {
+        const hex = color.slice(1);
+        const num = parseInt(hex, 16);
+        const r = Math.min(255, Math.floor((num >> 16) + (255 - (num >> 16)) * factor));
+        const g = Math.min(255, Math.floor(((num >> 8) & 0x00FF) + (255 - ((num >> 8) & 0x00FF)) * factor));
+        const b = Math.min(255, Math.floor((num & 0x0000FF) + (255 - (num & 0x0000FF)) * factor));
+        return `rgb(${r}, ${g}, ${b})`;
+    }
+    return color; // fallback for non-hex colors
+}
+
 function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData: TimeseriesData, cutoffDateString: string, color: string, includeFuture: boolean, cfg: ChartConfig): any[] {
     const todayString = new Date().toISOString().split('T')[0];
     return extremeData.flat().map(extrSeries => {
@@ -638,6 +856,9 @@ function updateRatioTable() {
     const visiblePerChart: [ChartConfig, string[]][] = [];
     
     chartConfigs.forEach((cfg, index) => {
+        // Skip test count charts from ratio table
+        if (cfg.chartType === 'testCount') return;
+        
         const chart = cfg.chartHolder.chart;
         if (!chart) {
             console.error(`Chart ${index} not found`);
