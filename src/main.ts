@@ -375,6 +375,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     }
 
     const datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx);
+    const barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx);
 
     const localExtremeDatasets = [
         ...generateLocalExtremeDataset([filteredMaximaSeries], data, cutoffDateString, "red", includeFuture, cfg), 
@@ -382,7 +383,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     ];
 
     // Build list of valid series names from all datasets (now includes extreme series always)
-    const allDatasetsWithExtremes = [...datasets, ...localExtremeDatasets];
+    const allDatasetsWithExtremes = [...datasets, ...barDatasets, ...localExtremeDatasets];
     const validSeriesNames = new Set<string>(allDatasetsWithExtremes.map(ds => ds.label));
     
     validSeriesNames.forEach(seriesName => { 
@@ -399,7 +400,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     if (showExtremes) {
         datasets.push(...localExtremeDatasets);
     }
-    datasets.forEach(dataset => {
+    const allVisibleDatasets = [...datasets, ...barDatasets];
+    allVisibleDatasets.forEach(dataset => {
         dataset.hidden = !cfg.datasetVisibility[dataset.label];
     });
 
@@ -407,7 +409,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         type: "line",
         data: {
             labels,
-            datasets: datasets,
+            datasets: allVisibleDatasets,
         },
         options: {
             responsive: true,
@@ -445,6 +447,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     }
                 },
                 y: {
+                    type: 'linear',
+                    position: 'left',
                     beginAtZero: true,
                     ticks: {
                         callback: function(tickValue: string | number) {
@@ -453,6 +457,22 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             }
                             return tickValue;
                         }
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    position: 'right',
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(tickValue: string | number) {
+                            if (typeof tickValue === 'number') {
+                                return tickValue.toLocaleString();
+                            }
+                            return tickValue;
+                        }
+                    },
+                    grid: {
+                        drawOnChartArea: false, // Only draw grid lines for the left y-axis
                     }
                 }
             }
@@ -582,6 +602,45 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: LinearSeries;
             borderWidth: 1,
             pointRadius: 0,
         };
+    });
+}
+
+function generateTestNumberBarDatasets(sortedSeriesWithIndices: { series: LinearSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
+    // Only generate bar charts for raw series (not averaged)
+    const rawSeriesWithIndices = sortedSeriesWithIndices.filter(({ series }) => series.type === 'raw');
+    
+    return rawSeriesWithIndices.flatMap(({ series, originalIndex }, sortedIndex) => {
+        // Use same color logic as line charts
+        const paletteIndex = sortedIndex % numberOfRawData;
+        const selectedPalette = colorPalettes[paletteIndex % colorPalettes.length];
+        const positiveColor = selectedPalette[0]; // Use first color for positive
+        const negativeColor = selectedPalette[1]; // Use second color for negative
+
+        const positiveData = series.values.slice(startIdx, endIdx).map(dp => dp.positive);
+        const negativeData = series.values.slice(startIdx, endIdx).map(dp => dp.tests - dp.positive);
+
+        return [
+            {
+                label: `${series.name} - Positive Tests`,
+                data: positiveData,
+                backgroundColor: positiveColor,
+                borderColor: positiveColor,
+                type: 'bar' as const,
+                yAxisID: 'y1',
+                stack: `stack-${series.name}`,
+                hidden: false,
+            },
+            {
+                label: `${series.name} - Negative Tests`,
+                data: negativeData,
+                backgroundColor: negativeColor,
+                borderColor: negativeColor,
+                type: 'bar' as const,
+                yAxisID: 'y1',
+                stack: `stack-${series.name}`,
+                hidden: false,
+            }
+        ];
     });
 }
 
@@ -747,6 +806,11 @@ function getVisibilityDefault(label: string): boolean {
     
     // Hide shifted datasets by default (these typically contain "shifted" in their name)
     if (label.toLowerCase().includes("shifted")) {
+        return false;
+    }
+
+    // Hide test number bar charts by default (these contain "Tests" in their name)
+    if (label.toLowerCase().includes("tests")) {
         return false;
     }
 
