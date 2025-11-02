@@ -313,7 +313,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     
     const shiftDaysLabel = document.createElement('label');
     shiftDaysLabel.htmlFor = 'shiftOverrideDaysInput';
-    shiftDaysLabel.textContent = 'Shift Days:';
+    shiftDaysLabel.textContent = 'Shift By:';
     rootDiv.appendChild(shiftDaysLabel);
     rootDiv.appendChild(shiftDaysInput);
     
@@ -345,13 +345,13 @@ function renderPage(rootDiv: HTMLElement | null) {
     createUnifiedSettingsControl({
         type: 'select',
         id: 'alignByExtremeSelect',
-        label: 'Align By:',
+        label: '',
         container: rootDiv,
         settingKey: 'alignByExtreme',
         values: [
-            { value: 'days', label: 'Days (Manual)' },
-            { value: 'maxima', label: 'Maxima (Peaks)' },
-            { value: 'minima', label: 'Minima (Valleys)' }
+            { value: 'days', label: 'Days' },
+            { value: 'maxima', label: 'Maxima' },
+            { value: 'minima', label: 'Minima' }
         ],
         settings: appSettings,
         onChange: onSettingsChange
