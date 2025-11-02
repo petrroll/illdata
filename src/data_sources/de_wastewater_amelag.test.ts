@@ -72,10 +72,10 @@ describe('computeDeWastewaterData Tests', () => {
         // RSV A should have data on first date only
         expect(rsvA?.values[0].positive).toBeCloseTo(1459.0, 5);
         expect(rsvA?.values[0].tests).toBe(1);
-        expect(rsvA?.values[1].tests).toBeNaN();
+        expect(rsvA?.values[1].tests).toBe(0);
         
         // RSV A+B should have data on second date only
-        expect(rsvAB?.values[0].tests).toBeNaN();
+        expect(rsvAB?.values[0].tests).toBe(0);
         expect(rsvAB?.values[1].positive).toBeCloseTo(1600.0, 5);
         expect(rsvAB?.values[1].tests).toBe(1);
     });

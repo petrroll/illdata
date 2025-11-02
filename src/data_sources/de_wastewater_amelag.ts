@@ -103,7 +103,7 @@ export function computeDeWastewaterData(data: Record<string, string>[]): Timeser
                         tests: 1  // Dummy value for compatibility with existing chart infrastructure
                     } : {
                         positive: 0,
-                        tests: NaN  // NaN signals no data for this date
+                        tests: 0  // 0 signals no data for this date
                     };
                 }),
                 type: 'raw',

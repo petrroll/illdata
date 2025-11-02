@@ -601,6 +601,7 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: LinearSeries;
         series.values.forEach((element: any, i: number) => {
             if (element === undefined || element === null) {
                 console.warn(`Missing value in series ${series.name} at index ${i}`);
+                return;
             }
             if (element.tests == 0 && element.positive > 0) {
                 console.warn(`Invalid data in series ${series.name} at index ${i}: positive tests ${element.positive} without total tests ${data.dates[i]}`);
