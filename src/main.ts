@@ -1040,10 +1040,14 @@ function updateRatioTable() {
             cell.style.textAlign = 'center';
             
             const value = period.getValue(ratio);
-            cell.textContent = value !== null ? value.toFixed(2) + 'x' : 'N/A';
             
-            // Add color coding based on ratio values
-            if (value !== null) {
+            // Handle NaN, Infinity, and null values
+            if (value === null || isNaN(value) || !isFinite(value)) {
+                cell.textContent = 'N/A';
+            } else {
+                cell.textContent = value.toFixed(2) + 'x';
+                
+                // Add color coding based on ratio values
                 if (value > 1.1) {
                     cell.style.backgroundColor = '#ffebee'; // Light red for increasing
                     cell.style.color = '#c62828';
