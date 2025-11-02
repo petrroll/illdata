@@ -29,6 +29,54 @@ export interface ExtremeSeries {
 
 export type Series = LinearSeries | ExtremeSeries;
 
+export function getNewWithCustomShift(
+    data: TimeseriesData,
+    shiftDays: number,
+    includeFutureDates: boolean = false
+): TimeseriesData {
+    function extendDatesIfNeeded(dates: string[], extraCount: number, freqDays: number): string[] {
+        if (extraCount <= 0) return dates;
+        const lastDate = new Date(dates[dates.length - 1]);
+        const extraDates = Array.from({ length: extraCount }, (_, i) => {
+            const d = new Date(lastDate.getTime() + freqDays * 24 * 60 * 60 * 1000 * (i + 1));
+            return d.toISOString().split('T')[0];
+        });
+        return [...dates, ...extraDates];
+    }
+
+    const freqDays = data.series[0]?.frequencyInDays ?? 1;
+    const extraCount = includeFutureDates && shiftDays < 0 ? Math.abs(shiftDays) / freqDays : 0;
+    const newDates = includeFutureDates ? extendDatesIfNeeded(data.dates, Math.ceil(extraCount), freqDays) : data.dates;
+
+    function buildShiftedSeriesCustom(series: LinearSeries): LinearSeries[] {
+        const shiftByIndexes = Math.round(shiftDays / series.frequencyInDays);
+        const length = series.values.length + (includeFutureDates ? Math.ceil(extraCount) : 0);
+        const shiftedValues = Array.from({ length }, (_, i) => {
+            const idx = i + shiftByIndexes;
+            return idx < 0 || idx >= series.values.length ? { positive: 0, tests: NaN } : series.values[idx];
+        });
+        
+        const shiftedSeries: LinearSeries = {
+            name: `${series.name} shifted by ${shiftDays}d (custom)`,
+            type: series.type,
+            shiftedByIndexes: shiftByIndexes,
+            values: shiftedValues,
+            frequencyInDays: series.frequencyInDays,
+            ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {})
+        };
+        
+        const originalPadded = includeFutureDates && extraCount > 0
+            ? [...series.values, ...Array(Math.ceil(extraCount)).fill(NaN)]
+            : series.values;
+        const base = { ...series, values: originalPadded };
+        
+        return [shiftedSeries, base];
+    }
+
+    const shiftedSeries = data.series.flatMap(buildShiftedSeriesCustom);
+    return { dates: newDates, series: shiftedSeries };
+}
+
 export function getNewWithSifterToAlignExtremeDates(
     data: TimeseriesData,
     extremeSeries: ExtremeSeries[],

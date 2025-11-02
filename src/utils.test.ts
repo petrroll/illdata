@@ -3,6 +3,7 @@ import {
     filterExtremesByMedianThreshold,
     computeMovingAverageTimeseries,
     getNewWithSifterToAlignExtremeDates,
+    getNewWithCustomShift,
     type LinearSeries, 
     type ExtremeSeries,
     type TimeseriesData,
@@ -382,5 +383,104 @@ describe('findLocalExtreme - Filtering Tests', () => {
         // The filtering should preserve meaningful extremes
         expect(filtered.filteredMaxima[0].indices.length).toBeGreaterThan(0);
         expect(filtered.filteredMinima[0].indices.length).toBeGreaterThan(0);
+    });
+});
+
+describe('getNewWithCustomShift Tests', () => {
+    test('applies custom shift to series', () => {
+        const testSeries: LinearSeries = {
+            name: 'Test Series',
+            values: [
+                { positive: 1, tests: 100 },
+                { positive: 2, tests: 100 },
+                { positive: 3, tests: 100 },
+                { positive: 4, tests: 100 },
+                { positive: 5, tests: 100 }
+            ],
+            type: 'raw',
+            frequencyInDays: 1
+        };
+
+        const data: TimeseriesData = {
+            dates: ['2022-01-01', '2022-01-02', '2022-01-03', '2022-01-04', '2022-01-05'],
+            series: [testSeries]
+        };
+
+        const result = getNewWithCustomShift(data, 2, false);
+
+        // Should have original series + shifted series
+        expect(result.series).toHaveLength(2);
+
+        // Find the shifted series
+        const shiftedSeries = result.series.find(s => s.name.includes('shifted by 2d (custom)'));
+        expect(shiftedSeries).toBeDefined();
+        expect(shiftedSeries?.shiftedByIndexes).toBe(2);
+
+        // Check that shifted values are correct (shifted forward by 2)
+        // Positive shift means pulling data from future indices
+        expect(shiftedSeries?.values[0]).toEqual({ positive: 3, tests: 100 }); // Original index 2
+        expect(shiftedSeries?.values[1]).toEqual({ positive: 4, tests: 100 }); // Original index 3
+        expect(shiftedSeries?.values[2]).toEqual({ positive: 5, tests: 100 }); // Original index 4
+        expect(shiftedSeries?.values[3]).toEqual({ positive: 0, tests: NaN }); // Out of bounds
+    });
+
+    test('applies negative custom shift', () => {
+        const testSeries: LinearSeries = {
+            name: 'Test Series',
+            values: [
+                { positive: 10, tests: 100 },
+                { positive: 20, tests: 100 },
+                { positive: 30, tests: 100 }
+            ],
+            type: 'raw',
+            frequencyInDays: 1
+        };
+
+        const data: TimeseriesData = {
+            dates: ['2022-01-01', '2022-01-02', '2022-01-03'],
+            series: [testSeries]
+        };
+
+        const result = getNewWithCustomShift(data, -1, true);
+
+        // Should have extended dates for future values
+        expect(result.dates.length).toBeGreaterThanOrEqual(data.dates.length);
+
+        // Find the shifted series
+        const shiftedSeries = result.series.find(s => s.name.includes('shifted by -1d (custom)'));
+        expect(shiftedSeries).toBeDefined();
+        expect(shiftedSeries?.shiftedByIndexes).toBe(-1);
+
+        // Check that values are shifted backward (negative shift pulls from past indices)
+        expect(shiftedSeries?.values[0]).toEqual({ positive: 0, tests: NaN }); // Out of bounds (index -1)
+        expect(shiftedSeries?.values[1]).toEqual({ positive: 10, tests: 100 }); // Original index 0
+        expect(shiftedSeries?.values[2]).toEqual({ positive: 20, tests: 100 }); // Original index 1
+    });
+
+    test('applies custom shift to averaged series with windowSizeInDays', () => {
+        const averagedSeries: LinearSeries = {
+            name: 'Averaged Series',
+            values: [
+                { positive: 1, tests: 100 },
+                { positive: 2, tests: 100 },
+                { positive: 3, tests: 100 }
+            ],
+            type: 'averaged',
+            windowSizeInDays: 7,
+            frequencyInDays: 1
+        };
+
+        const data: TimeseriesData = {
+            dates: ['2022-01-01', '2022-01-02', '2022-01-03'],
+            series: [averagedSeries]
+        };
+
+        const result = getNewWithCustomShift(data, 1, false);
+
+        // Find the shifted series
+        const shiftedSeries = result.series.find(s => s.name.includes('shifted by 1d (custom)'));
+        expect(shiftedSeries).toBeDefined();
+        expect(shiftedSeries?.type).toBe('averaged');
+        expect(shiftedSeries?.windowSizeInDays).toBe(7);
     });
 });
