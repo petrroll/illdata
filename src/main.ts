@@ -25,13 +25,10 @@ interface AppSettings {
     showExtremes: boolean;
     showShifted: boolean;
     showTestNumbers: boolean;
-    // Override the automatic shift calculation for shifted series
-    // When null, uses automatic calculation based on extreme detection
+    // Shift value in days for manual shift (when alignByExtreme is 'days')
     shiftOverrideDays: number | null;
-    // Whether to use custom shift (when true, uses shiftOverrideDays)
-    useCustomShift: boolean;
-    // Which extreme type to align by when using automatic shift
-    alignByExtreme: 'maxima' | 'minima';
+    // Alignment method: 'days' for manual shift, 'maxima'/'minima' for automatic alignment
+    alignByExtreme: 'days' | 'maxima' | 'minima';
 }
 
 // Default values for app settings
@@ -42,7 +39,6 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
     showShifted: true,
     showTestNumbers: true,
     shiftOverrideDays: null,
-    useCustomShift: false,
     alignByExtreme: 'maxima'
 };
 
@@ -54,6 +50,13 @@ function loadAppSettings(): AppSettings {
         const stored = localStorage.getItem(APP_SETTINGS_KEY);
         if (stored) {
             const parsed = JSON.parse(stored);
+            // Migrate old useCustomShift setting to new alignByExtreme format
+            if ('useCustomShift' in parsed) {
+                if (parsed.useCustomShift === true) {
+                    parsed.alignByExtreme = 'days';
+                }
+                delete parsed.useCustomShift;
+            }
             // Merge with defaults to handle missing properties
             return { ...DEFAULT_APP_SETTINGS, ...parsed };
         }
@@ -232,7 +235,6 @@ function renderPage(rootDiv: HTMLElement | null) {
                     appSettings.showExtremes,
                     appSettings.showShifted,
                     appSettings.showTestNumbers,
-                    appSettings.useCustomShift,
                     appSettings.shiftOverrideDays,
                     appSettings.alignByExtreme
                 );
@@ -301,23 +303,12 @@ function renderPage(rootDiv: HTMLElement | null) {
     });
 
     // Shift settings controls
-    createUnifiedSettingsControl({
-        type: 'checkbox',
-        id: 'useCustomShiftCheckbox',
-        label: 'Use Custom Shift',
-        container: rootDiv,
-        settingKey: 'useCustomShift',
-        settings: appSettings,
-        onChange: onSettingsChange
-    });
-
-    // Custom shift days input (number input)
+    // Shift value input (number input)
     const shiftDaysInput = document.createElement('input');
     shiftDaysInput.type = 'number';
     shiftDaysInput.id = 'shiftOverrideDaysInput';
     shiftDaysInput.value = (appSettings.shiftOverrideDays ?? 0).toString();
-    shiftDaysInput.disabled = !appSettings.useCustomShift;
-    shiftDaysInput.placeholder = 'Shift days';
+    shiftDaysInput.placeholder = 'Shift value';
     shiftDaysInput.style.width = '80px';
     
     const shiftDaysLabel = document.createElement('label');
@@ -350,7 +341,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         onSettingsChange('shiftOverrideDays', clampedValue);
     });
 
-    // Align by extreme selector
+    // Align by selector (days/maxima/minima)
     createUnifiedSettingsControl({
         type: 'select',
         id: 'alignByExtremeSelect',
@@ -358,20 +349,13 @@ function renderPage(rootDiv: HTMLElement | null) {
         container: rootDiv,
         settingKey: 'alignByExtreme',
         values: [
+            { value: 'days', label: 'Days (Manual)' },
             { value: 'maxima', label: 'Maxima (Peaks)' },
             { value: 'minima', label: 'Minima (Valleys)' }
         ],
         settings: appSettings,
         onChange: onSettingsChange
     });
-
-    // Enable/disable shift days input based on useCustomShift
-    const useCustomShiftCheckbox = document.getElementById('useCustomShiftCheckbox') as HTMLInputElement;
-    if (useCustomShiftCheckbox) {
-        useCustomShiftCheckbox.addEventListener('change', () => {
-            shiftDaysInput.disabled = !useCustomShiftCheckbox.checked;
-        });
-    }
 
     // Initial render
     onSettingsChange();
@@ -406,7 +390,7 @@ function getSortedSeriesWithIndices(series: LinearSeries[]): { series: LinearSer
     return seriesWithIndices;
 }
 
-function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, useCustomShift: boolean = false, shiftOverrideDays: number | null = null, alignByExtreme: 'maxima' | 'minima' = 'maxima') {
+function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, shiftOverrideDays: number | null = null, alignByExtreme: 'days' | 'maxima' | 'minima' = 'maxima') {
     // Destroy existing chart if it exists
     if (cfg.chartHolder.chart) {
         cfg.chartHolder.chart.destroy();
@@ -444,8 +428,10 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const filteredMinimaSeries = filteredExtremesResults.flatMap(result => result.filteredMinima);
     
     // Apply shift based on settings
-    if (useCustomShift && shiftOverrideDays !== null) {
-        data = getNewWithCustomShift(data, shiftOverrideDays, true);
+    if (alignByExtreme === 'days') {
+        // Manual shift by specified number of days (use 0 if null)
+        const shiftDays = shiftOverrideDays ?? 0;
+        data = getNewWithCustomShift(data, shiftDays, true);
     } else {
         // Use automatic alignment based on extreme type preference
         const extremesToAlign = alignByExtreme === 'maxima' ? filteredMaximaSeries : filteredMinimaSeries;
