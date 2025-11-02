@@ -13,18 +13,31 @@ const extremeWindow = 3*28;
 const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, averagingWindows);
 const euPositivityEnhanced = computeMovingAverageTimeseries(euPositivity, averagingWindows);
 
+// Constants for dataset filtering
+const SHIFTED_SERIES_IDENTIFIER = 'shifted';
+const TEST_NUMBERS_IDENTIFIER = 'tests';
+const MIN_MAX_IDENTIFIER = ['min', 'max'];
+
 // Unified app settings
 interface AppSettings {
     timeRange: string;
     includeFuture: boolean;
     showExtremes: boolean;
+    showShifted: boolean;
+    showTestNumbers: boolean;
+    // Reserved for future feature: Override the automatic shift calculation for shifted series
+    // When null, uses automatic calculation based on extreme detection
+    shiftOverrideDays: number | null;
 }
 
 // Default values for app settings
 const DEFAULT_APP_SETTINGS: AppSettings = {
     timeRange: "365",
     includeFuture: false,
-    showExtremes: false
+    showExtremes: false,
+    showShifted: true,
+    showTestNumbers: true,
+    shiftOverrideDays: null
 };
 
 // Settings manager
@@ -60,6 +73,7 @@ function migrateOldSettings(): void {
     
     if (oldTimeRange || oldIncludeFuture || oldShowExtremes) {
         const settings: AppSettings = {
+            ...DEFAULT_APP_SETTINGS,
             timeRange: oldTimeRange || DEFAULT_APP_SETTINGS.timeRange,
             includeFuture: oldIncludeFuture ? JSON.parse(oldIncludeFuture) : DEFAULT_APP_SETTINGS.includeFuture,
             showExtremes: oldShowExtremes ? JSON.parse(oldShowExtremes) : DEFAULT_APP_SETTINGS.showExtremes
@@ -296,6 +310,8 @@ function renderPage(rootDiv: HTMLElement | null) {
                     cfg,
                     appSettings.includeFuture,
                     appSettings.showExtremes,
+                    appSettings.showShifted,
+                    appSettings.showTestNumbers,
                     countryFilter
                 );
             }
@@ -313,6 +329,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         values: [
             { value: "30", label: "Last Month" },
             { value: "90", label: "Last 90 Days" },
+            { value: "180", label: "Last 180 Days" },
             { value: "365", label: "Last Year" },
             { value: `${365*2}`, label: "Last 2 Years" },
             { value: "all", label: "All Time" },
@@ -337,6 +354,26 @@ function renderPage(rootDiv: HTMLElement | null) {
         label: 'Show Min/Max Series',
         container: rootDiv,
         settingKey: 'showExtremes',
+        settings: appSettings,
+        onChange: onSettingsChange
+    });
+
+    createUnifiedSettingsControl({
+        type: 'checkbox',
+        id: 'showShiftedCheckbox',
+        label: 'Show Shifted Series',
+        container: rootDiv,
+        settingKey: 'showShifted',
+        settings: appSettings,
+        onChange: onSettingsChange
+    });
+
+    createUnifiedSettingsControl({
+        type: 'checkbox',
+        id: 'showTestNumbersCheckbox',
+        label: 'Show Test Numbers',
+        container: rootDiv,
+        settingKey: 'showTestNumbers',
         settings: appSettings,
         onChange: onSettingsChange
     });
@@ -431,7 +468,7 @@ function getSortedSeriesWithIndices(series: LinearSeries[]): { series: LinearSer
     return seriesWithIndices;
 }
 
-function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, countryFilter?: string) {
+function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, countryFilter?: string) {
     // Destroy existing chart if it exists
     if (cfg.chartHolder.chart) {
         cfg.chartHolder.chart.destroy();
@@ -509,8 +546,18 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         console.error("Error parsing dataset visibility from local storage:", error);
     }
 
-    const datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx);
-    const barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx);
+    let datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx);
+    let barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx);
+
+    // Filter shifted series based on showShifted setting
+    if (!showShifted) {
+        datasets = datasets.filter(ds => !ds.label.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER));
+    }
+
+    // Filter test number series based on showTestNumbers setting
+    if (!showTestNumbers) {
+        barDatasets = barDatasets.filter(ds => !ds.label.toLowerCase().includes(TEST_NUMBERS_IDENTIFIER));
+    }
 
     const localExtremeDatasets = [
         ...generateLocalExtremeDataset([filteredMaximaSeries], data, cutoffDateString, "red", includeFuture, cfg), 
@@ -522,7 +569,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const validSeriesNames = new Set<string>(allDatasetsWithExtremes.map(ds => ds.label));
     
     validSeriesNames.forEach(seriesName => { 
-        cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[seriesName] ?? getVisibilityDefault(seriesName);
+        cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[seriesName] ?? getVisibilityDefault(seriesName, showShifted, showTestNumbers);
     });
     Object.keys(cfg.datasetVisibility).forEach(seriesName => {
         if (!validSeriesNames.has(seriesName)) {
@@ -933,20 +980,20 @@ function updateRatioTable() {
     });
 }
 
-function getVisibilityDefault(label: string): boolean {
+function getVisibilityDefault(label: string, showShifted: boolean = true, showTestNumbers: boolean = true): boolean {
     // Hide min/max datasets by default
-    if (label.toLowerCase().includes("max") || label.toLowerCase().includes("min")) {
+    if (MIN_MAX_IDENTIFIER.some(id => label.toLowerCase().includes(id))) {
         return false;
     }
     
-    // Hide shifted datasets by default (these typically contain "shifted" in their name)
-    if (label.toLowerCase().includes("shifted")) {
-        return false;
+    // Hide shifted datasets based on showShifted setting
+    if (label.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER)) {
+        return showShifted;
     }
 
-    // Hide test number bar charts by default (these contain "Tests" in their name)
-    if (label.toLowerCase().includes("tests")) {
-        return false;
+    // Hide test number bar charts based on showTestNumbers setting
+    if (label.toLowerCase().includes(TEST_NUMBERS_IDENTIFIER)) {
+        return showTestNumbers;
     }
 
     // Show all other datasets by default
