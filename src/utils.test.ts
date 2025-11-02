@@ -21,7 +21,8 @@ describe('findLocalExtreme - Local Maxima Tests', () => {
         ],
         type: 'averaged',
         windowSizeInDays: 3,
-        frequencyInDays: 1
+        frequencyInDays: 1,
+        dataType: 'positivity' as const
     };
 
     test('filters time series of type averaged (maxima)', () => {
@@ -99,6 +100,7 @@ describe('findLocalExtreme - Local Minima Tests', () => {
         type: 'averaged',
         windowSizeInDays: 3,
         frequencyInDays: 1,
+        dataType: 'positivity' as const
     };
 
     test('filters time series of type averaged (minima)', () => {
@@ -165,7 +167,8 @@ describe('computeMovingAverageTimeseries Tests', () => {
                     { positive: 5, tests: 100 }
                 ],
                 type: 'raw',
-                frequencyInDays: 1
+                frequencyInDays: 1,
+        dataType: 'positivity' as const
             }]
         };
         const windowSizes = [3];
@@ -197,7 +200,8 @@ describe('computeMovingAverageTimeseries Tests', () => {
                     { positive: 50, tests: 100 }
                 ],
                 type: 'raw',
-                frequencyInDays: 1
+                frequencyInDays: 1,
+        dataType: 'positivity' as const
             }]
         };
         const windowSizes = [3, 5];
@@ -218,7 +222,8 @@ describe('computeMovingAverageTimeseries Tests', () => {
                     { positive: 20, tests: 100 }
                 ],
                 type: 'raw',
-                frequencyInDays: 1
+                frequencyInDays: 1,
+        dataType: 'positivity' as const
             }]
         };
         const result = computeMovingAverageTimeseries(input, [1]);
@@ -249,7 +254,8 @@ describe('computeMovingAverageTimeseries Tests', () => {
                     { positive: 30, tests: 100 }
                 ],
                 type: 'raw',
-                frequencyInDays: 2
+                frequencyInDays: 2,
+                dataType: 'positivity' as const
             }]
         };
         const result = computeMovingAverageTimeseries(input, [4]);
@@ -273,7 +279,8 @@ describe('addShiftedToAlignExtremeDates Tests', () => {
             ],
             type: 'averaged',
             windowSizeInDays: 7,
-            frequencyInDays: 1
+            frequencyInDays: 1,
+        dataType: 'positivity' as const
         };
 
         // Test data with a 'raw' type series
@@ -287,7 +294,8 @@ describe('addShiftedToAlignExtremeDates Tests', () => {
                 { positive: 2, tests: 100 }
             ],
             type: 'raw',
-            frequencyInDays: 1
+            frequencyInDays: 1,
+        dataType: 'positivity' as const
         };
 
         const data: TimeseriesData = {
@@ -357,7 +365,8 @@ describe('findLocalExtreme - Filtering Tests', () => {
             ],
             type: 'averaged',
             windowSizeInDays: 3,
-            frequencyInDays: 1
+            frequencyInDays: 1,
+        dataType: 'positivity' as const
         };
 
         // Step 1: Find all local extremes (unfiltered)

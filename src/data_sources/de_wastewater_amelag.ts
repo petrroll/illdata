@@ -95,19 +95,14 @@ export function computeDeWastewaterData(data: Record<string, string>[]): Timeser
                         }
                     });
                     
-                    // Return as datapoint format - wastewater data doesn't have tests/positive
-                    // so we use a normalized representation: positive = viruslast, tests = 1
-                    // This allows us to reuse the existing charting infrastructure
-                    return hasData ? {
-                        positive: totalViruslast,
-                        tests: 1  // Dummy value for compatibility with existing chart infrastructure
-                    } : {
-                        positive: 0,
-                        tests: 0  // 0 signals no data for this date
+                    // Return as wastewater datapoint with virus load value
+                    return {
+                        virusLoad: hasData ? totalViruslast : 0
                     };
                 }),
                 type: 'raw',
-                frequencyInDays: 7  // Weekly data
+                frequencyInDays: 7,  // Weekly data
+                dataType: 'wastewater'
             };
         })
     };

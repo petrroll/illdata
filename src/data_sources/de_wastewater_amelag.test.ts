@@ -24,13 +24,11 @@ describe('computeDeWastewaterData Tests', () => {
         const covid = result.series.find(s => s.name === 'SARS-CoV-2 Wastewater');
         expect(covid).toBeDefined();
         
-        // Check data values
-        expect(influenzaA?.values[0].positive).toBeCloseTo(1459.015070385136, 5);
-        expect(influenzaA?.values[0].tests).toBe(1);
-        expect(influenzaA?.values[1].positive).toBeCloseTo(1591.6921304455302, 5);
+        // Check data values - using 'as any' to access virusLoad property
+        expect((influenzaA?.values[0] as any).virusLoad).toBeCloseTo(1459.015070385136, 5);
+        expect((influenzaA?.values[1] as any).virusLoad).toBeCloseTo(1591.6921304455302, 5);
         
-        expect(covid?.values[0].positive).toBeCloseTo(600.0, 5);
-        expect(covid?.values[0].tests).toBe(1);
+        expect((covid?.values[0] as any).virusLoad).toBeCloseTo(600.0, 5);
     });
 
     test('handles missing data correctly', () => {
@@ -46,12 +44,10 @@ describe('computeDeWastewaterData Tests', () => {
         expect(influenzaA).toBeDefined();
         
         // First date has data
-        expect(influenzaA?.values[0].positive).toBeCloseTo(1459.015070385136, 5);
-        expect(influenzaA?.values[0].tests).toBe(1);
+        expect((influenzaA?.values[0] as any).virusLoad).toBeCloseTo(1459.015070385136, 5);
         
         // Second date has data
-        expect(influenzaA?.values[1].positive).toBeCloseTo(2500.0, 5);
-        expect(influenzaA?.values[1].tests).toBe(1);
+        expect((influenzaA?.values[1] as any).virusLoad).toBeCloseTo(2500.0, 5);
     });
 
     test('normalizes virus names correctly', () => {
@@ -70,14 +66,12 @@ describe('computeDeWastewaterData Tests', () => {
         expect(rsvAB).toBeDefined();
         
         // RSV A should have data on first date only
-        expect(rsvA?.values[0].positive).toBeCloseTo(1459.0, 5);
-        expect(rsvA?.values[0].tests).toBe(1);
-        expect(rsvA?.values[1].tests).toBe(0);
+        expect((rsvA?.values[0] as any).virusLoad).toBeCloseTo(1459.0, 5);
+        expect((rsvA?.values[1] as any).virusLoad).toBe(0);
         
         // RSV A+B should have data on second date only
-        expect(rsvAB?.values[0].tests).toBe(0);
-        expect(rsvAB?.values[1].positive).toBeCloseTo(1600.0, 5);
-        expect(rsvAB?.values[1].tests).toBe(1);
+        expect((rsvAB?.values[0] as any).virusLoad).toBe(0);
+        expect((rsvAB?.values[1] as any).virusLoad).toBeCloseTo(1600.0, 5);
     });
 
     test('handles empty input', () => {

@@ -28,13 +28,15 @@ export function computeCzCovPositivityData(data: Record<string, string>[]): Time
                 name: "PCR Positivity",
                 values: processedData.map(row => row.pcr),
                 type: 'raw',
-                frequencyInDays: 1
+                frequencyInDays: 1,
+                dataType: 'positivity'
             },
             {
                 name: "Antigen Positivity",
                 values: processedData.map(row => row.ag),
                 type: 'raw',
                 frequencyInDays: 1,
+                dataType: 'positivity'
             }
         ]
     };
