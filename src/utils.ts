@@ -415,3 +415,25 @@ function calculateMedian(values: number[]): number {
         return sortedValues[middle];
     }
 }
+
+/**
+ * Compares two labels by word count first (fewer words first), then alphabetically.
+ * Used for consistent sorting of series labels in charts and legends.
+ * 
+ * @param labelA - First label to compare
+ * @param labelB - Second label to compare
+ * @returns Negative if labelA comes first, positive if labelB comes first, 0 if equal
+ */
+export function compareLabels(labelA: string, labelB: string): number {
+    // Count words (sections separated by whitespace)
+    const wordsA = labelA.trim().split(/\s+/).filter(word => word.length > 0).length;
+    const wordsB = labelB.trim().split(/\s+/).filter(word => word.length > 0).length;
+    
+    // Sort by word count first
+    if (wordsA !== wordsB) {
+        return wordsA - wordsB; // fewer words first
+    }
+    
+    // If word count is the same, fall back to alphabetical
+    return labelA.localeCompare(labelB);
+}

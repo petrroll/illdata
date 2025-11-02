@@ -4,7 +4,7 @@ import deWastewaterImport from "../data_processed/de_wastewater_amelag/wastewate
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, datapointToPercentage } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, datapointToPercentage, compareLabels } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -16,18 +16,31 @@ const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, av
 const euPositivityEnhanced = computeMovingAverageTimeseries(euPositivity, averagingWindows);
 const deWastewaterEnhanced = computeMovingAverageTimeseries(deWastewater, averagingWindows);
 
+// Constants for dataset filtering
+const SHIFTED_SERIES_IDENTIFIER = 'shifted';
+const TEST_NUMBERS_IDENTIFIER = 'tests';
+const MIN_MAX_IDENTIFIER = ['min', 'max'];
+
 // Unified app settings
 interface AppSettings {
     timeRange: string;
     includeFuture: boolean;
     showExtremes: boolean;
+    showShifted: boolean;
+    showTestNumbers: boolean;
+    // Reserved for future feature: Override the automatic shift calculation for shifted series
+    // When null, uses automatic calculation based on extreme detection
+    shiftOverrideDays: number | null;
 }
 
 // Default values for app settings
 const DEFAULT_APP_SETTINGS: AppSettings = {
     timeRange: "365",
     includeFuture: false,
-    showExtremes: false
+    showExtremes: false,
+    showShifted: true,
+    showTestNumbers: true,
+    shiftOverrideDays: null
 };
 
 // Settings manager
@@ -63,6 +76,7 @@ function migrateOldSettings(): void {
     
     if (oldTimeRange || oldIncludeFuture || oldShowExtremes) {
         const settings: AppSettings = {
+            ...DEFAULT_APP_SETTINGS,
             timeRange: oldTimeRange || DEFAULT_APP_SETTINGS.timeRange,
             includeFuture: oldIncludeFuture ? JSON.parse(oldIncludeFuture) : DEFAULT_APP_SETTINGS.includeFuture,
             showExtremes: oldShowExtremes ? JSON.parse(oldShowExtremes) : DEFAULT_APP_SETTINGS.showExtremes
@@ -223,7 +237,9 @@ function renderPage(rootDiv: HTMLElement | null) {
                     appSettings.timeRange,
                     cfg,
                     appSettings.includeFuture,
-                    appSettings.showExtremes
+                    appSettings.showExtremes,
+                    appSettings.showShifted,
+                    appSettings.showTestNumbers
                 );
             }
         });
@@ -240,6 +256,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         values: [
             { value: "30", label: "Last Month" },
             { value: "90", label: "Last 90 Days" },
+            { value: "180", label: "Last 180 Days" },
             { value: "365", label: "Last Year" },
             { value: `${365*2}`, label: "Last 2 Years" },
             { value: "all", label: "All Time" },
@@ -264,6 +281,26 @@ function renderPage(rootDiv: HTMLElement | null) {
         label: 'Show Min/Max Series',
         container: rootDiv,
         settingKey: 'showExtremes',
+        settings: appSettings,
+        onChange: onSettingsChange
+    });
+
+    createUnifiedSettingsControl({
+        type: 'checkbox',
+        id: 'showShiftedCheckbox',
+        label: 'Show Shifted Series',
+        container: rootDiv,
+        settingKey: 'showShifted',
+        settings: appSettings,
+        onChange: onSettingsChange
+    });
+
+    createUnifiedSettingsControl({
+        type: 'checkbox',
+        id: 'showTestNumbersCheckbox',
+        label: 'Show Test Numbers',
+        container: rootDiv,
+        settingKey: 'showTestNumbers',
         settings: appSettings,
         onChange: onSettingsChange
     });
@@ -297,26 +334,11 @@ function createChartContainerAndCanvas(containerId: string, canvasId: string): H
 
 function getSortedSeriesWithIndices(series: DataSeries[]): { series: DataSeries, originalIndex: number }[] {
     const seriesWithIndices = series.map((s, index) => ({ series: s, originalIndex: index }));
-    seriesWithIndices.sort((a, b) => {
-        const labelA = a.series.name;
-        const labelB = b.series.name;
-        
-        // Count words (sections separated by whitespace)
-        const wordsA = labelA.trim().split(/\s+/).filter((word: string) => word.length > 0).length;
-        const wordsB = labelB.trim().split(/\s+/).filter((word: string) => word.length > 0).length;
-        
-        // Sort by word count first
-        if (wordsA !== wordsB) {
-            return wordsA - wordsB; // fewer words first
-        }
-        
-        // If word count is the same, fall back to alphabetical
-        return labelA.localeCompare(labelB);
-    });
+    seriesWithIndices.sort((a, b) => compareLabels(a.series.name, b.series.name));
     return seriesWithIndices;
 }
 
-function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false) {
+function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true) {
     // Destroy existing chart if it exists
     if (cfg.chartHolder.chart) {
         cfg.chartHolder.chart.destroy();
@@ -388,8 +410,18 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         console.error("Error parsing dataset visibility from local storage:", error);
     }
 
-    const datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx);
-    const barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx);
+    let datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx);
+    let barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx);
+
+    // Filter shifted series based on showShifted setting
+    if (!showShifted) {
+        datasets = datasets.filter(ds => !ds.label.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER));
+    }
+
+    // Filter test number series based on showTestNumbers setting
+    if (!showTestNumbers) {
+        barDatasets = barDatasets.filter(ds => !ds.label.toLowerCase().includes(TEST_NUMBERS_IDENTIFIER));
+    }
 
     const localExtremeDatasets = [
         ...generateLocalExtremeDataset([filteredMaximaSeries], data, cutoffDateString, "red", includeFuture, cfg), 
@@ -401,7 +433,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const validSeriesNames = new Set<string>(allDatasetsWithExtremes.map(ds => ds.label));
     
     validSeriesNames.forEach(seriesName => { 
-        cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[seriesName] ?? getVisibilityDefault(seriesName);
+        cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[seriesName] ?? getVisibilityDefault(seriesName, showShifted, showTestNumbers);
     });
     Object.keys(cfg.datasetVisibility).forEach(seriesName => {
         if (!validSeriesNames.has(seriesName)) {
@@ -538,18 +570,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
     datasetsWithIndices.sort((a, b) => {
         const labelA = a.dataset.label || `Dataset ${a.index}`;
         const labelB = b.dataset.label || `Dataset ${b.index}`;
-        
-        // Count words (sections separated by whitespace)
-        const wordsA = labelA.trim().split(/\s+/).filter(word => word.length > 0).length;
-        const wordsB = labelB.trim().split(/\s+/).filter(word => word.length > 0).length;
-        
-        // Sort by word count first
-        if (wordsA !== wordsB) {
-            return wordsA - wordsB; // fewer words first
-        }
-        
-        // If word count is the same, fall back to alphabetical
-        return labelA.localeCompare(labelB);
+        return compareLabels(labelA, labelB);
     });
     
     // Create legend items for each dataset in sorted order
@@ -644,6 +665,87 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
     });
 }
 
+/**
+ * Adjusts the color for test bar charts by adjusting saturation and lightness
+ * to create better contrast between positive and negative test bars.
+ * Positive tests are more saturated, negative tests are less saturated.
+ * 
+ * @param hexColor - The original color in hex format (e.g., "#1f77b4")
+ * @param isPositive - Whether this is for positive tests (more saturated) or negative tests (less saturated)
+ * @returns The adjusted color in hex format
+ */
+function adjustColorForTestBars(hexColor: string, isPositive: boolean): string {
+    // Color adjustment constants
+    const POSITIVE_SATURATION_FACTOR = 0.85; // Keep most saturation for positive tests
+    const NEGATIVE_SATURATION_FACTOR = 0.4; // Reduce saturation more for negative tests
+    const POSITIVE_LIGHTNESS_REDUCTION = 0.05; // Slightly darken positive tests to maintain saturation appearance
+    const POSITIVE_LIGHTNESS_MIN = 0.3; // Floor positive lightness
+    const NEGATIVE_LIGHTNESS_BOOST = 0.15; // Lighten negative tests for contrast
+    const NEGATIVE_LIGHTNESS_MAX = 0.75; // Cap negative lightness
+
+    // Convert hex to RGB
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16) / 255;
+    const g = parseInt(hex.substring(2, 4), 16) / 255;
+    const b = parseInt(hex.substring(4, 6), 16) / 255;
+
+    // Convert RGB to HSL
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h = 0, s = 0, l = (max + min) / 2;
+
+    if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        
+        switch (max) {
+            case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+            case g: h = ((b - r) / d + 2) / 6; break;
+            case b: h = ((r - g) / d + 4) / 6; break;
+        }
+    }
+
+    // Adjust saturation and lightness for contrast
+    // Positive tests: more saturated and slightly darker
+    // Negative tests: less saturated and lighter
+    if (isPositive) {
+        s = s * POSITIVE_SATURATION_FACTOR;
+        l = Math.max(l - POSITIVE_LIGHTNESS_REDUCTION, POSITIVE_LIGHTNESS_MIN);
+    } else {
+        s = s * NEGATIVE_SATURATION_FACTOR;
+        l = Math.min(l + NEGATIVE_LIGHTNESS_BOOST, NEGATIVE_LIGHTNESS_MAX);
+    }
+
+    // Convert HSL back to RGB
+    const hue2rgb = (p: number, q: number, t: number) => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1/6) return p + (q - p) * 6 * t;
+        if (t < 1/2) return q;
+        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        return p;
+    };
+
+    let r2, g2, b2;
+    if (s === 0) {
+        r2 = g2 = b2 = l;
+    } else {
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r2 = hue2rgb(p, q, h + 1/3);
+        g2 = hue2rgb(p, q, h);
+        b2 = hue2rgb(p, q, h - 1/3);
+    }
+
+    // Convert back to hex
+    const toHex = (c: number) => {
+        const hex = Math.round(c * 255).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+    };
+
+    return `#${toHex(r2)}${toHex(g2)}${toHex(b2)}`;
+}
+
 function generateTestNumberBarDatasets(sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
     // Only generate bar charts for raw positivity series (not averaged, not scalar)
     const rawPositivitySeriesWithIndices = sortedSeriesWithIndices.filter(({ series }) => 
@@ -654,8 +756,12 @@ function generateTestNumberBarDatasets(sortedSeriesWithIndices: { series: DataSe
         // Use same color logic as line charts
         const paletteIndex = sortedIndex % numberOfRawData;
         const selectedPalette = colorPalettes[paletteIndex % colorPalettes.length];
-        const positiveColor = selectedPalette[0]; // Use first color for positive
-        const negativeColor = selectedPalette[1]; // Use second color for negative
+        const basePositiveColor = selectedPalette[0]; // Use first color for positive
+        const baseNegativeColor = selectedPalette[1]; // Use second color for negative
+
+        // Adjust colors: reduce saturation and increase contrast
+        const positiveColor = adjustColorForTestBars(basePositiveColor, true);
+        const negativeColor = adjustColorForTestBars(baseNegativeColor, false);
 
         const positiveData = (series as PositivitySeries).values.slice(startIdx, endIdx).map((dp: any) => dp.positive);
         const negativeData = (series as PositivitySeries).values.slice(startIdx, endIdx).map((dp: any) => dp.tests - dp.positive);
@@ -848,20 +954,22 @@ function updateRatioTable() {
     });
 }
 
-function getVisibilityDefault(label: string): boolean {
+function getVisibilityDefault(label: string, showShifted: boolean = true, showTestNumbers: boolean = true): boolean {
+    const lowerLabel = label.toLowerCase();
+    
     // Hide min/max datasets by default
-    if (label.toLowerCase().includes("max") || label.toLowerCase().includes("min")) {
+    if (MIN_MAX_IDENTIFIER.some(id => lowerLabel.includes(id))) {
         return false;
     }
     
-    // Hide shifted datasets by default (these typically contain "shifted" in their name)
-    if (label.toLowerCase().includes("shifted")) {
-        return false;
+    // Show/hide shifted datasets based on setting (default: shown)
+    if (lowerLabel.includes(SHIFTED_SERIES_IDENTIFIER)) {
+        return showShifted;
     }
 
-    // Hide test number bar charts by default (these contain "Tests" in their name)
-    if (label.toLowerCase().includes("tests")) {
-        return false;
+    // Show/hide test number bar charts based on setting (default: shown)
+    if (lowerLabel.includes(TEST_NUMBERS_IDENTIFIER)) {
+        return showTestNumbers;
     }
 
     // Show all other datasets by default
