@@ -440,6 +440,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     let data = cfg.data;
     
     // Apply country filter if applicable
+    // Note: "EU/EEA" is a valid country value in the data representing aggregate European data
     if (countryFilter && cfg.hasCountryFilter) {
         data = filterDataByCountry(data, countryFilter);
     }
