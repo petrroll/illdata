@@ -1,5 +1,6 @@
 import mzcrPositivityImport from "../data_processed/cr_cov_mzcr/positivity_data.json" with { type: "json" };
 import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_data.json" with { type: "json" };
+import deAreImport from "../data_processed/de_are_rki/are_data.json" with { type: "json" };
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
@@ -7,11 +8,13 @@ import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedia
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
+const deAre = deAreImport as TimeseriesData;
 const averagingWindows = [28];
 const extremesForWindow = 28;
 const extremeWindow = 3*28;
 const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, averagingWindows);
 const euPositivityEnhanced = computeMovingAverageTimeseries(euPositivity, averagingWindows);
+const deAreEnhanced = computeMovingAverageTimeseries(deAre, averagingWindows);
 
 // Unified app settings
 interface AppSettings {
@@ -76,6 +79,7 @@ function migrateOldSettings(): void {
 // Dataset visibility keys (kept separate as recommended)
 const DATASET_VISIBILITY_KEY = "datasetVisibility";
 const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
+const DE_ARE_DATASET_VISIBILITY_KEY = "deAreDatasetVisibility";
 
 interface ChartConfig {
     containerId: string;
@@ -87,6 +91,7 @@ interface ChartConfig {
     chartHolder: { chart: Chart | undefined };
     datasetVisibility: { [key: string]: boolean };
     canvas?: HTMLCanvasElement | null;
+    dataType?: 'positivity' | 'incidence';
 }
 
 // Global chart holders for hideAllSeries
@@ -110,6 +115,17 @@ const chartConfigs : ChartConfig[] = [
         visibilityKey: EU_DATASET_VISIBILITY_KEY,
         chartHolder: { chart: undefined as Chart | undefined },
         datasetVisibility: { }
+    },
+    {
+        containerId: "deAreDataContainer",
+        canvasId: "deAreChart",
+        data: deAreEnhanced,
+        title: "Germany ARE Consultation Incidence (RKI)",
+        shortTitle: "RKI ARE",
+        visibilityKey: DE_ARE_DATASET_VISIBILITY_KEY,
+        chartHolder: { chart: undefined as Chart | undefined },
+        datasetVisibility: { },
+        dataType: 'incidence'
     }
 ];
 
@@ -453,10 +469,17 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     ticks: {
                         callback: function(tickValue: string | number) {
                             if (typeof tickValue === 'number') {
+                                if (cfg.dataType === 'incidence') {
+                                    return tickValue.toLocaleString();
+                                }
                                 return tickValue.toFixed(2) + "%";
                             }
                             return tickValue;
                         }
+                    },
+                    title: {
+                        display: true,
+                        text: cfg.dataType === 'incidence' ? 'Per 100,000 population' : 'Positivity %'
                     }
                 },
                 y1: {
@@ -577,6 +600,8 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
 }
 
 function generateNormalDatasets(sortedSeriesWithIndices: { series: LinearSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
+    const isIncidenceData = cfg.dataType === 'incidence';
+    
     return sortedSeriesWithIndices.map(({ series, originalIndex }, sortedIndex) => {
         // New color assignment logic
         const paletteIndex = sortedIndex % numberOfRawData;
@@ -592,10 +617,16 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: LinearSeries;
                 console.warn(`Invalid data in series ${series.name} at index ${i}: positive tests ${element.positive} without total tests ${data.dates[i]}`);
             }
         });
-        const dataAsPercentage = series.values.slice(startIdx, endIdx).map(datapointToPercentage);
+        
+        // For incidence data, use the positive value directly (already per 100k)
+        // For positivity data, convert to percentage
+        const chartData = isIncidenceData 
+            ? series.values.slice(startIdx, endIdx).map(dp => dp.positive)
+            : series.values.slice(startIdx, endIdx).map(datapointToPercentage);
+        
         return {
             label: series.name,
-            data: dataAsPercentage,
+            data: chartData,
             borderColor: borderColor,
             fill: false,
             hidden: false,
@@ -606,6 +637,11 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: LinearSeries;
 }
 
 function generateTestNumberBarDatasets(sortedSeriesWithIndices: { series: LinearSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
+    // Don't generate bar charts for incidence data (only for positivity data with test counts)
+    if (cfg.dataType === 'incidence') {
+        return [];
+    }
+    
     // Only generate bar charts for raw series (not averaged)
     const rawSeriesWithIndices = sortedSeriesWithIndices.filter(({ series }) => series.type === 'raw');
     
@@ -646,13 +682,21 @@ function generateTestNumberBarDatasets(sortedSeriesWithIndices: { series: Linear
 
 function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData: TimeseriesData, cutoffDateString: string, color: string, includeFuture: boolean, cfg: ChartConfig): any[] {
     const todayString = new Date().toISOString().split('T')[0];
+    const isIncidenceData = cfg.dataType === 'incidence';
+    
     return extremeData.flat().map(extrSeries => {
         return {
             label: extrSeries.name,
-            data: extrSeries.indices.map(index => ({
-                x: normalData.dates[index],
-                y: datapointToPercentage(normalData.series.find(series => series.name === extrSeries.originalSeriesName)?.values[index]) ?? -10
-            })).filter(dp => dp.x > cutoffDateString && (includeFuture || dp.x <= todayString)) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
+            data: extrSeries.indices.map(index => {
+                const datapoint = normalData.series.find(series => series.name === extrSeries.originalSeriesName)?.values[index];
+                const yValue = isIncidenceData 
+                    ? (datapoint?.positive ?? -10)
+                    : (datapointToPercentage(datapoint) ?? -10);
+                return {
+                    x: normalData.dates[index],
+                    y: yValue
+                };
+            }).filter(dp => dp.x > cutoffDateString && (includeFuture || dp.x <= todayString)) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
             borderColor: color,
             backgroundColor: color,
             fill: false,
