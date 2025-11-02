@@ -13,6 +13,11 @@ const extremeWindow = 3*28;
 const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, averagingWindows);
 const euPositivityEnhanced = computeMovingAverageTimeseries(euPositivity, averagingWindows);
 
+// Constants for dataset filtering
+const SHIFTED_SERIES_IDENTIFIER = 'shifted';
+const TEST_NUMBERS_IDENTIFIER = 'tests';
+const MIN_MAX_IDENTIFIER = ['min', 'max'];
+
 // Unified app settings
 interface AppSettings {
     timeRange: string;
@@ -20,6 +25,8 @@ interface AppSettings {
     showExtremes: boolean;
     showShifted: boolean;
     showTestNumbers: boolean;
+    // Reserved for future feature: Override the automatic shift calculation for shifted series
+    // When null, uses automatic calculation based on extreme detection
     shiftOverrideDays: number | null;
 }
 
@@ -66,12 +73,10 @@ function migrateOldSettings(): void {
     
     if (oldTimeRange || oldIncludeFuture || oldShowExtremes) {
         const settings: AppSettings = {
+            ...DEFAULT_APP_SETTINGS,
             timeRange: oldTimeRange || DEFAULT_APP_SETTINGS.timeRange,
             includeFuture: oldIncludeFuture ? JSON.parse(oldIncludeFuture) : DEFAULT_APP_SETTINGS.includeFuture,
-            showExtremes: oldShowExtremes ? JSON.parse(oldShowExtremes) : DEFAULT_APP_SETTINGS.showExtremes,
-            showShifted: DEFAULT_APP_SETTINGS.showShifted,
-            showTestNumbers: DEFAULT_APP_SETTINGS.showTestNumbers,
-            shiftOverrideDays: DEFAULT_APP_SETTINGS.shiftOverrideDays
+            showExtremes: oldShowExtremes ? JSON.parse(oldShowExtremes) : DEFAULT_APP_SETTINGS.showExtremes
         };
         saveAppSettings(settings);
         
@@ -411,12 +416,12 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
 
     // Filter shifted series based on showShifted setting
     if (!showShifted) {
-        datasets = datasets.filter(ds => !ds.label.toLowerCase().includes('shifted'));
+        datasets = datasets.filter(ds => !ds.label.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER));
     }
 
     // Filter test number series based on showTestNumbers setting
     if (!showTestNumbers) {
-        barDatasets = barDatasets.filter(ds => !ds.label.toLowerCase().includes('tests'));
+        barDatasets = barDatasets.filter(ds => !ds.label.toLowerCase().includes(TEST_NUMBERS_IDENTIFIER));
     }
 
     const localExtremeDatasets = [
@@ -841,18 +846,20 @@ function updateRatioTable() {
 }
 
 function getVisibilityDefault(label: string, showShifted: boolean = true, showTestNumbers: boolean = true): boolean {
+    const lowerLabel = label.toLowerCase();
+    
     // Hide min/max datasets by default
-    if (label.toLowerCase().includes("max") || label.toLowerCase().includes("min")) {
+    if (MIN_MAX_IDENTIFIER.some(id => lowerLabel.includes(id))) {
         return false;
     }
     
     // Show/hide shifted datasets based on setting (default: shown)
-    if (label.toLowerCase().includes("shifted")) {
+    if (lowerLabel.includes(SHIFTED_SERIES_IDENTIFIER)) {
         return showShifted;
     }
 
     // Show/hide test number bar charts based on setting (default: shown)
-    if (label.toLowerCase().includes("tests")) {
+    if (lowerLabel.includes(TEST_NUMBERS_IDENTIFIER)) {
         return showTestNumbers;
     }
 
