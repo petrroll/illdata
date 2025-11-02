@@ -3,7 +3,10 @@ import {
     filterExtremesByMedianThreshold,
     computeMovingAverageTimeseries,
     getNewWithSifterToAlignExtremeDates,
+<<<<<<< HEAD
     getNewWithCustomShift,
+=======
+>>>>>>> remotes/origin/main
     compareLabels,
     type LinearSeries, 
     type ExtremeSeries,
@@ -387,6 +390,7 @@ describe('findLocalExtreme - Filtering Tests', () => {
     });
 });
 
+<<<<<<< HEAD
 describe('getNewWithCustomShift Tests', () => {
     test('applies custom shift to series', () => {
         const testSeries: LinearSeries = {
@@ -486,6 +490,8 @@ describe('getNewWithCustomShift Tests', () => {
     });
 });
 
+=======
+>>>>>>> remotes/origin/main
 describe('compareLabels Tests', () => {
     test('sorts by word count first (fewer words first)', () => {
         expect(compareLabels('Short', 'Much Longer Label')).toBeLessThan(0);
