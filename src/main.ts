@@ -888,6 +888,13 @@ function updateRatioTable() {
         const visibleInThisChart = cfg.data.series.filter(series => {
             if (series.type !== 'raw') return false;
             
+            // For EU chart, only include Czechia and EU/EEA aggregate data in the ratio table
+            if (cfg.hasCountryFilter && series.country) {
+                if (series.country !== 'Czechia' && series.country !== 'EU/EEA') {
+                    return false;
+                }
+            }
+            
             // Check if any key in datasetVisibility contains this series name and has a true value
             return Object.entries(cfg.datasetVisibility).some(([key, isVisible]) => {
                 return key.includes(series.name) && isVisible;
