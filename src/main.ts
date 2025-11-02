@@ -217,7 +217,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     });
 
     // Unified callback for settings changes
-    function onSettingsChange(key?: keyof AppSettings, value?: string | boolean | number | null) {
+    function onSettingsChange(key?: keyof AppSettings, value?: AppSettings[keyof AppSettings]) {
         if (key && value !== undefined) {
             (appSettings as any)[key] = value;
             saveAppSettings(appSettings);
@@ -327,10 +327,27 @@ function renderPage(rootDiv: HTMLElement | null) {
     rootDiv.appendChild(shiftDaysInput);
     
     shiftDaysInput.addEventListener('change', (event) => {
-        const value = parseInt((event.target as HTMLInputElement).value);
-        if (!isNaN(value)) {
-            onSettingsChange('shiftOverrideDays', value);
+        const inputValue = (event.target as HTMLInputElement).value.trim();
+        if (inputValue === '') {
+            onSettingsChange('shiftOverrideDays', 0);
+            shiftDaysInput.value = '0';
+            return;
         }
+        
+        const value = parseInt(inputValue);
+        if (isNaN(value)) {
+            // Reset to previous valid value
+            shiftDaysInput.value = (appSettings.shiftOverrideDays ?? 0).toString();
+            return;
+        }
+        
+        // Clamp to reasonable range (-3650 to 3650 days, approximately 10 years)
+        const clampedValue = Math.max(-3650, Math.min(3650, value));
+        if (clampedValue !== value) {
+            shiftDaysInput.value = clampedValue.toString();
+        }
+        
+        onSettingsChange('shiftOverrideDays', clampedValue);
     });
 
     // Align by extreme selector

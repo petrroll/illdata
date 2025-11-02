@@ -66,7 +66,7 @@ export function getNewWithCustomShift(
         };
         
         const originalPadded = includeFutureDates && extraCount > 0
-            ? [...series.values, ...Array(Math.ceil(extraCount)).fill(NaN)]
+            ? [...series.values, ...Array(Math.ceil(extraCount)).fill({ positive: 0, tests: NaN })]
             : series.values;
         const base = { ...series, values: originalPadded };
         
