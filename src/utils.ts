@@ -2,7 +2,7 @@
 
 export interface TimeseriesData {
     dates: string[];
-    series: (LinearSeries | WastewaterSeries)[];
+    series: ScalarSeries[];
 }
 
 export interface Datapoint {
@@ -14,25 +14,26 @@ export interface WastewaterDatapoint {
     virusLoad: number;
 }
 
-export interface LinearSeries {
+// Base interface for all scalar series (series with numeric values over time)
+export interface BaseScalarSeries {
     name: string;
-    values: Datapoint[];
     type: 'raw' | 'averaged';
     windowSizeInDays?: number;
     shiftedByIndexes?: number;
     frequencyInDays: number;
+}
+
+export interface LinearSeries extends BaseScalarSeries {
+    values: Datapoint[];
     dataType: 'positivity';
 }
 
-export interface WastewaterSeries {
-    name: string;
+export interface WastewaterSeries extends BaseScalarSeries {
     values: WastewaterDatapoint[];
-    type: 'raw' | 'averaged';
-    windowSizeInDays?: number;
-    shiftedByIndexes?: number;
-    frequencyInDays: number;
     dataType: 'wastewater';
 }
+
+export type ScalarSeries = LinearSeries | WastewaterSeries;
 
 export interface ExtremeSeries {
     name: string;
@@ -42,7 +43,7 @@ export interface ExtremeSeries {
     extreme: 'maxima'|'minima';
 }
 
-export type Series = LinearSeries | WastewaterSeries | ExtremeSeries;
+export type Series = ScalarSeries | ExtremeSeries;
 
 export function getNewWithSifterToAlignExtremeDates(
     data: TimeseriesData,
@@ -82,7 +83,7 @@ export function getNewWithSifterToAlignExtremeDates(
     const freqDays = data.series[0]?.frequencyInDays ?? 1;
     const newDates = includeFutureDates ? extendDatesIfNeeded(data.dates, extraCount, freqDays) : data.dates;
 
-    function buildShiftedSeries(series: LinearSeries | WastewaterSeries): (LinearSeries | WastewaterSeries)[] {
+    function buildShiftedSeries(series: ScalarSeries): ScalarSeries[] {
         const shifts = extremeSeries
             .filter(extreme => extreme.originalSeriesName === series.name)
             .map(extreme => {
@@ -126,7 +127,7 @@ export function getNewWithSifterToAlignExtremeDates(
         return shifts.length > 0 ? [...shifts, base] : [base];
     }
 
-    const shiftedSeries: (LinearSeries | WastewaterSeries)[] = data.series.flatMap(buildShiftedSeries);
+    const shiftedSeries: ScalarSeries[] = data.series.flatMap(buildShiftedSeries);
     return { dates: newDates, series: shiftedSeries };
 }
 
@@ -135,7 +136,7 @@ export function windowSizeDaysToIndex(windowSizeInDays: number | undefined, freq
 }
 
 export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes: number[]): TimeseriesData {
-    const averagedSeries: (LinearSeries | WastewaterSeries)[] = data.series.flatMap((series): (LinearSeries | WastewaterSeries)[] => {
+    const averagedSeries: ScalarSeries[] = data.series.flatMap((series): ScalarSeries[] => {
         const adjustedWindowSizes = windowSizes.map(w => windowSizeDaysToIndex(w, series.frequencyInDays));
         
         if ('dataType' in series && series.dataType === 'wastewater') {
@@ -202,7 +203,7 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
     };
 }
 
-export function findLocalExtreme(series: LinearSeries | WastewaterSeries, desiredWindowSizeInDays: number, extreme: 'maxima'|'minima'): ExtremeSeries[] {
+export function findLocalExtreme(series: ScalarSeries, desiredWindowSizeInDays: number, extreme: 'maxima'|'minima'): ExtremeSeries[] {
     const maximaSeries: ExtremeSeries[] = [];
 
     // Find all local extremes without filtering
@@ -230,7 +231,7 @@ export function findLocalExtreme(series: LinearSeries | WastewaterSeries, desire
     return maximaSeries;
 }
 
-export function filterExtremesByMedianThreshold(series: LinearSeries | WastewaterSeries, maximaSeries: ExtremeSeries[], minimaSeries: ExtremeSeries[]): { filteredMaxima: ExtremeSeries[], filteredMinima: ExtremeSeries[] } {
+export function filterExtremesByMedianThreshold(series: ScalarSeries, maximaSeries: ExtremeSeries[], minimaSeries: ExtremeSeries[]): { filteredMaxima: ExtremeSeries[], filteredMinima: ExtremeSeries[] } {
     // Extract all maxima and minima indices from all extreme series
     const allMaximaIndices = maximaSeries.flatMap(extremeSeries => extremeSeries.indices);
     const allMinimaIndices = minimaSeries.flatMap(extremeSeries => extremeSeries.indices);
@@ -257,7 +258,7 @@ export function filterExtremesByMedianThreshold(series: LinearSeries | Wastewate
     };
 }
 
-function filterExtremes(series: LinearSeries | WastewaterSeries, maximaIndices: number[], minimaIndices: number[], requestedExtreme: 'maxima'|'minima'): number[] {
+function filterExtremes(series: ScalarSeries, maximaIndices: number[], minimaIndices: number[], requestedExtreme: 'maxima'|'minima'): number[] {
 
     // If we don't have both maxima and minima, return original indices
     if (maximaIndices.length === 0 || minimaIndices.length === 0) {
@@ -294,7 +295,7 @@ function filterExtremes(series: LinearSeries | WastewaterSeries, maximaIndices: 
     }
 }
 
-function isExtremeWindow(series: LinearSeries | WastewaterSeries, index: number, windowSizeInIndex: number, extreme: 'maxima'|'minima'): boolean {
+function isExtremeWindow(series: ScalarSeries, index: number, windowSizeInIndex: number, extreme: 'maxima'|'minima'): boolean {
     const halfWindowSize = Math.floor(windowSizeInIndex / 2);
     const start = Math.max(0, index - halfWindowSize);
     const end = Math.min(series.values.length - 1, index + halfWindowSize);
@@ -340,7 +341,7 @@ export function calculateRatios(data: TimeseriesData, visibleMainSeries: string[
     });
 }
 
-function calculatePeriodRatio(serie: LinearSeries | WastewaterSeries, endIndex: number, periodDays: number): number | null {
+function calculatePeriodRatio(serie: ScalarSeries, endIndex: number, periodDays: number): number | null {
     const periodIndices = Math.floor(periodDays / serie.frequencyInDays);
     
     // Calculate current period average (last N days)
@@ -396,7 +397,7 @@ export function datapointToPercentage(datapoint: Datapoint | undefined): number 
     return (datapoint.positive / datapoint.tests) * 100;
 }
 
-function seriesValueToNumber(series: LinearSeries | WastewaterSeries, index: number): number {
+function seriesValueToNumber(series: ScalarSeries, index: number): number {
     if ('dataType' in series && series.dataType === 'wastewater') {
         return (series.values[index] as WastewaterDatapoint)?.virusLoad || NaN;
     } else {
