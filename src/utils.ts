@@ -1,8 +1,10 @@
 // Chart.js is used elsewhere in the project
 
+export type DataSeries = PositivitySeries | ScalarSeries;
+
 export interface TimeseriesData {
     dates: string[];
-    series: ScalarSeries[];
+    series: DataSeries[];
 }
 
 export interface Datapoint {
@@ -10,12 +12,12 @@ export interface Datapoint {
     tests: number;
 }
 
-export interface WastewaterDatapoint {
+export interface ScalarDatapoint {
     virusLoad: number;
 }
 
-// Base interface for all scalar series (series with numeric values over time)
-export interface BaseScalarSeries {
+// Base interface for all linear series (series with values over time)
+export interface LinearSeries {
     name: string;
     type: 'raw' | 'averaged';
     windowSizeInDays?: number;
@@ -23,17 +25,15 @@ export interface BaseScalarSeries {
     frequencyInDays: number;
 }
 
-export interface LinearSeries extends BaseScalarSeries {
+export interface PositivitySeries extends LinearSeries {
     values: Datapoint[];
     dataType: 'positivity';
 }
 
-export interface WastewaterSeries extends BaseScalarSeries {
-    values: WastewaterDatapoint[];
-    dataType: 'wastewater';
+export interface ScalarSeries extends LinearSeries {
+    values: ScalarDatapoint[];
+    dataType: 'scalar';
 }
-
-export type ScalarSeries = LinearSeries | WastewaterSeries;
 
 export interface ExtremeSeries {
     name: string;
@@ -43,7 +43,7 @@ export interface ExtremeSeries {
     extreme: 'maxima'|'minima';
 }
 
-export type Series = ScalarSeries | ExtremeSeries;
+export type Series = DataSeries | ExtremeSeries;
 
 export function getNewWithSifterToAlignExtremeDates(
     data: TimeseriesData,
@@ -83,15 +83,15 @@ export function getNewWithSifterToAlignExtremeDates(
     const freqDays = data.series[0]?.frequencyInDays ?? 1;
     const newDates = includeFutureDates ? extendDatesIfNeeded(data.dates, extraCount, freqDays) : data.dates;
 
-    function buildShiftedSeries(series: ScalarSeries): ScalarSeries[] {
+    function buildShiftedSeries(series: DataSeries): DataSeries[] {
         const shifts = extremeSeries
             .filter(extreme => extreme.originalSeriesName === series.name)
             .map(extreme => {
                 const shiftByIndexes = getShift(extreme);
                 const length = series.values.length + (includeFutureDates ? extraCount : 0);
                 
-                if ('dataType' in series && series.dataType === 'wastewater') {
-                    const shiftedValues: WastewaterDatapoint[] = Array.from({ length }, (_, i) => {
+                if ('dataType' in series && series.dataType === 'scalar') {
+                    const shiftedValues: ScalarDatapoint[] = Array.from({ length }, (_, i) => {
                         const idx = i + shiftByIndexes;
                         return idx < 0 || idx >= series.values.length ? { virusLoad: 0 } : series.values[idx];
                     });
@@ -101,13 +101,13 @@ export function getNewWithSifterToAlignExtremeDates(
                         shiftedByIndexes: shiftByIndexes,
                         values: shiftedValues,
                         frequencyInDays: series.frequencyInDays,
-                        dataType: 'wastewater' as const,
+                        dataType: 'scalar' as const,
                         ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {})
-                    } as WastewaterSeries;
+                    } as ScalarSeries;
                 } else {
                     const shiftedValues: Datapoint[] = Array.from({ length }, (_, i) => {
                         const idx = i + shiftByIndexes;
-                        return idx < 0 || idx >= series.values.length ? { positive: 0, tests: NaN } : (series as LinearSeries).values[idx];
+                        return idx < 0 || idx >= series.values.length ? { positive: 0, tests: NaN } : (series as PositivitySeries).values[idx];
                     });
                     return {
                         name: `${series.name} shifted by ${extremeIndexShiftTo - extremeIndexShiftFrom} wave ${shiftByIndexes * series.frequencyInDays}d`,
@@ -117,7 +117,7 @@ export function getNewWithSifterToAlignExtremeDates(
                         frequencyInDays: series.frequencyInDays,
                         dataType: 'positivity' as const,
                         ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {})
-                    } as LinearSeries;
+                    } as PositivitySeries;
                 }
             });
         const originalPadded = includeFutureDates && extraCount > 0
@@ -127,7 +127,7 @@ export function getNewWithSifterToAlignExtremeDates(
         return shifts.length > 0 ? [...shifts, base] : [base];
     }
 
-    const shiftedSeries: ScalarSeries[] = data.series.flatMap(buildShiftedSeries);
+    const shiftedSeries: DataSeries[] = data.series.flatMap(buildShiftedSeries);
     return { dates: newDates, series: shiftedSeries };
 }
 
@@ -136,11 +136,11 @@ export function windowSizeDaysToIndex(windowSizeInDays: number | undefined, freq
 }
 
 export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes: number[]): TimeseriesData {
-    const averagedSeries: ScalarSeries[] = data.series.flatMap((series): ScalarSeries[] => {
+    const averagedSeries: DataSeries[] = data.series.flatMap((series): DataSeries[] => {
         const adjustedWindowSizes = windowSizes.map(w => windowSizeDaysToIndex(w, series.frequencyInDays));
         
-        if ('dataType' in series && series.dataType === 'wastewater') {
-            // Handle wastewater data
+        if ('dataType' in series && series.dataType === 'scalar') {
+            // Handle scalar data (e.g., wastewater virus load)
             return adjustedWindowSizes.map((windowSizeInIndex, i) => {
                 const averagedValues = series.values.map((v, j) => {
                     let sumLoad = 0;
@@ -150,7 +150,7 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
                         if (index < 0) continue;
                         if (index >= series.values.length) continue;
                         
-                        const value = (series.values[index] as WastewaterDatapoint).virusLoad;
+                        const value = (series.values[index] as ScalarDatapoint).virusLoad;
                         if (value > 0) {  // Only count non-zero values
                             sumLoad += value;
                             count++;
@@ -165,8 +165,8 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
                     type: 'averaged',
                     windowSizeInDays: windowSizes[i],
                     frequencyInDays: series.frequencyInDays,
-                    dataType: 'wastewater'
-                } as WastewaterSeries;
+                    dataType: 'scalar'
+                } as ScalarSeries;
             });
         } else {
             // Handle positivity data
@@ -192,7 +192,7 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
                     windowSizeInDays: windowSizes[i],
                     frequencyInDays: series.frequencyInDays,
                     dataType: 'positivity'
-                } as LinearSeries;
+                } as PositivitySeries;
             });
         }
     });
@@ -203,7 +203,7 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
     };
 }
 
-export function findLocalExtreme(series: ScalarSeries, desiredWindowSizeInDays: number, extreme: 'maxima'|'minima'): ExtremeSeries[] {
+export function findLocalExtreme(series: DataSeries, desiredWindowSizeInDays: number, extreme: 'maxima'|'minima'): ExtremeSeries[] {
     const maximaSeries: ExtremeSeries[] = [];
 
     // Find all local extremes without filtering
@@ -231,7 +231,7 @@ export function findLocalExtreme(series: ScalarSeries, desiredWindowSizeInDays: 
     return maximaSeries;
 }
 
-export function filterExtremesByMedianThreshold(series: ScalarSeries, maximaSeries: ExtremeSeries[], minimaSeries: ExtremeSeries[]): { filteredMaxima: ExtremeSeries[], filteredMinima: ExtremeSeries[] } {
+export function filterExtremesByMedianThreshold(series: DataSeries, maximaSeries: ExtremeSeries[], minimaSeries: ExtremeSeries[]): { filteredMaxima: ExtremeSeries[], filteredMinima: ExtremeSeries[] } {
     // Extract all maxima and minima indices from all extreme series
     const allMaximaIndices = maximaSeries.flatMap(extremeSeries => extremeSeries.indices);
     const allMinimaIndices = minimaSeries.flatMap(extremeSeries => extremeSeries.indices);
@@ -258,7 +258,7 @@ export function filterExtremesByMedianThreshold(series: ScalarSeries, maximaSeri
     };
 }
 
-function filterExtremes(series: ScalarSeries, maximaIndices: number[], minimaIndices: number[], requestedExtreme: 'maxima'|'minima'): number[] {
+function filterExtremes(series: DataSeries, maximaIndices: number[], minimaIndices: number[], requestedExtreme: 'maxima'|'minima'): number[] {
 
     // If we don't have both maxima and minima, return original indices
     if (maximaIndices.length === 0 || minimaIndices.length === 0) {
@@ -295,7 +295,7 @@ function filterExtremes(series: ScalarSeries, maximaIndices: number[], minimaInd
     }
 }
 
-function isExtremeWindow(series: ScalarSeries, index: number, windowSizeInIndex: number, extreme: 'maxima'|'minima'): boolean {
+function isExtremeWindow(series: DataSeries, index: number, windowSizeInIndex: number, extreme: 'maxima'|'minima'): boolean {
     const halfWindowSize = Math.floor(windowSizeInIndex / 2);
     const start = Math.max(0, index - halfWindowSize);
     const end = Math.min(series.values.length - 1, index + halfWindowSize);
@@ -341,7 +341,7 @@ export function calculateRatios(data: TimeseriesData, visibleMainSeries: string[
     });
 }
 
-function calculatePeriodRatio(serie: ScalarSeries, endIndex: number, periodDays: number): number | null {
+function calculatePeriodRatio(serie: DataSeries, endIndex: number, periodDays: number): number | null {
     const periodIndices = Math.floor(periodDays / serie.frequencyInDays);
     
     // Calculate current period average (last N days)
@@ -357,10 +357,10 @@ function calculatePeriodRatio(serie: ScalarSeries, endIndex: number, periodDays:
     let currentAvg: number;
     let previousAvg: number;
     
-    if ('dataType' in serie && serie.dataType === 'wastewater') {
-        // For wastewater, calculate average virus load
-        const currentValues = serie.values.slice(currentStart, currentEnd) as WastewaterDatapoint[];
-        const previousValues = serie.values.slice(previousStart, previousEnd) as WastewaterDatapoint[];
+    if ('dataType' in serie && serie.dataType === 'scalar') {
+        // For scalar series, calculate average value
+        const currentValues = serie.values.slice(currentStart, currentEnd) as ScalarDatapoint[];
+        const previousValues = serie.values.slice(previousStart, previousEnd) as ScalarDatapoint[];
         
         if (currentValues.length === 0 || previousValues.length === 0) return null;
         
@@ -370,8 +370,8 @@ function calculatePeriodRatio(serie: ScalarSeries, endIndex: number, periodDays:
         previousAvg = previousSum / previousValues.length;
     } else {
         // For positivity data, calculate percentage
-        const currentValues = (serie as LinearSeries).values.slice(currentStart, currentEnd);
-        const previousValues = (serie as LinearSeries).values.slice(previousStart, previousEnd);
+        const currentValues = (serie as PositivitySeries).values.slice(currentStart, currentEnd);
+        const previousValues = (serie as PositivitySeries).values.slice(previousStart, previousEnd);
         
         if (currentValues.length === 0 || previousValues.length === 0) return null;
         
@@ -397,9 +397,9 @@ export function datapointToPercentage(datapoint: Datapoint | undefined): number 
     return (datapoint.positive / datapoint.tests) * 100;
 }
 
-function seriesValueToNumber(series: ScalarSeries, index: number): number {
-    if ('dataType' in series && series.dataType === 'wastewater') {
-        return (series.values[index] as WastewaterDatapoint)?.virusLoad || NaN;
+function seriesValueToNumber(series: DataSeries, index: number): number {
+    if ('dataType' in series && series.dataType === 'scalar') {
+        return (series.values[index] as ScalarDatapoint)?.virusLoad || NaN;
     } else {
         return datapointToPercentage(series.values[index] as Datapoint);
     }

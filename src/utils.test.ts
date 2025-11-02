@@ -3,14 +3,14 @@ import {
     filterExtremesByMedianThreshold,
     computeMovingAverageTimeseries,
     getNewWithSifterToAlignExtremeDates,
-    type LinearSeries, 
+    type PositivitySeries, 
     type ExtremeSeries,
     type TimeseriesData,
     type Datapoint
 } from './utils';
 
 describe('findLocalExtreme - Local Maxima Tests', () => {
-    const seriesMax: LinearSeries = {
+    const seriesMax: PositivitySeries = {
         name: 'Averaged Series',
         values: [
             { positive: 1, tests: 100 },
@@ -88,7 +88,7 @@ describe('findLocalExtreme - Local Maxima Tests', () => {
 });
 
 describe('findLocalExtreme - Local Minima Tests', () => {
-    const seriesMin: LinearSeries = {
+    const seriesMin: PositivitySeries = {
         name: 'Averaged Series',
         values: [
             { positive: 4, tests: 100 },
@@ -268,7 +268,7 @@ describe('computeMovingAverageTimeseries Tests', () => {
 describe('addShiftedToAlignExtremeDates Tests', () => {
     test('shifted dataset inherits type from original series', () => {
         // Test data with an 'averaged' type series
-        const averagedSeries: LinearSeries = {
+        const averagedSeries: PositivitySeries = {
             name: 'Test Averaged Series',
             values: [
                 { positive: 1, tests: 100 },
@@ -284,7 +284,7 @@ describe('addShiftedToAlignExtremeDates Tests', () => {
         };
 
         // Test data with a 'raw' type series
-        const rawSeries: LinearSeries = {
+        const rawSeries: PositivitySeries = {
             name: 'Test Raw Series',
             values: [
                 { positive: 2, tests: 100 },
@@ -348,7 +348,7 @@ describe('addShiftedToAlignExtremeDates Tests', () => {
 describe('findLocalExtreme - Filtering Tests', () => {
     test('separates extremes detection from filtering', () => {
         // Test series with mix of significant and insignificant extremes
-        const testSeries: LinearSeries = {
+        const testSeries: PositivitySeries = {
             name: 'Test Series',
             values: [
                 { positive: 10, tests: 100 },  // 10%

@@ -4,7 +4,7 @@ import deWastewaterImport from "../data_processed/de_wastewater_amelag/wastewate
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type ScalarSeries, type LinearSeries, datapointToPercentage } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, datapointToPercentage } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -295,7 +295,7 @@ function createChartContainerAndCanvas(containerId: string, canvasId: string): H
     return canvas;
 }
 
-function getSortedSeriesWithIndices(series: ScalarSeries[]): { series: ScalarSeries, originalIndex: number }[] {
+function getSortedSeriesWithIndices(series: DataSeries[]): { series: DataSeries, originalIndex: number }[] {
     const seriesWithIndices = series.map((s, index) => ({ series: s, originalIndex: index }));
     seriesWithIndices.sort((a, b) => {
         const labelA = a.series.name;
@@ -467,10 +467,10 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     ticks: {
                         callback: function(tickValue: string | number) {
                             if (typeof tickValue === 'number') {
-                                // Check if this is a wastewater chart
-                                const isWastewaterChart = cfg.data.series.some(s => 'dataType' in s && s.dataType === 'wastewater');
-                                if (isWastewaterChart) {
-                                    // For wastewater, show the value with scientific notation if needed
+                                // Check if this is a scalar series chart (e.g., wastewater)
+                                const isScalarChart = cfg.data.series.some(s => 'dataType' in s && s.dataType === 'scalar');
+                                if (isScalarChart) {
+                                    // For scalar series, show the value with scientific notation if needed
                                     return tickValue.toExponential(2);
                                 } else {
                                     // For positivity data, show as percentage
@@ -598,7 +598,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
     });
 }
 
-function generateNormalDatasets(sortedSeriesWithIndices: { series: ScalarSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
+function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
     return sortedSeriesWithIndices.map(({ series, originalIndex }, sortedIndex) => {
         // New color assignment logic
         const paletteIndex = sortedIndex % numberOfRawData;
@@ -621,8 +621,8 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: ScalarSeries;
         
         // Convert data based on type
         let chartData: number[];
-        if ('dataType' in series && series.dataType === 'wastewater') {
-            // For wastewater, use the virus load directly (no percentage conversion)
+        if ('dataType' in series && series.dataType === 'scalar') {
+            // For scalar series, use the value directly (no percentage conversion)
             chartData = series.values.slice(startIdx, endIdx).map((dp: any) => {
                 if (!dp) return 0;
                 return dp.virusLoad || 0;
@@ -644,8 +644,8 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: ScalarSeries;
     });
 }
 
-function generateTestNumberBarDatasets(sortedSeriesWithIndices: { series: ScalarSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
-    // Only generate bar charts for raw positivity series (not averaged, not wastewater)
+function generateTestNumberBarDatasets(sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
+    // Only generate bar charts for raw positivity series (not averaged, not scalar)
     const rawPositivitySeriesWithIndices = sortedSeriesWithIndices.filter(({ series }) => 
         series.type === 'raw' && 'dataType' in series && series.dataType === 'positivity'
     );
@@ -657,8 +657,8 @@ function generateTestNumberBarDatasets(sortedSeriesWithIndices: { series: Scalar
         const positiveColor = selectedPalette[0]; // Use first color for positive
         const negativeColor = selectedPalette[1]; // Use second color for negative
 
-        const positiveData = (series as LinearSeries).values.slice(startIdx, endIdx).map((dp: any) => dp.positive);
-        const negativeData = (series as LinearSeries).values.slice(startIdx, endIdx).map((dp: any) => dp.tests - dp.positive);
+        const positiveData = (series as PositivitySeries).values.slice(startIdx, endIdx).map((dp: any) => dp.positive);
+        const negativeData = (series as PositivitySeries).values.slice(startIdx, endIdx).map((dp: any) => dp.tests - dp.positive);
 
         return [
             {
@@ -693,7 +693,7 @@ function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData:
             label: extrSeries.name,
             data: extrSeries.indices.map(index => {
                 let yValue: number;
-                if (originalSeries && 'dataType' in originalSeries && originalSeries.dataType === 'wastewater') {
+                if (originalSeries && 'dataType' in originalSeries && originalSeries.dataType === 'scalar') {
                     yValue = (originalSeries.values[index] as any)?.virusLoad ?? 0;
                 } else {
                     yValue = datapointToPercentage(originalSeries?.values[index] as any) ?? -10;

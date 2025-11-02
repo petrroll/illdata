@@ -95,14 +95,14 @@ export function computeDeWastewaterData(data: Record<string, string>[]): Timeser
                         }
                     });
                     
-                    // Return as wastewater datapoint with virus load value
+                    // Return as scalar datapoint with virus load value
                     return {
                         virusLoad: hasData ? totalViruslast : 0
                     };
                 }),
                 type: 'raw',
                 frequencyInDays: 7,  // Weekly data
-                dataType: 'wastewater'
+                dataType: 'scalar'
             };
         })
     };
