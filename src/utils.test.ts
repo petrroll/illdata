@@ -4,7 +4,10 @@ import {
     computeMovingAverageTimeseries,
     getNewWithSifterToAlignExtremeDates,
 <<<<<<< HEAD
+<<<<<<< HEAD
     getNewWithCustomShift,
+=======
+>>>>>>> remotes/origin/main
 =======
 >>>>>>> remotes/origin/main
     compareLabels,
@@ -391,6 +394,7 @@ describe('findLocalExtreme - Filtering Tests', () => {
 });
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 describe('getNewWithCustomShift Tests', () => {
     test('applies custom shift to series', () => {
         const testSeries: LinearSeries = {
@@ -490,6 +494,8 @@ describe('getNewWithCustomShift Tests', () => {
     });
 });
 
+=======
+>>>>>>> remotes/origin/main
 =======
 >>>>>>> remotes/origin/main
 describe('compareLabels Tests', () => {
