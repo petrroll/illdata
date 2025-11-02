@@ -3,7 +3,7 @@ import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_d
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type LinearSeries, datapointToPercentage } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type LinearSeries, datapointToPercentage, compareLabels } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -996,18 +996,20 @@ function updateRatioTable() {
 }
 
 function getVisibilityDefault(label: string, showShifted: boolean = true, showTestNumbers: boolean = true): boolean {
+    const lowerLabel = label.toLowerCase();
+    
     // Hide min/max datasets by default
-    if (MIN_MAX_IDENTIFIER.some(id => label.toLowerCase().includes(id))) {
+    if (MIN_MAX_IDENTIFIER.some(id => lowerLabel.includes(id))) {
         return false;
     }
     
-    // Hide shifted datasets based on showShifted setting
-    if (label.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER)) {
+    // Show/hide shifted datasets based on setting (default: shown)
+    if (lowerLabel.includes(SHIFTED_SERIES_IDENTIFIER)) {
         return showShifted;
     }
 
-    // Hide test number bar charts based on showTestNumbers setting
-    if (label.toLowerCase().includes(TEST_NUMBERS_IDENTIFIER)) {
+    // Show/hide test number bar charts based on setting (default: shown)
+    if (lowerLabel.includes(TEST_NUMBERS_IDENTIFIER)) {
         return showTestNumbers;
     }
 

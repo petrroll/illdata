@@ -1,15 +1,8 @@
-import { promises as fs } from "fs";
 import { downloadAndSaveCsv, getAbsolutePath, normalizeDate, toFloat } from "./ioUtils";
 import type { TimeseriesData } from "../utils";
 
 export async function downloadEuEcdcData(filename: string = "nonSentinelTestsDetections.csv") {
     const filePath = getAbsolutePath(`./data/${filename}`);
-
-    if (await fs.exists(filePath)) {
-        console.log(`File already exists at ${filePath}`);
-        return;
-    }
-
     const url = `https://raw.githubusercontent.com/EU-ECDC/Respiratory_viruses_weekly_data/main/data/${filename}`;
     await downloadAndSaveCsv(url, filePath);
 }

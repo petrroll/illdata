@@ -322,3 +322,17 @@ function calculateMedian(values: number[]): number {
         return sortedValues[middle];
     }
 }
+
+export function compareLabels(labelA: string, labelB: string): number {
+    // Count words (sections separated by whitespace)
+    const wordsA = labelA.trim().split(/\s+/).filter(word => word.length > 0).length;
+    const wordsB = labelB.trim().split(/\s+/).filter(word => word.length > 0).length;
+    
+    // Sort by word count first
+    if (wordsA !== wordsB) {
+        return wordsA - wordsB; // fewer words first
+    }
+    
+    // If word count is the same, fall back to alphabetical
+    return labelA.localeCompare(labelB);
+}
