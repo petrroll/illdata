@@ -581,6 +581,11 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            layout: {
+                padding: {
+                    bottom: 10  // Add padding to accommodate rotated x-axis labels
+                }
+            },
             interaction: {
                 mode: 'index', // Snap to nearest x value (vertical line)
                 intersect: false,
@@ -604,7 +609,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                 x: {
                     ticks: {
                         autoSkip: true,
-                        autoSkipPadding: 10,
+                        autoSkipPadding: 15,
                         maxRotation: 45,
                         minRotation: 0,
                         color: function(context) {
@@ -668,7 +673,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
-            margin: 15px 0 10px 0;
+            margin: 20px 0 10px 0;
             justify-content: center;
         `;
         
