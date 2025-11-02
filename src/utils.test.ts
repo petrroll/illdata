@@ -4,6 +4,7 @@ import {
     computeMovingAverageTimeseries,
     getNewWithSifterToAlignExtremeDates,
     getNewWithCustomShift,
+    compareLabels,
     type LinearSeries, 
     type ExtremeSeries,
     type TimeseriesData,
@@ -482,5 +483,53 @@ describe('getNewWithCustomShift Tests', () => {
         expect(shiftedSeries).toBeDefined();
         expect(shiftedSeries?.type).toBe('averaged');
         expect(shiftedSeries?.windowSizeInDays).toBe(7);
+    });
+});
+
+describe('compareLabels Tests', () => {
+    test('sorts by word count first (fewer words first)', () => {
+        expect(compareLabels('Short', 'Much Longer Label')).toBeLessThan(0);
+        expect(compareLabels('Much Longer Label', 'Short')).toBeGreaterThan(0);
+        expect(compareLabels('Two Words', 'Three Word Label')).toBeLessThan(0);
+    });
+
+    test('sorts alphabetically when word count is equal', () => {
+        expect(compareLabels('Apple', 'Banana')).toBeLessThan(0);
+        expect(compareLabels('Zebra', 'Apple')).toBeGreaterThan(0);
+        expect(compareLabels('Same Label', 'Same Label')).toBe(0);
+    });
+
+    test('handles labels with multiple spaces correctly', () => {
+        // Multiple spaces should be treated as one word separator for word counting
+        // Both have 2 words, so it falls back to alphabetical string comparison
+        const result = compareLabels('One   Two', 'One Two');
+        expect(result).not.toBe(0); // Different strings, not equal
+        
+        // Test word counting with leading/trailing spaces  
+        const result2 = compareLabels('  Two Words  ', 'Single');
+        expect(result2).toBeGreaterThan(0); // 2 words > 1 word
+    });
+
+    test('handles empty strings', () => {
+        expect(compareLabels('', '')).toBe(0);
+        expect(compareLabels('Something', '')).toBeGreaterThan(0);
+        expect(compareLabels('', 'Something')).toBeLessThan(0);
+    });
+
+    test('complex sorting scenario', () => {
+        const labels = [
+            'PCR Positivity (28d avg) shifted by 1 wave 56d',
+            'PCR Positivity',
+            'Antigen Positivity (28d avg)',
+            'PCR Positivity (28d avg)'
+        ];
+        
+        const sorted = [...labels].sort(compareLabels);
+        
+        // Should be sorted by word count, then alphabetically
+        expect(sorted[0]).toBe('PCR Positivity');
+        expect(sorted[1]).toBe('Antigen Positivity (28d avg)');
+        expect(sorted[2]).toBe('PCR Positivity (28d avg)');
+        expect(sorted[3]).toBe('PCR Positivity (28d avg) shifted by 1 wave 56d');
     });
 });
