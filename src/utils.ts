@@ -17,6 +17,7 @@ export interface LinearSeries {
     windowSizeInDays?: number;
     shiftedByIndexes?: number;
     frequencyInDays: number;
+    country?: string; // Optional country field for EU data
 }
 
 export interface ExtremeSeries {
@@ -83,7 +84,8 @@ export function getNewWithSifterToAlignExtremeDates(
                     shiftedByIndexes: shiftByIndexes,
                     values: shiftedValues,
                     frequencyInDays: series.frequencyInDays,
-                    ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {})
+                    ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {}),
+                    ...(series.country ? { country: series.country } : {})
                 };
             });
         const originalPadded = includeFutureDates && extraCount > 0
@@ -128,7 +130,8 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
                 values: averagedValues,
                 type: 'averaged',
                 windowSizeInDays: windowSizes[i],
-                frequencyInDays: series.frequencyInDays
+                frequencyInDays: series.frequencyInDays,
+                ...(series.country ? { country: series.country } : {})
             } as LinearSeries;
         });
     });

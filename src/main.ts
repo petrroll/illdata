@@ -76,6 +76,7 @@ function migrateOldSettings(): void {
 // Dataset visibility keys (kept separate as recommended)
 const DATASET_VISIBILITY_KEY = "datasetVisibility";
 const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
+const EU_COUNTRY_FILTER_KEY = "euCountryFilter";
 
 interface ChartConfig {
     containerId: string;
@@ -87,6 +88,8 @@ interface ChartConfig {
     chartHolder: { chart: Chart | undefined };
     datasetVisibility: { [key: string]: boolean };
     canvas?: HTMLCanvasElement | null;
+    hasCountryFilter?: boolean;
+    countryFilterKey?: string;
 }
 
 // Global chart holders for hideAllSeries
@@ -109,7 +112,9 @@ const chartConfigs : ChartConfig[] = [
         shortTitle: "ECDC",
         visibilityKey: EU_DATASET_VISIBILITY_KEY,
         chartHolder: { chart: undefined as Chart | undefined },
-        datasetVisibility: { }
+        datasetVisibility: { },
+        hasCountryFilter: true,
+        countryFilterKey: EU_COUNTRY_FILTER_KEY
     }
 ];
 
@@ -168,6 +173,78 @@ function createUnifiedSettingsControl<K extends keyof AppSettings>(options: {
     return currentValue;
 }
 
+function createCountrySelector(cfg: ChartConfig, countryFilters: Map<string, string>, onSettingsChange: () => void) {
+    const container = document.getElementById(cfg.containerId);
+    if (!container) {
+        console.error(`Container not found: ${cfg.containerId}`);
+        return;
+    }
+
+    // Get available countries from the data
+    const countries = getAvailableCountries(cfg.data);
+    if (countries.length === 0) {
+        console.warn(`No countries found in data for ${cfg.containerId}`);
+        return;
+    }
+
+    // Create a wrapper div for the selector
+    const selectorWrapper = document.createElement('div');
+    selectorWrapper.id = `${cfg.containerId}-country-selector`;
+    selectorWrapper.style.cssText = `
+        margin: 10px 0;
+        padding: 10px;
+        background-color: #f5f5f5;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    `;
+
+    // Create label
+    const label = document.createElement('label');
+    label.htmlFor = `${cfg.containerId}-country-select`;
+    label.textContent = 'Country:';
+    label.style.fontWeight = 'bold';
+
+    // Create select element
+    const select = document.createElement('select');
+    select.id = `${cfg.containerId}-country-select`;
+    select.style.cssText = `
+        padding: 5px 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    `;
+
+    // Add options
+    countries.forEach(country => {
+        const option = document.createElement('option');
+        option.value = country;
+        option.textContent = country;
+        select.appendChild(option);
+    });
+
+    // Set current value
+    const currentCountry = countryFilters.get(cfg.containerId) || "EU/EEA";
+    select.value = currentCountry;
+
+    // Add change handler
+    select.addEventListener('change', () => {
+        const newCountry = select.value;
+        countryFilters.set(cfg.containerId, newCountry);
+        if (cfg.countryFilterKey) {
+            saveCountryFilter(cfg.countryFilterKey, newCountry);
+        }
+        onSettingsChange();
+    });
+
+    selectorWrapper.appendChild(label);
+    selectorWrapper.appendChild(select);
+
+    // Insert the selector at the beginning of the container (above the chart)
+    container.insertBefore(selectorWrapper, container.firstChild);
+}
+
 // Refactored renderPage to use unified control creation and callback
 function renderPage(rootDiv: HTMLElement | null) {
     if (!rootDiv) {
@@ -196,6 +273,14 @@ function renderPage(rootDiv: HTMLElement | null) {
         cfg.canvas = canvas;
     });
 
+    // Load country filters for charts that have them
+    const countryFilters = new Map<string, string>();
+    chartConfigs.forEach(cfg => {
+        if (cfg.hasCountryFilter && cfg.countryFilterKey) {
+            countryFilters.set(cfg.containerId, loadCountryFilter(cfg.countryFilterKey));
+        }
+    });
+
     // Unified callback for settings changes
     function onSettingsChange(key?: keyof AppSettings, value?: string | boolean) {
         if (key && value !== undefined) {
@@ -205,11 +290,13 @@ function renderPage(rootDiv: HTMLElement | null) {
                 
         chartConfigs.forEach(cfg => {
             if ((cfg as any).canvas) {
+                const countryFilter = cfg.hasCountryFilter ? countryFilters.get(cfg.containerId) : undefined;
                 cfg.chartHolder.chart = updateChart(
                     appSettings.timeRange,
                     cfg,
                     appSettings.includeFuture,
-                    appSettings.showExtremes
+                    appSettings.showExtremes,
+                    countryFilter
                 );
             }
         });
@@ -254,6 +341,13 @@ function renderPage(rootDiv: HTMLElement | null) {
         onChange: onSettingsChange
     });
 
+    // Create country selectors for charts that have them
+    chartConfigs.forEach(cfg => {
+        if (cfg.hasCountryFilter && cfg.countryFilterKey) {
+            createCountrySelector(cfg, countryFilters, onSettingsChange);
+        }
+    });
+
     // Initial render
     onSettingsChange();
 
@@ -281,6 +375,41 @@ function createChartContainerAndCanvas(containerId: string, canvasId: string): H
     return canvas;
 }
 
+function getAvailableCountries(data: TimeseriesData): string[] {
+    const countries = new Set<string>();
+    data.series.forEach(series => {
+        if (series.country) {
+            countries.add(series.country);
+        }
+    });
+    return Array.from(countries).sort();
+}
+
+function filterDataByCountry(data: TimeseriesData, country: string): TimeseriesData {
+    return {
+        dates: data.dates,
+        series: data.series.filter(series => series.country === country)
+    };
+}
+
+function loadCountryFilter(key: string): string {
+    try {
+        const stored = localStorage.getItem(key);
+        return stored || "EU/EEA";
+    } catch (error) {
+        console.error("Error loading country filter:", error);
+        return "EU/EEA";
+    }
+}
+
+function saveCountryFilter(key: string, country: string): void {
+    try {
+        localStorage.setItem(key, country);
+    } catch (error) {
+        console.error("Error saving country filter:", error);
+    }
+}
+
 function getSortedSeriesWithIndices(series: LinearSeries[]): { series: LinearSeries, originalIndex: number }[] {
     const seriesWithIndices = series.map((s, index) => ({ series: s, originalIndex: index }));
     seriesWithIndices.sort((a, b) => {
@@ -302,13 +431,18 @@ function getSortedSeriesWithIndices(series: LinearSeries[]): { series: LinearSer
     return seriesWithIndices;
 }
 
-function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false) {
+function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, countryFilter?: string) {
     // Destroy existing chart if it exists
     if (cfg.chartHolder.chart) {
         cfg.chartHolder.chart.destroy();
     }
 
     let data = cfg.data;
+    
+    // Apply country filter if applicable
+    if (countryFilter && cfg.hasCountryFilter) {
+        data = filterDataByCountry(data, countryFilter);
+    }
     let cutoffDateString = data.dates[0] ?? new Date().toISOString().split('T')[0];
     if (timeRange !== "all") {
         const days = parseInt(timeRange);

@@ -34,13 +34,14 @@ export function computeEuEcdcData(data: Record<string, string>[]): TimeseriesDat
         return {
             datum,
             pathogen: row["pathogen"],
+            country: row["countryname"],
             tests,
             detections
         };
     });
 
-    // Group by date and pathogen, aggregate tests and detections
-    const groupedData = new Map<string, Map<string, { tests: number, detections: number }>>();
+    // Group by date, country, and pathogen
+    const groupedData = new Map<string, Map<string, Map<string, { tests: number, detections: number }>>>();
     
     processedData.forEach(row => {
         if (!groupedData.has(row.datum)) {
@@ -48,33 +49,44 @@ export function computeEuEcdcData(data: Record<string, string>[]): TimeseriesDat
         }
         const dateGroup = groupedData.get(row.datum)!;
         
-        if (!dateGroup.has(row.pathogen)) {
-            dateGroup.set(row.pathogen, { tests: 0, detections: 0 });
+        if (!dateGroup.has(row.country)) {
+            dateGroup.set(row.country, new Map());
         }
-        const pathogenStats = dateGroup.get(row.pathogen)!;
+        const countryGroup = dateGroup.get(row.country)!;
+        
+        if (!countryGroup.has(row.pathogen)) {
+            countryGroup.set(row.pathogen, { tests: 0, detections: 0 });
+        }
+        const pathogenStats = countryGroup.get(row.pathogen)!;
         
         pathogenStats.tests += row.tests;
         pathogenStats.detections += row.detections;
     });
 
-    // Get unique dates and pathogens
+    // Get unique dates, countries and pathogens
     const dates = [...groupedData.keys()].sort();
+    const countries = [...new Set(processedData.map(row => row.country))].sort();
     const pathogens = [...new Set(processedData.map(row => row.pathogen))];
 
-    // Create series for each pathogen
-    return {
-        dates,
-        series: pathogens.map(pathogen => ({
+    // Create series for each pathogen and country combination
+    const allSeries = countries.flatMap(country => 
+        pathogens.map(pathogen => ({
             name: `${pathogen} Positivity`,
+            country: country,
             values: dates.map(date => {
-                const stats = groupedData.get(date)?.get(pathogen);
+                const stats = groupedData.get(date)?.get(country)?.get(pathogen);
                 return {
                     positive: stats ? stats.detections : 0,
                     tests: stats ? stats.tests : 0
                 };
             }),
-            type: 'raw',
+            type: 'raw' as const,
             frequencyInDays: 7
         }))
+    );
+
+    return {
+        dates,
+        series: allSeries
     };
 }
