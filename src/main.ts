@@ -4,7 +4,7 @@ import deAreImport from "../data_processed/de_are_rki/are_data.json" with { type
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type LinearSeries, datapointToPercentage } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type LinearSeries, type Datapoint, datapointToPercentage } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -295,6 +295,11 @@ function createChartContainerAndCanvas(containerId: string, canvasId: string): H
         container.appendChild(canvas);
     }
     return canvas;
+}
+
+function transformDatapointForChart(datapoint: Datapoint | undefined, isIncidenceData: boolean): number {
+    if (!datapoint) return NaN;
+    return isIncidenceData ? datapoint.positive : datapointToPercentage(datapoint);
 }
 
 function getSortedSeriesWithIndices(series: LinearSeries[]): { series: LinearSeries, originalIndex: number }[] {
@@ -618,11 +623,9 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: LinearSeries;
             }
         });
         
-        // For incidence data, use the positive value directly (already per 100k)
-        // For positivity data, convert to percentage
-        const chartData = isIncidenceData 
-            ? series.values.slice(startIdx, endIdx).map(dp => dp.positive)
-            : series.values.slice(startIdx, endIdx).map(datapointToPercentage);
+        const chartData = series.values.slice(startIdx, endIdx).map(dp => 
+            transformDatapointForChart(dp, isIncidenceData)
+        );
         
         return {
             label: series.name,
@@ -689,12 +692,10 @@ function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData:
             label: extrSeries.name,
             data: extrSeries.indices.map(index => {
                 const datapoint = normalData.series.find(series => series.name === extrSeries.originalSeriesName)?.values[index];
-                const yValue = isIncidenceData 
-                    ? (datapoint?.positive ?? -10)
-                    : (datapointToPercentage(datapoint) ?? -10);
+                const yValue = transformDatapointForChart(datapoint, isIncidenceData);
                 return {
                     x: normalData.dates[index],
-                    y: yValue
+                    y: isNaN(yValue) ? -10 : yValue
                 };
             }).filter(dp => dp.x > cutoffDateString && (includeFuture || dp.x <= todayString)) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
             borderColor: color,

@@ -79,18 +79,22 @@ export function computeDeAreData(data: Record<string, string>[]): TimeseriesData
 
     // Create series for each age group
     // Note: This data is already an incidence (per 100k), not a positivity rate
-    // We'll store it as if it were test data to reuse the visualization infrastructure
+    // We store it using the Datapoint structure to reuse the visualization infrastructure:
+    // - positive = the actual incidence value (cases per 100k)
+    // - tests = INCIDENCE_BASE_POPULATION (constant representing the per-100k basis)
+    // This allows the data to flow through the existing pipeline while being rendered
+    // differently based on the chart's dataType configuration.
+    const INCIDENCE_BASE_POPULATION = 100000;
+    
     return {
         dates,
         series: ageGroups.map(ageGroup => ({
             name: `ARE ${ageGroup} years`,
             values: weeks.map(week => {
                 const incidence = groupedData.get(week)?.get(ageGroup) ?? 0;
-                // Store incidence as "positive" and set tests to 100000 to represent per 100k
-                // This way, when visualized as percentage, 1% = 1000 per 100k
                 return {
                     positive: incidence,
-                    tests: 100000
+                    tests: INCIDENCE_BASE_POPULATION
                 };
             }),
             type: 'raw',
