@@ -606,20 +606,22 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: LinearSeries;
 }
 
 /**
- * Adjusts the color for test bar charts by reducing saturation and adjusting lightness
+ * Adjusts the color for test bar charts by adjusting saturation and lightness
  * to create better contrast between positive and negative test bars.
+ * Positive tests are more saturated, negative tests are less saturated.
  * 
  * @param hexColor - The original color in hex format (e.g., "#1f77b4")
- * @param isPositive - Whether this is for positive tests (lighter) or negative tests (darker)
+ * @param isPositive - Whether this is for positive tests (more saturated) or negative tests (less saturated)
  * @returns The adjusted color in hex format
  */
 function adjustColorForTestBars(hexColor: string, isPositive: boolean): string {
     // Color adjustment constants
-    const SATURATION_REDUCTION = 0.5; // Reduce to 50% to make colors less vibrant
-    const POSITIVE_LIGHTNESS_BOOST = 0.15; // Make positive tests lighter
-    const POSITIVE_LIGHTNESS_MAX = 0.75; // Cap positive lightness
-    const NEGATIVE_LIGHTNESS_REDUCTION = 0.1; // Make negative tests darker
-    const NEGATIVE_LIGHTNESS_MIN = 0.35; // Floor negative lightness
+    const POSITIVE_SATURATION_FACTOR = 0.85; // Keep most saturation for positive tests
+    const NEGATIVE_SATURATION_FACTOR = 0.4; // Reduce saturation more for negative tests
+    const POSITIVE_LIGHTNESS_REDUCTION = 0.05; // Slightly darken positive tests to maintain saturation appearance
+    const POSITIVE_LIGHTNESS_MIN = 0.3; // Floor positive lightness
+    const NEGATIVE_LIGHTNESS_BOOST = 0.15; // Lighten negative tests for contrast
+    const NEGATIVE_LIGHTNESS_MAX = 0.75; // Cap negative lightness
 
     // Convert hex to RGB
     const hex = hexColor.replace('#', '');
@@ -643,11 +645,16 @@ function adjustColorForTestBars(hexColor: string, isPositive: boolean): string {
         }
     }
 
-    // Reduce saturation and adjust lightness for contrast
-    s = s * SATURATION_REDUCTION;
-    l = isPositive 
-        ? Math.min(l + POSITIVE_LIGHTNESS_BOOST, POSITIVE_LIGHTNESS_MAX)
-        : Math.max(l - NEGATIVE_LIGHTNESS_REDUCTION, NEGATIVE_LIGHTNESS_MIN);
+    // Adjust saturation and lightness for contrast
+    // Positive tests: more saturated and slightly darker
+    // Negative tests: less saturated and lighter
+    if (isPositive) {
+        s = s * POSITIVE_SATURATION_FACTOR;
+        l = Math.max(l - POSITIVE_LIGHTNESS_REDUCTION, POSITIVE_LIGHTNESS_MIN);
+    } else {
+        s = s * NEGATIVE_SATURATION_FACTOR;
+        l = Math.min(l + NEGATIVE_LIGHTNESS_BOOST, NEGATIVE_LIGHTNESS_MAX);
+    }
 
     // Convert HSL back to RGB
     const hue2rgb = (p: number, q: number, t: number) => {
