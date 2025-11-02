@@ -215,34 +215,19 @@ function createCountrySelector(cfg: ChartConfig, countryFilters: Map<string, str
         return;
     }
 
-    // Create a wrapper div for the selector
+    // Create a wrapper div for the selector with minimal styling
     const selectorWrapper = document.createElement('div');
     selectorWrapper.id = `${cfg.containerId}-country-selector`;
-    selectorWrapper.style.cssText = `
-        margin: 10px 0;
-        padding: 10px;
-        background-color: #f5f5f5;
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    `;
+    selectorWrapper.style.marginBottom = '10px';
 
     // Create label
     const label = document.createElement('label');
     label.htmlFor = `${cfg.containerId}-country-select`;
-    label.textContent = 'Country:';
-    label.style.fontWeight = 'bold';
+    label.textContent = 'Country: ';
 
-    // Create select element
+    // Create select element with minimal styling
     const select = document.createElement('select');
     select.id = `${cfg.containerId}-country-select`;
-    select.style.cssText = `
-        padding: 5px 10px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 14px;
-    `;
 
     // Add options
     countries.forEach(country => {
