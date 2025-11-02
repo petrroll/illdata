@@ -885,12 +885,13 @@ function updateRatioTable() {
             return;
         }
 
-        const visibleInThisChart = cfg.data.series.filter(series => {
+        // Filter series for ratio table
+        const filteredSeries = cfg.data.series.filter(series => {
             if (series.type !== 'raw') return false;
             
-            // For EU chart, only include Czechia and EU/EEA aggregate data in the ratio table
+            // For EU chart, only include EU/EEA aggregate data in the ratio table
             if (cfg.hasCountryFilter && series.country) {
-                if (series.country !== 'Czechia' && series.country !== 'EU/EEA') {
+                if (series.country !== 'EU/EEA') {
                     return false;
                 }
             }
@@ -899,9 +900,16 @@ function updateRatioTable() {
             return Object.entries(cfg.datasetVisibility).some(([key, isVisible]) => {
                 return key.includes(series.name) && isVisible;
             });
-        }).map(series => series.name);
+        });
 
-        visiblePerChart.push([cfg, visibleInThisChart]);
+        // Create a filtered dataset for this chart with only the relevant series
+        const filteredData: TimeseriesData = {
+            dates: cfg.data.dates,
+            series: filteredSeries
+        };
+
+        const visibleSeriesNames = filteredSeries.map(series => series.name);
+        visiblePerChart.push([{ ...cfg, data: filteredData }, visibleSeriesNames]);
     });
     
     if (visiblePerChart.length === 0) {
