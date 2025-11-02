@@ -3,7 +3,7 @@ import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_d
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type LinearSeries, datapointToPercentage } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type LinearSeries, datapointToPercentage, compareLabels } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -320,22 +320,7 @@ function createChartContainerAndCanvas(containerId: string, canvasId: string): H
 
 function getSortedSeriesWithIndices(series: LinearSeries[]): { series: LinearSeries, originalIndex: number }[] {
     const seriesWithIndices = series.map((s, index) => ({ series: s, originalIndex: index }));
-    seriesWithIndices.sort((a, b) => {
-        const labelA = a.series.name;
-        const labelB = b.series.name;
-        
-        // Count words (sections separated by whitespace)
-        const wordsA = labelA.trim().split(/\s+/).filter((word: string) => word.length > 0).length;
-        const wordsB = labelB.trim().split(/\s+/).filter((word: string) => word.length > 0).length;
-        
-        // Sort by word count first
-        if (wordsA !== wordsB) {
-            return wordsA - wordsB; // fewer words first
-        }
-        
-        // If word count is the same, fall back to alphabetical
-        return labelA.localeCompare(labelB);
-    });
+    seriesWithIndices.sort((a, b) => compareLabels(a.series.name, b.series.name));
     return seriesWithIndices;
 }
 
@@ -563,18 +548,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
     datasetsWithIndices.sort((a, b) => {
         const labelA = a.dataset.label || `Dataset ${a.index}`;
         const labelB = b.dataset.label || `Dataset ${b.index}`;
-        
-        // Count words (sections separated by whitespace)
-        const wordsA = labelA.trim().split(/\s+/).filter(word => word.length > 0).length;
-        const wordsB = labelB.trim().split(/\s+/).filter(word => word.length > 0).length;
-        
-        // Sort by word count first
-        if (wordsA !== wordsB) {
-            return wordsA - wordsB; // fewer words first
-        }
-        
-        // If word count is the same, fall back to alphabetical
-        return labelA.localeCompare(labelB);
+        return compareLabels(labelA, labelB);
     });
     
     // Create legend items for each dataset in sorted order
