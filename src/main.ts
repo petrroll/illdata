@@ -603,7 +603,9 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: LinearSeries;
                 console.warn(`Missing value in series ${series.name} at index ${i}`);
                 return;
             }
-            if (element.tests == 0 && element.positive > 0) {
+            // For test/positivity data (not wastewater), warn if there are positive results without tests
+            // Wastewater data uses tests=1 for valid data and tests=0 with positive=0 for missing data
+            if (element.tests === 0 && element.positive > 0 && !series.name.includes('Wastewater')) {
                 console.warn(`Invalid data in series ${series.name} at index ${i}: positive tests ${element.positive} without total tests ${data.dates[i]}`);
             }
         });
