@@ -581,6 +581,11 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            layout: {
+                padding: {
+                    bottom: 20  // Add bottom padding to prevent x-axis labels from overlapping with legend
+                }
+            },
             interaction: {
                 mode: 'index', // Snap to nearest x value (vertical line)
                 intersect: false,
