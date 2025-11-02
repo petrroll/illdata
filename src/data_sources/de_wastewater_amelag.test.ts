@@ -14,19 +14,19 @@ describe('computeDeWastewaterData Tests', () => {
         expect(result.dates).toEqual(['2023-11-29', '2023-12-06']);
         expect(result.series.length).toBeGreaterThan(0);
         
-        // Check that Influenza A series exists
-        const influenzaA = result.series.find(s => s.name === 'Influenza A Wastewater');
-        expect(influenzaA).toBeDefined();
-        expect(influenzaA?.type).toBe('raw');
-        expect(influenzaA?.frequencyInDays).toBe(7);
+        // Check that Influenza series exists (aggregated, not subtype-specific)
+        const influenza = result.series.find(s => s.name === 'Influenza Wastewater');
+        expect(influenza).toBeDefined();
+        expect(influenza?.type).toBe('raw');
+        expect(influenza?.frequencyInDays).toBe(7);
         
         // Check that SARS-CoV-2 series exists
         const covid = result.series.find(s => s.name === 'SARS-CoV-2 Wastewater');
         expect(covid).toBeDefined();
         
         // Check data values - using 'as any' to access virusLoad property
-        expect((influenzaA?.values[0] as any).virusLoad).toBeCloseTo(1459.015070385136, 5);
-        expect((influenzaA?.values[1] as any).virusLoad).toBeCloseTo(1591.6921304455302, 5);
+        expect((influenza?.values[0] as any).virusLoad).toBeCloseTo(1459.015070385136, 5);
+        expect((influenza?.values[1] as any).virusLoad).toBeCloseTo(1591.6921304455302, 5);
         
         expect((covid?.values[0] as any).virusLoad).toBeCloseTo(600.0, 5);
     });
@@ -40,38 +40,36 @@ describe('computeDeWastewaterData Tests', () => {
         const result: TimeseriesData = computeDeWastewaterData(input);
 
         expect(result.dates).toEqual(['2023-11-29', '2023-12-13']);
-        const influenzaA = result.series.find(s => s.name === 'Influenza A Wastewater');
-        expect(influenzaA).toBeDefined();
+        const influenza = result.series.find(s => s.name === 'Influenza Wastewater');
+        expect(influenza).toBeDefined();
         
         // First date has data
-        expect((influenzaA?.values[0] as any).virusLoad).toBeCloseTo(1459.015070385136, 5);
+        expect((influenza?.values[0] as any).virusLoad).toBeCloseTo(1459.015070385136, 5);
         
         // Second date has data
-        expect((influenzaA?.values[1] as any).virusLoad).toBeCloseTo(2500.0, 5);
+        expect((influenza?.values[1] as any).virusLoad).toBeCloseTo(2500.0, 5);
     });
 
-    test('normalizes virus names correctly', () => {
+    test('aggregates virus subtypes correctly', () => {
         const input = [
             { datum: '2023-11-29', n: '28', anteil_bev: '0.03', viruslast: '1187.59', viruslast_normalisiert: '1459.0', vorhersage: '1141.5', obere_schranke: '1595.6', untere_schranke: '816.7', typ: 'RSV A' },
+            { datum: '2023-11-29', n: '28', anteil_bev: '0.03', viruslast: '1187.59', viruslast_normalisiert: '500.0', vorhersage: '1141.5', obere_schranke: '1595.6', untere_schranke: '816.7', typ: 'RSV B' },
             { datum: '2023-12-06', n: '28', anteil_bev: '0.03', viruslast: '1187.59', viruslast_normalisiert: '1600.0', vorhersage: '1141.5', obere_schranke: '1595.6', untere_schranke: '816.7', typ: 'RSV A/B' },
         ];
 
         const result: TimeseriesData = computeDeWastewaterData(input);
 
-        // Check that RSV variants are present - RSV A/B is normalized to RSV A+B
-        const rsvA = result.series.find(s => s.name === 'RSV A Wastewater');
-        const rsvAB = result.series.find(s => s.name === 'RSV A+B Wastewater');
+        // Check that RSV subtypes are aggregated into single RSV series
+        const rsv = result.series.find(s => s.name === 'RSV Wastewater');
         
-        expect(rsvA).toBeDefined();
-        expect(rsvAB).toBeDefined();
+        expect(rsv).toBeDefined();
+        expect(result.series.length).toBe(1); // Only one series (RSV aggregated)
         
-        // RSV A should have data on first date only
-        expect((rsvA?.values[0] as any).virusLoad).toBeCloseTo(1459.0, 5);
-        expect((rsvA?.values[1] as any).virusLoad).toBe(0);
+        // RSV should aggregate RSV A and RSV B on first date
+        expect((rsv?.values[0] as any).virusLoad).toBeCloseTo(1959.0, 5); // 1459 + 500
         
-        // RSV A+B should have data on second date only
-        expect((rsvAB?.values[0] as any).virusLoad).toBe(0);
-        expect((rsvAB?.values[1] as any).virusLoad).toBeCloseTo(1600.0, 5);
+        // RSV should have RSV A/B data on second date
+        expect((rsv?.values[1] as any).virusLoad).toBeCloseTo(1600.0, 5);
     });
 
     test('handles empty input', () => {

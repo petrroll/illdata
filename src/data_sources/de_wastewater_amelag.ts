@@ -55,18 +55,15 @@ export function computeDeWastewaterData(data: Record<string, string>[]): Timeser
     const dates = [...groupedData.keys()].sort();
     const virusTypes = [...new Set(data.map(row => row["typ"]))].filter(Boolean);
 
-    // Normalize virus type names to make them consistent
+    // Normalize virus type names to aggregate at the virus level (not subtypes)
     const normalizeVirusName = (name: string): string => {
-        // Check combined types first (more specific patterns)
-        if (name.includes("Influenza A+B")) return "Influenza A+B";
-        if (name.includes("RSV A+B") || name === "RSV A/B") return "RSV A+B";
+        // Aggregate all Influenza subtypes into one
+        if (name.includes("Influenza")) return "Influenza";
         
-        // Then check individual types
-        if (name.includes("Influenza A")) return "Influenza A";
-        if (name.includes("Influenza B")) return "Influenza B";
-        if (name.includes("RSV A")) return "RSV A";
-        if (name.includes("RSV B")) return "RSV B";
+        // Aggregate all RSV subtypes into one
+        if (name.includes("RSV")) return "RSV";
         
+        // Keep SARS-CoV-2 as is
         return name;
     };
 
