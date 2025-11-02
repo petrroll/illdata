@@ -581,11 +581,6 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            layout: {
-                padding: {
-                    bottom: 20  // Add bottom padding to prevent x-axis labels from overlapping with legend
-                }
-            },
             interaction: {
                 mode: 'index', // Snap to nearest x value (vertical line)
                 intersect: false,
@@ -608,6 +603,10 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
             scales: {
                 x: {
                     ticks: {
+                        autoSkip: true,
+                        autoSkipPadding: 10,
+                        maxRotation: 45,
+                        minRotation: 0,
                         color: function(context) {
                             let label = context.tick.label;
                             if (Array.isArray(label)) {
@@ -669,7 +668,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
-            margin: 10px 0;
+            margin: 15px 0 10px 0;
             justify-content: center;
         `;
         
