@@ -1,5 +1,5 @@
 import { downloadAndSaveCsv, getAbsolutePath, normalizeDate, toFloat } from "./ioUtils";
-import type { TimeseriesData } from "../utils";
+import type { TimeseriesData, PositivitySeries } from "../utils";
 
 export async function downloadEuEcdcData(filename: string = "nonSentinelTestsDetections.csv") {
     const filePath = getAbsolutePath(`./data/${filename}`);
@@ -62,7 +62,7 @@ export function computeEuEcdcData(data: Record<string, string>[]): TimeseriesDat
     const pathogens = [...new Set(processedData.map(row => row.pathogen))];
 
     // Create series for each pathogen and country combination
-    const allSeries = countries.flatMap(country => 
+    const allSeries: PositivitySeries[] = countries.flatMap(country => 
         pathogens.map(pathogen => ({
             name: `${pathogen} Positivity`,
             country: country,
@@ -74,7 +74,8 @@ export function computeEuEcdcData(data: Record<string, string>[]): TimeseriesDat
                 };
             }),
             type: 'raw' as const,
-            frequencyInDays: 7
+            frequencyInDays: 7,
+            dataType: 'positivity' as const
         }))
     );
 

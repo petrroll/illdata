@@ -1,17 +1,20 @@
 import mzcrPositivityImport from "../data_processed/cr_cov_mzcr/positivity_data.json" with { type: "json" };
 import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_data.json" with { type: "json" };
+import deWastewaterImport from "../data_processed/de_wastewater_amelag/wastewater_data.json" with { type: "json" };
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type LinearSeries, datapointToPercentage, compareLabels } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, datapointToPercentage, compareLabels } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
+const deWastewater = deWastewaterImport as TimeseriesData;
 const averagingWindows = [28];
 const extremesForWindow = 28;
 const extremeWindow = 3*28;
 const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, averagingWindows);
 const euPositivityEnhanced = computeMovingAverageTimeseries(euPositivity, averagingWindows);
+const deWastewaterEnhanced = computeMovingAverageTimeseries(deWastewater, averagingWindows);
 
 // Constants for dataset filtering
 const SHIFTED_SERIES_IDENTIFIER = 'shifted';
@@ -91,6 +94,7 @@ function migrateOldSettings(): void {
 const DATASET_VISIBILITY_KEY = "datasetVisibility";
 const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
 const EU_COUNTRY_FILTER_KEY = "euCountryFilter";
+const DE_WASTEWATER_VISIBILITY_KEY = "deWastewaterVisibility";
 
 interface ChartConfig {
     containerId: string;
@@ -129,6 +133,16 @@ const chartConfigs : ChartConfig[] = [
         datasetVisibility: { },
         hasCountryFilter: true,
         countryFilterKey: EU_COUNTRY_FILTER_KEY
+    },
+    {
+        containerId: "deWastewaterContainer",
+        canvasId: "deWastewaterChart",
+        data: deWastewaterEnhanced,
+        title: "Germany Wastewater Surveillance (AMELAG)",
+        shortTitle: "DE-WW",
+        visibilityKey: DE_WASTEWATER_VISIBILITY_KEY,
+        chartHolder: { chart: undefined as Chart | undefined },
+        datasetVisibility: { }
     }
 ];
 
@@ -447,7 +461,7 @@ function saveCountryFilter(key: string, country: string): void {
     }
 }
 
-function getSortedSeriesWithIndices(series: LinearSeries[]): { series: LinearSeries, originalIndex: number }[] {
+function getSortedSeriesWithIndices(series: DataSeries[]): { series: DataSeries, originalIndex: number }[] {
     const seriesWithIndices = series.map((s, index) => ({ series: s, originalIndex: index }));
     seriesWithIndices.sort((a, b) => compareLabels(a.series.name, b.series.name));
     return seriesWithIndices;
@@ -629,7 +643,15 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     ticks: {
                         callback: function(tickValue: string | number) {
                             if (typeof tickValue === 'number') {
-                                return tickValue.toFixed(2) + "%";
+                                // Check if this is a scalar series chart (e.g., wastewater)
+                                const isScalarChart = cfg.data.series.some(s => 'dataType' in s && s.dataType === 'scalar');
+                                if (isScalarChart) {
+                                    // For scalar series, show the value with scientific notation if needed
+                                    return tickValue.toExponential(2);
+                                } else {
+                                    // For positivity data, show as percentage
+                                    return tickValue.toFixed(2) + "%";
+                                }
                             }
                             return tickValue;
                         }
@@ -741,7 +763,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
     });
 }
 
-function generateNormalDatasets(sortedSeriesWithIndices: { series: LinearSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
+function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
     return sortedSeriesWithIndices.map(({ series, originalIndex }, sortedIndex) => {
         // New color assignment logic
         const paletteIndex = sortedIndex % numberOfRawData;
@@ -749,18 +771,35 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: LinearSeries;
         const selectedPalette = colorPalettes[paletteIndex % colorPalettes.length];
         const borderColor = selectedPalette[colorIndex % selectedPalette.length];
 
-        series.values.forEach((element: any, i: number) => {
-            if (element === undefined || element === null) {
-                console.warn(`Missing value in series ${series.name} at index ${i}`);
-            }
-            if (element.tests == 0 && element.positive > 0) {
-                console.warn(`Invalid data in series ${series.name} at index ${i}: positive tests ${element.positive} without total tests ${data.dates[i]}`);
-            }
-        });
-        const dataAsPercentage = series.values.slice(startIdx, endIdx).map(datapointToPercentage);
+        // Validate data based on type
+        if ('dataType' in series && series.dataType === 'positivity') {
+            series.values.forEach((element: any, i: number) => {
+                if (element === undefined || element === null) {
+                    console.warn(`Missing value in series ${series.name} at index ${i}`);
+                    return;
+                }
+                if (element.tests === 0 && element.positive > 0) {
+                    console.warn(`Invalid data in series ${series.name} at index ${i}: positive tests ${element.positive} without total tests ${data.dates[i]}`);
+                }
+            });
+        }
+        
+        // Convert data based on type
+        let chartData: number[];
+        if ('dataType' in series && series.dataType === 'scalar') {
+            // For scalar series, use the value directly (no percentage conversion)
+            chartData = series.values.slice(startIdx, endIdx).map((dp: any) => {
+                if (!dp) return 0;
+                return dp.virusLoad || 0;
+            });
+        } else {
+            // For positivity data, convert to percentage
+            chartData = series.values.slice(startIdx, endIdx).map(datapointToPercentage);
+        }
+        
         return {
             label: series.name,
-            data: dataAsPercentage,
+            data: chartData,
             borderColor: borderColor,
             fill: false,
             hidden: false,
@@ -851,11 +890,13 @@ function adjustColorForTestBars(hexColor: string, isPositive: boolean): string {
     return `#${toHex(r2)}${toHex(g2)}${toHex(b2)}`;
 }
 
-function generateTestNumberBarDatasets(sortedSeriesWithIndices: { series: LinearSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
-    // Only generate bar charts for raw series (not averaged)
-    const rawSeriesWithIndices = sortedSeriesWithIndices.filter(({ series }) => series.type === 'raw');
+function generateTestNumberBarDatasets(sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
+    // Only generate bar charts for raw positivity series (not averaged, not scalar)
+    const rawPositivitySeriesWithIndices = sortedSeriesWithIndices.filter(({ series }) => 
+        series.type === 'raw' && 'dataType' in series && series.dataType === 'positivity'
+    );
     
-    return rawSeriesWithIndices.flatMap(({ series, originalIndex }, sortedIndex) => {
+    return rawPositivitySeriesWithIndices.flatMap(({ series, originalIndex }, sortedIndex) => {
         // Use same color logic as line charts
         const paletteIndex = sortedIndex % numberOfRawData;
         const selectedPalette = colorPalettes[paletteIndex % colorPalettes.length];
@@ -866,8 +907,8 @@ function generateTestNumberBarDatasets(sortedSeriesWithIndices: { series: Linear
         const positiveColor = adjustColorForTestBars(basePositiveColor, true);
         const negativeColor = adjustColorForTestBars(baseNegativeColor, false);
 
-        const positiveData = series.values.slice(startIdx, endIdx).map(dp => dp.positive);
-        const negativeData = series.values.slice(startIdx, endIdx).map(dp => dp.tests - dp.positive);
+        const positiveData = (series as PositivitySeries).values.slice(startIdx, endIdx).map((dp: any) => dp.positive);
+        const negativeData = (series as PositivitySeries).values.slice(startIdx, endIdx).map((dp: any) => dp.tests - dp.positive);
 
         return [
             {
@@ -897,12 +938,21 @@ function generateTestNumberBarDatasets(sortedSeriesWithIndices: { series: Linear
 function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData: TimeseriesData, cutoffDateString: string, color: string, includeFuture: boolean, cfg: ChartConfig): any[] {
     const todayString = new Date().toISOString().split('T')[0];
     return extremeData.flat().map(extrSeries => {
+        const originalSeries = normalData.series.find(series => series.name === extrSeries.originalSeriesName);
         return {
             label: extrSeries.name,
-            data: extrSeries.indices.map(index => ({
-                x: normalData.dates[index],
-                y: datapointToPercentage(normalData.series.find(series => series.name === extrSeries.originalSeriesName)?.values[index]) ?? -10
-            })).filter(dp => dp.x > cutoffDateString && (includeFuture || dp.x <= todayString)) as any[], // make it any to satisfy types, the typing assumes basic data structure (with labels separately) but the library supports this; it's probably fixable but not worth figuring it out
+            data: extrSeries.indices.map(index => {
+                let yValue: number;
+                if (originalSeries && 'dataType' in originalSeries && originalSeries.dataType === 'scalar') {
+                    yValue = (originalSeries.values[index] as any)?.virusLoad ?? 0;
+                } else {
+                    yValue = datapointToPercentage(originalSeries?.values[index] as any) ?? -10;
+                }
+                return {
+                    x: normalData.dates[index],
+                    y: yValue
+                };
+            }).filter(dp => dp.x > cutoffDateString && (includeFuture || dp.x <= todayString)) as any[],
             borderColor: color,
             backgroundColor: color,
             fill: false,
