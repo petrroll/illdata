@@ -680,7 +680,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
-            margin: 20px 0 10px 0;
+            margin: 30px 0 10px 0;
             justify-content: center;
         `;
         
