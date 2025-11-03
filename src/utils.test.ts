@@ -5,14 +5,14 @@ import {
     getNewWithSifterToAlignExtremeDates,
     getNewWithCustomShift,
     compareLabels,
-    type LinearSeries, 
+    type PositivitySeries, 
     type ExtremeSeries,
     type TimeseriesData,
     type Datapoint
 } from './utils';
 
 describe('findLocalExtreme - Local Maxima Tests', () => {
-    const seriesMax: LinearSeries = {
+    const seriesMax: PositivitySeries = {
         name: 'Averaged Series',
         values: [
             { positive: 1, tests: 100 },
@@ -23,7 +23,8 @@ describe('findLocalExtreme - Local Maxima Tests', () => {
         ],
         type: 'averaged',
         windowSizeInDays: 3,
-        frequencyInDays: 1
+        frequencyInDays: 1,
+        dataType: 'positivity' as const
     };
 
     test('filters time series of type averaged (maxima)', () => {
@@ -89,7 +90,7 @@ describe('findLocalExtreme - Local Maxima Tests', () => {
 });
 
 describe('findLocalExtreme - Local Minima Tests', () => {
-    const seriesMin: LinearSeries = {
+    const seriesMin: PositivitySeries = {
         name: 'Averaged Series',
         values: [
             { positive: 4, tests: 100 },
@@ -101,6 +102,7 @@ describe('findLocalExtreme - Local Minima Tests', () => {
         type: 'averaged',
         windowSizeInDays: 3,
         frequencyInDays: 1,
+        dataType: 'positivity' as const
     };
 
     test('filters time series of type averaged (minima)', () => {
@@ -167,7 +169,8 @@ describe('computeMovingAverageTimeseries Tests', () => {
                     { positive: 5, tests: 100 }
                 ],
                 type: 'raw',
-                frequencyInDays: 1
+                frequencyInDays: 1,
+        dataType: 'positivity' as const
             }]
         };
         const windowSizes = [3];
@@ -199,7 +202,8 @@ describe('computeMovingAverageTimeseries Tests', () => {
                     { positive: 50, tests: 100 }
                 ],
                 type: 'raw',
-                frequencyInDays: 1
+                frequencyInDays: 1,
+        dataType: 'positivity' as const
             }]
         };
         const windowSizes = [3, 5];
@@ -220,7 +224,8 @@ describe('computeMovingAverageTimeseries Tests', () => {
                     { positive: 20, tests: 100 }
                 ],
                 type: 'raw',
-                frequencyInDays: 1
+                frequencyInDays: 1,
+        dataType: 'positivity' as const
             }]
         };
         const result = computeMovingAverageTimeseries(input, [1]);
@@ -251,7 +256,8 @@ describe('computeMovingAverageTimeseries Tests', () => {
                     { positive: 30, tests: 100 }
                 ],
                 type: 'raw',
-                frequencyInDays: 2
+                frequencyInDays: 2,
+                dataType: 'positivity' as const
             }]
         };
         const result = computeMovingAverageTimeseries(input, [4]);
@@ -264,7 +270,7 @@ describe('computeMovingAverageTimeseries Tests', () => {
 describe('addShiftedToAlignExtremeDates Tests', () => {
     test('shifted dataset inherits type from original series', () => {
         // Test data with an 'averaged' type series
-        const averagedSeries: LinearSeries = {
+        const averagedSeries: PositivitySeries = {
             name: 'Test Averaged Series',
             values: [
                 { positive: 1, tests: 100 },
@@ -275,11 +281,12 @@ describe('addShiftedToAlignExtremeDates Tests', () => {
             ],
             type: 'averaged',
             windowSizeInDays: 7,
-            frequencyInDays: 1
+            frequencyInDays: 1,
+        dataType: 'positivity' as const
         };
 
         // Test data with a 'raw' type series
-        const rawSeries: LinearSeries = {
+        const rawSeries: PositivitySeries = {
             name: 'Test Raw Series',
             values: [
                 { positive: 2, tests: 100 },
@@ -289,7 +296,8 @@ describe('addShiftedToAlignExtremeDates Tests', () => {
                 { positive: 2, tests: 100 }
             ],
             type: 'raw',
-            frequencyInDays: 1
+            frequencyInDays: 1,
+        dataType: 'positivity' as const
         };
 
         const data: TimeseriesData = {
@@ -342,7 +350,7 @@ describe('addShiftedToAlignExtremeDates Tests', () => {
 describe('findLocalExtreme - Filtering Tests', () => {
     test('separates extremes detection from filtering', () => {
         // Test series with mix of significant and insignificant extremes
-        const testSeries: LinearSeries = {
+        const testSeries: PositivitySeries = {
             name: 'Test Series',
             values: [
                 { positive: 10, tests: 100 },  // 10%
@@ -359,7 +367,8 @@ describe('findLocalExtreme - Filtering Tests', () => {
             ],
             type: 'averaged',
             windowSizeInDays: 3,
-            frequencyInDays: 1
+            frequencyInDays: 1,
+        dataType: 'positivity' as const
         };
 
         // Step 1: Find all local extremes (unfiltered)
@@ -389,7 +398,7 @@ describe('findLocalExtreme - Filtering Tests', () => {
 
 describe('getNewWithCustomShift Tests', () => {
     test('applies custom shift to series', () => {
-        const testSeries: LinearSeries = {
+        const testSeries: PositivitySeries = {
             name: 'Test Series',
             values: [
                 { positive: 1, tests: 100 },
@@ -399,7 +408,8 @@ describe('getNewWithCustomShift Tests', () => {
                 { positive: 5, tests: 100 }
             ],
             type: 'raw',
-            frequencyInDays: 1
+            frequencyInDays: 1,
+            dataType: 'positivity'
         };
 
         const data: TimeseriesData = {
@@ -426,7 +436,7 @@ describe('getNewWithCustomShift Tests', () => {
     });
 
     test('applies negative custom shift', () => {
-        const testSeries: LinearSeries = {
+        const testSeries: PositivitySeries = {
             name: 'Test Series',
             values: [
                 { positive: 10, tests: 100 },
@@ -434,7 +444,8 @@ describe('getNewWithCustomShift Tests', () => {
                 { positive: 30, tests: 100 }
             ],
             type: 'raw',
-            frequencyInDays: 1
+            frequencyInDays: 1,
+            dataType: 'positivity'
         };
 
         const data: TimeseriesData = {
@@ -459,7 +470,7 @@ describe('getNewWithCustomShift Tests', () => {
     });
 
     test('applies custom shift to averaged series with windowSizeInDays', () => {
-        const averagedSeries: LinearSeries = {
+        const averagedSeries: PositivitySeries = {
             name: 'Averaged Series',
             values: [
                 { positive: 1, tests: 100 },
@@ -468,7 +479,8 @@ describe('getNewWithCustomShift Tests', () => {
             ],
             type: 'averaged',
             windowSizeInDays: 7,
-            frequencyInDays: 1
+            frequencyInDays: 1,
+            dataType: 'positivity'
         };
 
         const data: TimeseriesData = {

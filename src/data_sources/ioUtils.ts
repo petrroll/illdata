@@ -29,6 +29,12 @@ export async function loadAndParseCsv(filename: string) {
     return parseCsv(csvContent);
 }
 
+export async function loadAndParseTsv(filename: string) {
+    const filepath = getAbsolutePath(`./data/${filename}`);
+    const tsvContent = await fs.readFile(filepath, "utf-8");
+    return parseTsv(tsvContent);
+}
+
 export function parseCsv(csvContent: string) {
     const lines = csvContent.split("\n").filter(line => line.trim() !== "");
 
@@ -44,6 +50,24 @@ export function parseCsv(csvContent: string) {
     });
 
     console.log("Parsed CSV data");
+    return data;
+}
+
+export function parseTsv(tsvContent: string) {
+    const lines = tsvContent.split("\n").filter(line => line.trim() !== "");
+
+    // Assume first line contains headers
+    const headers = lines[0].split("\t").map(h => h.trim());
+    const data = lines.slice(1).map(line => {
+        const values = line.split("\t").map(v => v.trim());
+        const row: Record<string, string> = {};
+        headers.forEach((header, i) => {
+            row[header] = values[i] || "";
+        });
+        return row;
+    });
+
+    console.log("Parsed TSV data");
     return data;
 }
 
