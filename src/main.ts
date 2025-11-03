@@ -41,7 +41,7 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
     showExtremes: false,
     showShifted: true,
     showTestNumbers: true,
-    shiftOverrideDays: null,
+    shiftOverrideDays: 1, // Default to 1 wave for maxima/minima alignment
     alignByExtreme: 'maxima'
 };
 
@@ -321,7 +321,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     const shiftDaysInput = document.createElement('input');
     shiftDaysInput.type = 'number';
     shiftDaysInput.id = 'shiftOverrideDaysInput';
-    shiftDaysInput.value = (appSettings.shiftOverrideDays ?? 0).toString();
+    shiftDaysInput.value = (appSettings.shiftOverrideDays ?? 1).toString();
     shiftDaysInput.placeholder = 'Shift value';
     shiftDaysInput.style.width = '80px';
     
@@ -334,20 +334,30 @@ function renderPage(rootDiv: HTMLElement | null) {
     shiftDaysInput.addEventListener('change', (event) => {
         const inputValue = (event.target as HTMLInputElement).value.trim();
         if (inputValue === '') {
-            onSettingsChange('shiftOverrideDays', 0);
-            shiftDaysInput.value = '0';
+            // Default to 1 for wave indices, 0 for days
+            const defaultValue = appSettings.alignByExtreme === 'days' ? 0 : 1;
+            onSettingsChange('shiftOverrideDays', defaultValue);
+            shiftDaysInput.value = defaultValue.toString();
             return;
         }
         
         const value = parseInt(inputValue);
         if (isNaN(value)) {
             // Reset to previous valid value
-            shiftDaysInput.value = (appSettings.shiftOverrideDays ?? 0).toString();
+            shiftDaysInput.value = (appSettings.shiftOverrideDays ?? 1).toString();
             return;
         }
         
-        // Clamp to reasonable range (-3650 to 3650 days, approximately 10 years)
-        const clampedValue = Math.max(-3650, Math.min(3650, value));
+        // For wave indices (maxima/minima), minimum is 1. For days, allow negative values.
+        let clampedValue = value;
+        if (appSettings.alignByExtreme !== 'days') {
+            // For maxima/minima: clamp to 1-10 waves
+            clampedValue = Math.max(1, Math.min(10, value));
+        } else {
+            // For days: clamp to reasonable range (-3650 to 3650 days, approximately 10 years)
+            clampedValue = Math.max(-3650, Math.min(3650, value));
+        }
+        
         if (clampedValue !== value) {
             shiftDaysInput.value = clampedValue.toString();
         }
@@ -368,7 +378,18 @@ function renderPage(rootDiv: HTMLElement | null) {
             { value: 'minima', label: 'Minima' }
         ],
         settings: appSettings,
-        onChange: onSettingsChange
+        onChange: (key, value) => {
+            // When switching alignment mode, reset the shift value to a sensible default
+            if (key === 'alignByExtreme') {
+                const newMode = value as 'days' | 'maxima' | 'minima';
+                const defaultValue = newMode === 'days' ? 0 : 1;
+                // Update the input value
+                shiftDaysInput.value = defaultValue.toString();
+                // Update settings
+                appSettings.shiftOverrideDays = defaultValue;
+            }
+            onSettingsChange(key, value);
+        }
     });
 
     // Initial render
@@ -447,9 +468,13 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         const shiftDays = shiftOverrideDays ?? 0;
         data = getNewWithCustomShift(data, shiftDays, true);
     } else {
-        // Use automatic alignment based on extreme type preference
+        // Use automatic alignment based on extreme type preference and wave count
         const extremesToAlign = alignByExtreme === 'maxima' ? filteredMaximaSeries : filteredMinimaSeries;
-        data = getNewWithSifterToAlignExtremeDates(data, extremesToAlign, 1, 2, true);
+        // Use shiftOverrideDays to specify which wave to align to (default to 1 if null or 0)
+        const waveCount = (shiftOverrideDays && shiftOverrideDays > 0) ? shiftOverrideDays : 1;
+        // Align from wave at index waveCount to wave at index (waveCount + 1)
+        // This shifts the second-to-last N waves to align with the last wave
+        data = getNewWithSifterToAlignExtremeDates(data, extremesToAlign, waveCount, waveCount + 1, true);
     }
 
     // End cutoff based on future inclusion flag
