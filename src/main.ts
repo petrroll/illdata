@@ -114,6 +114,13 @@ interface ChartConfig {
     chartHolder: { chart: Chart | undefined };
     datasetVisibility: { [key: string]: boolean };
     canvas?: HTMLCanvasElement | null;
+    // Cache for extremes calculations to avoid recalculating on every render
+    extremesCache?: {
+        localMaximaSeries: ExtremeSeries[][];
+        localMinimaSeries: ExtremeSeries[][];
+        filteredMaximaSeries: ExtremeSeries[];
+        filteredMinimaSeries: ExtremeSeries[];
+    };
 }
 
 // Global chart holders for hideAllSeries
@@ -440,27 +447,39 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         cutoffDateString = cutoffDate.toISOString().split('T')[0]; // YYYY-MM-DD
     }
 
-    const localMaximaSeries = data.series
-        .filter(series => series.type === 'averaged')
-        .filter(series => extremesForWindow == series.windowSizeInDays)
-        .map(series => findLocalExtreme(series, extremeWindow, 'maxima'))
-    const localMinimaSeries = data.series
-        .filter(series => series.type === 'averaged')
-        .filter(series => extremesForWindow == series.windowSizeInDays)
-        .map(series => findLocalExtreme(series, extremeWindow, 'minima'))
+    // Calculate extremes only once and cache them
+    if (!cfg.extremesCache) {
+        const localMaximaSeries = data.series
+            .filter(series => series.type === 'averaged')
+            .filter(series => extremesForWindow == series.windowSizeInDays)
+            .map(series => findLocalExtreme(series, extremeWindow, 'maxima'))
+        const localMinimaSeries = data.series
+            .filter(series => series.type === 'averaged')
+            .filter(series => extremesForWindow == series.windowSizeInDays)
+            .map(series => findLocalExtreme(series, extremeWindow, 'minima'))
+        
+        // Apply filtering as a separate step
+        const filteredExtremesResults = data.series
+            .filter(series => series.type === 'averaged')
+            .filter(series => extremesForWindow == series.windowSizeInDays)
+            .map(series => filterExtremesByMedianThreshold(
+                series, 
+                localMaximaSeries.flat().filter(extreme => extreme.originalSeriesName === series.name),
+                localMinimaSeries.flat().filter(extreme => extreme.originalSeriesName === series.name)
+            ));
+        
+        const filteredMaximaSeries = filteredExtremesResults.flatMap(result => result.filteredMaxima);
+        const filteredMinimaSeries = filteredExtremesResults.flatMap(result => result.filteredMinima);
+        
+        cfg.extremesCache = {
+            localMaximaSeries,
+            localMinimaSeries,
+            filteredMaximaSeries,
+            filteredMinimaSeries
+        };
+    }
     
-    // Apply filtering as a separate step
-    const filteredExtremesResults = data.series
-        .filter(series => series.type === 'averaged')
-        .filter(series => extremesForWindow == series.windowSizeInDays)
-        .map(series => filterExtremesByMedianThreshold(
-            series, 
-            localMaximaSeries.flat().filter(extreme => extreme.originalSeriesName === series.name),
-            localMinimaSeries.flat().filter(extreme => extreme.originalSeriesName === series.name)
-        ));
-    
-    const filteredMaximaSeries = filteredExtremesResults.flatMap(result => result.filteredMaxima);
-    const filteredMinimaSeries = filteredExtremesResults.flatMap(result => result.filteredMinima);
+    const { filteredMaximaSeries, filteredMinimaSeries, localMaximaSeries, localMinimaSeries } = cfg.extremesCache;
     
     // Apply shift based on settings
     if (alignByExtreme === 'days') {
