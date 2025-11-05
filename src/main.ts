@@ -1266,15 +1266,25 @@ function updateRatioTable() {
 /**
  * Extracts the base series name without shift information.
  * This allows tracking visibility across different shift values.
+ * Only strips shift suffix if the series is actually a shifted series to avoid
+ * collision with non-shifted series that might have similar names.
  * 
  * Examples:
  * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "PCR Positivity (28d avg)"
  * - "PCR Positivity (28d avg) shifted by -300d (custom)" -> "PCR Positivity (28d avg)"
- * - "Influenza Positivity" -> "Influenza Positivity"
+ * - "Influenza Positivity" -> "Influenza Positivity" (unchanged, no shift info)
+ * - "Influenza Positivity (28d avg)" -> "Influenza Positivity (28d avg)" (unchanged, no shift info)
  */
 function getBaseSeriesName(label: string): string {
-    // Remove shift information patterns:
+    // Only process if the label contains the shifted series identifier
+    // This prevents collision with non-shifted series
+    if (!label.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER)) {
+        return label;
+    }
+    
+    // Remove shift information patterns for shifted series:
     // - " shifted by X wave(s) -XXXd"
+    // - " shifted by X waves -XXXd"
     // - " shifted by -XXXd (custom)"
     // - " shifted by XXXd (custom)"
     return label.replace(/ shifted by .*$/, '').trim();
