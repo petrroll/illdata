@@ -23,6 +23,7 @@ export interface LinearSeries {
     windowSizeInDays?: number;
     shiftedByIndexes?: number;
     frequencyInDays: number;
+    country?: string; // Optional country field for EU data
 }
 
 export interface PositivitySeries extends LinearSeries {
@@ -102,7 +103,8 @@ export function getNewWithSifterToAlignExtremeDates(
                         values: shiftedValues,
                         frequencyInDays: series.frequencyInDays,
                         dataType: 'scalar' as const,
-                        ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {})
+                        ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {}),
+                        ...(series.country ? { country: series.country } : {})
                     } as ScalarSeries;
                 } else {
                     const shiftedValues: Datapoint[] = Array.from({ length }, (_, i) => {
@@ -116,7 +118,8 @@ export function getNewWithSifterToAlignExtremeDates(
                         values: shiftedValues,
                         frequencyInDays: series.frequencyInDays,
                         dataType: 'positivity' as const,
-                        ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {})
+                        ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {}),
+                        ...(series.country ? { country: series.country } : {})
                     } as PositivitySeries;
                 }
             });
@@ -165,7 +168,8 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
                     type: 'averaged',
                     windowSizeInDays: windowSizes[i],
                     frequencyInDays: series.frequencyInDays,
-                    dataType: 'scalar'
+                    dataType: 'scalar',
+                    ...(series.country ? { country: series.country } : {})
                 } as ScalarSeries;
             });
         } else {
@@ -191,7 +195,8 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
                     type: 'averaged',
                     windowSizeInDays: windowSizes[i],
                     frequencyInDays: series.frequencyInDays,
-                    dataType: 'positivity'
+                    dataType: 'positivity',
+                    ...(series.country ? { country: series.country } : {})
                 } as PositivitySeries;
             });
         }
