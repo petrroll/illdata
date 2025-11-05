@@ -22,16 +22,21 @@ const TEST_NUMBERS_IDENTIFIER = 'tests';
 const MIN_MAX_IDENTIFIER = ['min', 'max'];
 
 // Unified app settings
+// Alignment method type: 'days' for manual shift by days, 'maxima'/'minima' for automatic wave alignment
+type AlignByExtreme = 'days' | 'maxima' | 'minima';
+
 interface AppSettings {
     timeRange: string;
     includeFuture: boolean;
     showExtremes: boolean;
     showShifted: boolean;
     showTestNumbers: boolean;
-    // Shift value in days for manual shift (when alignByExtreme is 'days')
-    shiftOverrideDays: number | null;
+    // Shift value: either days for manual shift or wave count for automatic alignment
+    // When alignByExtreme is 'days': shift by this many days
+    // When alignByExtreme is 'maxima' or 'minima': shift by this many waves back to align to the last wave
+    shiftOverride: number | null;
     // Alignment method: 'days' for manual shift, 'maxima'/'minima' for automatic alignment
-    alignByExtreme: 'days' | 'maxima' | 'minima';
+    alignByExtreme: AlignByExtreme;
 }
 
 // Default values for app settings
@@ -41,7 +46,7 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
     showExtremes: false,
     showShifted: true,
     showTestNumbers: true,
-    shiftOverrideDays: 1, // Default to 1 wave for maxima/minima alignment
+    shiftOverride: 1, // Default to 1 wave for maxima/minima alignment
     alignByExtreme: 'maxima'
 };
 
@@ -59,6 +64,11 @@ function loadAppSettings(): AppSettings {
                     parsed.alignByExtreme = 'days';
                 }
                 delete parsed.useCustomShift;
+            }
+            // Migrate old shiftOverrideDays to new shiftOverride name
+            if ('shiftOverrideDays' in parsed) {
+                parsed.shiftOverride = parsed.shiftOverrideDays;
+                delete parsed.shiftOverrideDays;
             }
             // Merge with defaults to handle missing properties
             return { ...DEFAULT_APP_SETTINGS, ...parsed };
@@ -256,7 +266,7 @@ function renderPage(rootDiv: HTMLElement | null) {
                     appSettings.showExtremes,
                     appSettings.showShifted,
                     appSettings.showTestNumbers,
-                    appSettings.shiftOverrideDays,
+                    appSettings.shiftOverride,
                     appSettings.alignByExtreme
                 );
             }
@@ -327,13 +337,13 @@ function renderPage(rootDiv: HTMLElement | null) {
     // Shift value input (number input)
     const shiftDaysInput = document.createElement('input');
     shiftDaysInput.type = 'number';
-    shiftDaysInput.id = 'shiftOverrideDaysInput';
-    shiftDaysInput.value = (appSettings.shiftOverrideDays ?? 1).toString();
+    shiftDaysInput.id = 'shiftOverrideInput';
+    shiftDaysInput.value = (appSettings.shiftOverride ?? 1).toString();
     shiftDaysInput.placeholder = 'Shift value';
     shiftDaysInput.style.width = '80px';
     
     const shiftDaysLabel = document.createElement('label');
-    shiftDaysLabel.htmlFor = 'shiftOverrideDaysInput';
+    shiftDaysLabel.htmlFor = 'shiftOverrideInput';
     shiftDaysLabel.textContent = 'Shift By:';
     rootDiv.appendChild(shiftDaysLabel);
     rootDiv.appendChild(shiftDaysInput);
@@ -343,7 +353,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         if (inputValue === '') {
             // Default to 1 for wave indices, 0 for days
             const defaultValue = appSettings.alignByExtreme === 'days' ? 0 : 1;
-            onSettingsChange('shiftOverrideDays', defaultValue);
+            onSettingsChange('shiftOverride', defaultValue);
             shiftDaysInput.value = defaultValue.toString();
             return;
         }
@@ -351,7 +361,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         const value = parseInt(inputValue);
         if (isNaN(value)) {
             // Reset to previous valid value
-            shiftDaysInput.value = (appSettings.shiftOverrideDays ?? 1).toString();
+            shiftDaysInput.value = (appSettings.shiftOverride ?? 1).toString();
             return;
         }
         
@@ -369,7 +379,7 @@ function renderPage(rootDiv: HTMLElement | null) {
             shiftDaysInput.value = clampedValue.toString();
         }
         
-        onSettingsChange('shiftOverrideDays', clampedValue);
+        onSettingsChange('shiftOverride', clampedValue);
     });
 
     // Align by selector (days/maxima/minima)
@@ -388,12 +398,12 @@ function renderPage(rootDiv: HTMLElement | null) {
         onChange: (key, value) => {
             // When switching alignment mode, reset the shift value to a sensible default
             if (key === 'alignByExtreme') {
-                const newMode = value as 'days' | 'maxima' | 'minima';
+                const newMode = value as AlignByExtreme;
                 const defaultValue = newMode === 'days' ? 0 : 1;
                 // Update the input value
                 shiftDaysInput.value = defaultValue.toString();
                 // Update settings
-                appSettings.shiftOverrideDays = defaultValue;
+                appSettings.shiftOverride = defaultValue;
             }
             onSettingsChange(key, value);
         }
@@ -432,7 +442,7 @@ function getSortedSeriesWithIndices(series: DataSeries[]): { series: DataSeries,
     return seriesWithIndices;
 }
 
-function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, shiftOverrideDays: number | null = null, alignByExtreme: 'days' | 'maxima' | 'minima' = 'maxima') {
+function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima') {
     // Destroy existing chart if it exists
     if (cfg.chartHolder.chart) {
         cfg.chartHolder.chart.destroy();
@@ -484,16 +494,17 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     // Apply shift based on settings
     if (alignByExtreme === 'days') {
         // Manual shift by specified number of days (use 0 if null)
-        const shiftDays = shiftOverrideDays ?? 0;
+        const shiftDays = shiftOverride ?? 0;
         data = getNewWithCustomShift(data, shiftDays, true);
     } else {
         // Use automatic alignment based on extreme type preference and wave count
         const extremesToAlign = alignByExtreme === 'maxima' ? filteredMaximaSeries : filteredMinimaSeries;
-        // Use shiftOverrideDays to specify which wave to align to (default to 1 if null or 0)
-        const waveCount = (shiftOverrideDays && shiftOverrideDays > 0) ? shiftOverrideDays : 1;
-        // Align from wave at index waveCount to wave at index (waveCount + 1)
-        // This shifts the second-to-last N waves to align with the last wave
-        data = getNewWithSifterToAlignExtremeDates(data, extremesToAlign, waveCount, waveCount + 1, true);
+        // Use shiftOverride to specify how many waves back to align to the last wave
+        // waveCount = 1 means align the 1st wave back (2nd-to-last) to the last wave
+        // waveCount = 2 means align the 2nd wave back (3rd-to-last) to the last wave
+        const waveCount = (shiftOverride && shiftOverride > 0) ? shiftOverride : 1;
+        // Always align to the last wave (index 1), from wave at index (1 + waveCount)
+        data = getNewWithSifterToAlignExtremeDates(data, extremesToAlign, 1, 1 + waveCount, true);
     }
 
     // End cutoff based on future inclusion flag
