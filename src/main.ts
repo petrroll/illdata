@@ -562,13 +562,43 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const allDatasetsWithExtremes = [...datasets, ...barDatasets, ...localExtremeDatasets];
     const validSeriesNames = new Set<string>(allDatasetsWithExtremes.map(ds => ds.label));
     
-    validSeriesNames.forEach(seriesName => { 
-        cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[seriesName] ?? getVisibilityDefault(seriesName, showShifted, showTestNumbers);
+    // Build a map of base series names to current series names for preserving visibility
+    const baseToCurrentSeriesMap = new Map<string, string>();
+    validSeriesNames.forEach(seriesName => {
+        const baseName = getBaseSeriesName(seriesName);
+        baseToCurrentSeriesMap.set(baseName, seriesName);
     });
+    
+    // Initialize visibility for new series, checking both exact name and base name for previous state
+    validSeriesNames.forEach(seriesName => {
+        if (cfg.datasetVisibility[seriesName] === undefined) {
+            // Check if we have visibility state for the base series name (from a different shift)
+            const baseName = getBaseSeriesName(seriesName);
+            const previousVisibility = Object.keys(cfg.datasetVisibility).find(key => {
+                return getBaseSeriesName(key) === baseName;
+            });
+            
+            if (previousVisibility !== undefined) {
+                // Preserve visibility from previous shift of the same series
+                cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[previousVisibility];
+            } else {
+                // No previous state, use default
+                cfg.datasetVisibility[seriesName] = getVisibilityDefault(seriesName, showShifted, showTestNumbers);
+            }
+        }
+    });
+    
+    // Clean up visibility state for series that no longer exist
     Object.keys(cfg.datasetVisibility).forEach(seriesName => {
         if (!validSeriesNames.has(seriesName)) {
-            console.log(`Removing visibility for non-existing series: ${seriesName}`);
-            delete cfg.datasetVisibility[seriesName];
+            // Check if this is an old version of a current series (different shift)
+            const baseName = getBaseSeriesName(seriesName);
+            if (!baseToCurrentSeriesMap.has(baseName)) {
+                // Base series no longer exists, remove
+                console.log(`Removing visibility for non-existing series: ${seriesName}`);
+                delete cfg.datasetVisibility[seriesName];
+            }
+            // Otherwise keep it temporarily - it will be cleaned up next render after transferring state
         }
     });
     localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
@@ -1082,6 +1112,23 @@ function updateRatioTable() {
         
         ratioTableBody.appendChild(row);
     });
+}
+
+/**
+ * Extracts the base series name without shift information.
+ * This allows tracking visibility across different shift values.
+ * 
+ * Examples:
+ * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "PCR Positivity (28d avg)"
+ * - "PCR Positivity (28d avg) shifted by -300d (custom)" -> "PCR Positivity (28d avg)"
+ * - "Influenza Positivity" -> "Influenza Positivity"
+ */
+function getBaseSeriesName(label: string): string {
+    // Remove shift information patterns:
+    // - " shifted by X wave(s) -XXXd"
+    // - " shifted by -XXXd (custom)"
+    // - " shifted by XXXd (custom)"
+    return label.replace(/ shifted by .*$/, '').trim();
 }
 
 function getVisibilityDefault(label: string, showShifted: boolean = true, showTestNumbers: boolean = true): boolean {
