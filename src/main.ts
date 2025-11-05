@@ -112,6 +112,7 @@ function migrateOldSettings(): void {
 // Dataset visibility keys (kept separate as recommended)
 const DATASET_VISIBILITY_KEY = "datasetVisibility";
 const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
+const EU_COUNTRY_FILTER_KEY = "euCountryFilter";
 const DE_WASTEWATER_VISIBILITY_KEY = "deWastewaterVisibility";
 
 interface ChartConfig {
@@ -131,6 +132,8 @@ interface ChartConfig {
         filteredMaximaSeries: ExtremeSeries[];
         filteredMinimaSeries: ExtremeSeries[];
     };
+    hasCountryFilter?: boolean;
+    countryFilterKey?: string;
 }
 
 // Global chart holders for hideAllSeries
@@ -153,7 +156,9 @@ const chartConfigs : ChartConfig[] = [
         shortTitle: "ECDC",
         visibilityKey: EU_DATASET_VISIBILITY_KEY,
         chartHolder: { chart: undefined as Chart | undefined },
-        datasetVisibility: { }
+        datasetVisibility: { },
+        hasCountryFilter: true,
+        countryFilterKey: EU_COUNTRY_FILTER_KEY
     },
     {
         containerId: "deWastewaterContainer",
@@ -222,6 +227,63 @@ function createUnifiedSettingsControl<K extends keyof AppSettings>(options: {
     return currentValue;
 }
 
+function createCountrySelector(cfg: ChartConfig, countryFilters: Map<string, string>, onSettingsChange: () => void) {
+    const container = document.getElementById(cfg.containerId);
+    if (!container) {
+        console.error(`Container not found: ${cfg.containerId}`);
+        return;
+    }
+
+    // Get available countries from the data
+    const countries = getAvailableCountries(cfg.data);
+    if (countries.length === 0) {
+        console.warn(`No countries found in data for ${cfg.containerId}`);
+        return;
+    }
+
+    // Create a wrapper div for the selector with minimal styling
+    const selectorWrapper = document.createElement('div');
+    selectorWrapper.id = `${cfg.containerId}-country-selector`;
+    selectorWrapper.style.marginBottom = '10px';
+
+    // Create label
+    const label = document.createElement('label');
+    label.htmlFor = `${cfg.containerId}-country-select`;
+    label.textContent = 'Country: ';
+
+    // Create select element with minimal styling
+    const select = document.createElement('select');
+    select.id = `${cfg.containerId}-country-select`;
+
+    // Add options
+    countries.forEach(country => {
+        const option = document.createElement('option');
+        option.value = country;
+        option.textContent = country;
+        select.appendChild(option);
+    });
+
+    // Set current value
+    const currentCountry = countryFilters.get(cfg.containerId) || "EU/EEA";
+    select.value = currentCountry;
+
+    // Add change handler
+    select.addEventListener('change', () => {
+        const newCountry = select.value;
+        countryFilters.set(cfg.containerId, newCountry);
+        if (cfg.countryFilterKey) {
+            saveCountryFilter(cfg.countryFilterKey, newCountry);
+        }
+        onSettingsChange();
+    });
+
+    selectorWrapper.appendChild(label);
+    selectorWrapper.appendChild(select);
+
+    // Insert the selector at the beginning of the container (above the chart)
+    container.insertBefore(selectorWrapper, container.firstChild);
+}
+
 // Refactored renderPage to use unified control creation and callback
 function renderPage(rootDiv: HTMLElement | null) {
     if (!rootDiv) {
@@ -250,6 +312,14 @@ function renderPage(rootDiv: HTMLElement | null) {
         cfg.canvas = canvas;
     });
 
+    // Load country filters for charts that have them
+    const countryFilters = new Map<string, string>();
+    chartConfigs.forEach(cfg => {
+        if (cfg.hasCountryFilter && cfg.countryFilterKey) {
+            countryFilters.set(cfg.containerId, loadCountryFilter(cfg.countryFilterKey));
+        }
+    });
+
     // Unified callback for settings changes
     function onSettingsChange(key?: keyof AppSettings, value?: AppSettings[keyof AppSettings]) {
         if (key && value !== undefined) {
@@ -259,6 +329,7 @@ function renderPage(rootDiv: HTMLElement | null) {
                 
         chartConfigs.forEach(cfg => {
             if ((cfg as any).canvas) {
+                const countryFilter = cfg.hasCountryFilter ? countryFilters.get(cfg.containerId) : undefined;
                 cfg.chartHolder.chart = updateChart(
                     appSettings.timeRange,
                     cfg,
@@ -267,7 +338,8 @@ function renderPage(rootDiv: HTMLElement | null) {
                     appSettings.showShifted,
                     appSettings.showTestNumbers,
                     appSettings.shiftOverride,
-                    appSettings.alignByExtreme
+                    appSettings.alignByExtreme,
+                    countryFilter
                 );
             }
         });
@@ -409,6 +481,13 @@ function renderPage(rootDiv: HTMLElement | null) {
         }
     });
 
+    // Create country selectors for charts that have them
+    chartConfigs.forEach(cfg => {
+        if (cfg.hasCountryFilter && cfg.countryFilterKey) {
+            createCountrySelector(cfg, countryFilters, onSettingsChange);
+        }
+    });
+
     // Initial render
     onSettingsChange();
 
@@ -436,19 +515,60 @@ function createChartContainerAndCanvas(containerId: string, canvasId: string): H
     return canvas;
 }
 
+function getAvailableCountries(data: TimeseriesData): string[] {
+    const countries = new Set<string>();
+    data.series.forEach(series => {
+        if (series.country) {
+            countries.add(series.country);
+        }
+    });
+    return Array.from(countries).sort();
+}
+
+function filterDataByCountry(data: TimeseriesData, country: string): TimeseriesData {
+    return {
+        dates: data.dates,
+        series: data.series.filter(series => series.country === country)
+    };
+}
+
+function loadCountryFilter(key: string): string {
+    try {
+        const stored = localStorage.getItem(key);
+        return stored || "EU/EEA";
+    } catch (error) {
+        console.error("Error loading country filter:", error);
+        return "EU/EEA";
+    }
+}
+
+function saveCountryFilter(key: string, country: string): void {
+    try {
+        localStorage.setItem(key, country);
+    } catch (error) {
+        console.error("Error saving country filter:", error);
+    }
+}
+
 function getSortedSeriesWithIndices(series: DataSeries[]): { series: DataSeries, originalIndex: number }[] {
     const seriesWithIndices = series.map((s, index) => ({ series: s, originalIndex: index }));
     seriesWithIndices.sort((a, b) => compareLabels(a.series.name, b.series.name));
     return seriesWithIndices;
 }
 
-function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima') {
+function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima', countryFilter?: string) {
     // Destroy existing chart if it exists
     if (cfg.chartHolder.chart) {
         cfg.chartHolder.chart.destroy();
     }
 
     let data = cfg.data;
+    
+    // Apply country filter if applicable
+    // Note: "EU/EEA" is a valid country value in the data representing aggregate European data
+    if (countryFilter && cfg.hasCountryFilter) {
+        data = filterDataByCountry(data, countryFilter);
+    }
     let cutoffDateString = data.dates[0] ?? new Date().toISOString().split('T')[0];
     if (timeRange !== "all") {
         const days = parseInt(timeRange);
@@ -620,6 +740,11 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            layout: {
+                padding: {
+                    bottom: 10  // Add padding to accommodate rotated x-axis labels
+                }
+            },
             interaction: {
                 mode: 'index', // Snap to nearest x value (vertical line)
                 intersect: false,
@@ -642,6 +767,10 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
             scales: {
                 x: {
                     ticks: {
+                        autoSkip: true,
+                        autoSkipPadding: 15,
+                        maxRotation: 45,
+                        minRotation: 0,
                         color: function(context) {
                             let label = context.tick.label;
                             if (Array.isArray(label)) {
@@ -711,7 +840,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
-            margin: 10px 0;
+            margin: 30px 0 10px 0;
             justify-content: center;
         `;
         
@@ -1019,16 +1148,32 @@ function updateRatioTable() {
             return;
         }
 
-        const visibleInThisChart = cfg.data.series.filter(series => {
+        // Filter series for ratio table
+        const filteredSeries = cfg.data.series.filter(series => {
             if (series.type !== 'raw') return false;
+            
+            // For EU chart, use the selected country from the filter
+            if (cfg.hasCountryFilter && series.country && cfg.countryFilterKey) {
+                const selectedCountry = loadCountryFilter(cfg.countryFilterKey);
+                if (series.country !== selectedCountry) {
+                    return false;
+                }
+            }
             
             // Check if any key in datasetVisibility contains this series name and has a true value
             return Object.entries(cfg.datasetVisibility).some(([key, isVisible]) => {
                 return key.includes(series.name) && isVisible;
             });
-        }).map(series => series.name);
+        });
 
-        visiblePerChart.push([cfg, visibleInThisChart]);
+        // Create a filtered dataset for this chart with only the relevant series
+        const filteredData: TimeseriesData = {
+            dates: cfg.data.dates,
+            series: filteredSeries
+        };
+
+        const visibleSeriesNames = filteredSeries.map(series => series.name);
+        visiblePerChart.push([{ ...cfg, data: filteredData }, visibleSeriesNames]);
     });
     
     if (visiblePerChart.length === 0) {
@@ -1094,10 +1239,14 @@ function updateRatioTable() {
             cell.style.textAlign = 'center';
             
             const value = period.getValue(ratio);
-            cell.textContent = value !== null ? value.toFixed(2) + 'x' : 'N/A';
             
-            // Add color coding based on ratio values
-            if (value !== null) {
+            // Handle NaN, Infinity, and null values
+            if (value === null || isNaN(value) || !isFinite(value)) {
+                cell.textContent = 'N/A';
+            } else {
+                cell.textContent = value.toFixed(2) + 'x';
+                
+                // Add color coding based on ratio values
                 if (value > 1.1) {
                     cell.style.backgroundColor = '#ffebee'; // Light red for increasing
                     cell.style.color = '#c62828';
