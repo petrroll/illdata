@@ -1282,12 +1282,14 @@ function getBaseSeriesName(label: string): string {
         return label;
     }
     
-    // Remove shift information patterns for shifted series:
-    // - " shifted by X wave(s) -XXXd"
-    // - " shifted by X waves -XXXd"
-    // - " shifted by -XXXd (custom)"
-    // - " shifted by XXXd (custom)"
-    return label.replace(/ shifted by .*$/, '').trim();
+    // Replace only the dynamic changing parts in shifted series labels:
+    // - "shifted by X wave(s) -XXXd" → "shifted by N waves"
+    // - "shifted by -XXXd (custom)" → "shifted by N (custom)"
+    // This preserves the "shifted by" part to avoid collision with base series
+    return label
+        .replace(/ shifted by \d+ waves? -\d+d/, ' shifted by N waves')
+        .replace(/ shifted by -?\d+d \(custom\)/, ' shifted by N (custom)')
+        .trim();
 }
 
 function getVisibilityDefault(label: string, showShifted: boolean = true, showTestNumbers: boolean = true): boolean {
