@@ -480,9 +480,7 @@ function renderPage(rootDiv: HTMLElement | null) {
             onSettingsChange(key, value);
         }
     });
-
-=======
->>>>>>> remotes/origin/main
+  
     // Create country selectors for charts that have them
     chartConfigs.forEach(cfg => {
         if (cfg.hasCountryFilter && cfg.countryFilterKey) {
