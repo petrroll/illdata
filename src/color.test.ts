@@ -1,22 +1,5 @@
 import { describe, test, expect } from "bun:test";
-
-// Helper function to extract base series name for color assignment
-function getColorBaseSeriesName(label: string): string {
-    let baseName = label;
-    
-    // Remove shift information (both wave-based and custom)
-    baseName = baseName
-        .replace(/ shifted by \d+ waves? -?\d+d/, '')
-        .replace(/ shifted by -?\d+d \(custom\)/, '');
-    
-    // Remove averaging window information like "(28d avg)"
-    baseName = baseName.replace(/\s*\(\d+d avg\)/, '');
-    
-    // Remove extreme indicators like "maxima over 84d" or "minima over 84d"
-    baseName = baseName.replace(/\s+(maxima|minima)\s+over\s+\d+d/, '');
-    
-    return baseName.trim();
-}
+import { getColorBaseSeriesName } from "./utils";
 
 describe("Color Base Series Name Extraction Tests", () => {
     test("extracts base name from raw series", () => {

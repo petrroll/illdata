@@ -509,3 +509,35 @@ export function compareLabels(labelA: string, labelB: string): number {
     // If word count is the same, fall back to alphabetical
     return labelA.localeCompare(labelB);
 }
+
+/**
+ * Extracts the truly base series name for color assignment purposes.
+ * Strips both shift information and averaging window information to get the raw series name.
+ * This ensures consistent colors across all variations (raw, averaged, shifted) of the same series.
+ * 
+ * Examples:
+ * - "PCR Positivity" -> "PCR Positivity"
+ * - "PCR Positivity (28d avg)" -> "PCR Positivity"
+ * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "PCR Positivity"
+ * - "Antigen Positivity (28d avg) shifted by -300d (custom)" -> "Antigen Positivity"
+ * - "Influenza Positivity - Positive Tests" -> "Influenza Positivity - Positive Tests"
+ * 
+ * @param label - The full series label
+ * @returns The base series name without shift or averaging information
+ */
+export function getColorBaseSeriesName(label: string): string {
+    let baseName = label;
+    
+    // Remove shift information (both wave-based and custom)
+    baseName = baseName
+        .replace(/ shifted by \d+ waves? -?\d+d/, '')
+        .replace(/ shifted by -?\d+d \(custom\)/, '');
+    
+    // Remove averaging window information like "(28d avg)"
+    baseName = baseName.replace(/\s*\(\d+d avg\)/, '');
+    
+    // Remove extreme indicators like "maxima over 84d" or "minima over 84d"
+    baseName = baseName.replace(/\s+(maxima|minima)\s+over\s+\d+d/, '');
+    
+    return baseName.trim();
+}
