@@ -661,7 +661,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     }
 
     // Create stable palette mapping for consistent colors across alignment modes
-    const paletteMap = createStablePaletteMapping(data.series);
+    const paletteMap = createStablePaletteMapping(data.series, colorPalettes.length);
 
     let datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, paletteMap);
     let barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, paletteMap);
@@ -917,10 +917,10 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
  * get different colors within that palette.
  * 
  * @param series - Array of all series in the dataset
- * @param colorPalettes - Array of color palettes to choose from
+ * @param numPalettes - Number of available color palettes
  * @returns A map from base series name to palette index
  */
-function createStablePaletteMapping(series: DataSeries[]): Map<string, number> {
+function createStablePaletteMapping(series: DataSeries[], numPalettes: number): Map<string, number> {
     const paletteMap = new Map<string, number>();
     
     // Extract unique base series names and sort them for stability
@@ -928,9 +928,9 @@ function createStablePaletteMapping(series: DataSeries[]): Map<string, number> {
         new Set(series.map(s => getColorBaseSeriesName(s.name)))
     ).sort((a, b) => compareLabels(a, b));
     
-    // Assign each base series to a palette index
+    // Assign each base series to a palette index (cycling through available palettes)
     uniqueBaseNames.forEach((baseName, index) => {
-        paletteMap.set(baseName, index);
+        paletteMap.set(baseName, index % numPalettes);
     });
     
     return paletteMap;
@@ -1113,10 +1113,10 @@ function generateTestNumberBarDatasets(
         const paletteIndex = paletteMap.get(baseName) ?? 0;
         const selectedPalette = colorPalettes[paletteIndex % colorPalettes.length];
         
-        // For test bars, use first two colors from the palette
+        // For test bars, use first two colors from the palette (with bounds checking)
         // Positive tests use the base color (index 0), negative tests use slightly lighter (index 1)
-        const basePositiveColor = selectedPalette[0];
-        const baseNegativeColor = selectedPalette[1];
+        const basePositiveColor = selectedPalette[0 % selectedPalette.length];
+        const baseNegativeColor = selectedPalette[Math.min(1, selectedPalette.length - 1)];
 
         // Adjust colors: reduce saturation and increase contrast
         const positiveColor = adjustColorForTestBars(basePositiveColor, true);
