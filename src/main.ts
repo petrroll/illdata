@@ -660,11 +660,11 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         console.error("Error parsing dataset visibility from local storage:", error);
     }
 
-    // Create stable color mapping for consistent colors across alignment modes
-    const { colorMap, reverseColorMap } = createStableColorMapping(data.series, colorPalettes);
+    // Create stable palette mapping for consistent colors across alignment modes
+    const paletteMap = createStablePaletteMapping(data.series);
 
-    let datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, colorMap);
-    let barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, colorMap, reverseColorMap);
+    let datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, paletteMap);
+    let barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, paletteMap);
 
     // Filter shifted series based on showShifted setting
     if (!showShifted) {
@@ -912,50 +912,66 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
 }
 
 /**
- * Creates a stable color mapping for series based on their base names.
- * This ensures that the same base series always gets the same color, regardless of
- * sorting order or shift variations.
+ * Creates a stable palette mapping for base series names.
+ * Each base series is assigned to a palette, and different variations (raw, averaged, shifted)
+ * get different colors within that palette.
  * 
  * @param series - Array of all series in the dataset
  * @param colorPalettes - Array of color palettes to choose from
- * @returns An object with colorMap (base name to color) and reverseColorMap (color to palette/color indices)
+ * @returns A map from base series name to palette index
  */
-function createStableColorMapping(series: DataSeries[], colorPalettes: string[][]): {
-    colorMap: Map<string, string>;
-    reverseColorMap: Map<string, { paletteIndex: number; colorIndex: number }>;
-} {
-    const colorMap = new Map<string, string>();
-    const reverseColorMap = new Map<string, { paletteIndex: number; colorIndex: number }>();
+function createStablePaletteMapping(series: DataSeries[]): Map<string, number> {
+    const paletteMap = new Map<string, number>();
     
     // Extract unique base series names and sort them for stability
     const uniqueBaseNames = Array.from(
         new Set(series.map(s => getColorBaseSeriesName(s.name)))
     ).sort((a, b) => compareLabels(a, b));
     
-    // Count raw series for palette assignment
-    const rawBaseNames = Array.from(
-        new Set(series.filter(s => s.type === 'raw').map(s => getColorBaseSeriesName(s.name)))
-    ).sort((a, b) => compareLabels(a, b));
-    const numberOfRawBases = Math.max(rawBaseNames.length, 1); // Guard against division by zero
-    
-    // Assign colors based on sorted base names
+    // Assign each base series to a palette index
     uniqueBaseNames.forEach((baseName, index) => {
-        const paletteIndex = index % numberOfRawBases;
-        const colorIndex = Math.floor(index / numberOfRawBases);
-        const selectedPalette = colorPalettes[paletteIndex % colorPalettes.length];
-        const color = selectedPalette[colorIndex % selectedPalette.length];
-        colorMap.set(baseName, color);
-        reverseColorMap.set(color, { paletteIndex, colorIndex });
+        paletteMap.set(baseName, index);
     });
     
-    return { colorMap, reverseColorMap };
+    return paletteMap;
 }
 
-function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number, colorMap: Map<string, string>) {
+/**
+ * Determines the color index within a palette based on series characteristics.
+ * This ensures different subtypes (raw, averaged, shifted) get different colors
+ * within the same palette.
+ * 
+ * @param series - The series to determine color index for
+ * @returns The color index (0-4) within the palette
+ */
+function getSeriesColorIndex(series: DataSeries): number {
+    // Raw series: use darkest color (index 0)
+    if (series.type === 'raw') {
+        return 0;
+    }
+    
+    // Averaged series
+    if (series.type === 'averaged') {
+        // If shifted, use lighter color (index 2)
+        if (series.shiftedByIndexes !== undefined && series.shiftedByIndexes !== 0) {
+            return 2;
+        }
+        // Non-shifted averaged: use medium color (index 1)
+        return 1;
+    }
+    
+    // Default fallback
+    return 0;
+}
+
+function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number, paletteMap: Map<string, number>) {
     return sortedSeriesWithIndices.map(({ series, originalIndex }, sortedIndex) => {
-        // Use stable color mapping based on base series name
+        // Use stable palette mapping based on base series name
         const baseName = getColorBaseSeriesName(series.name);
-        const borderColor = colorMap.get(baseName) || colorPalettes[0][0];
+        const paletteIndex = paletteMap.get(baseName) ?? 0;
+        const colorIndex = getSeriesColorIndex(series);
+        const selectedPalette = colorPalettes[paletteIndex % colorPalettes.length];
+        const borderColor = selectedPalette[colorIndex % selectedPalette.length];
 
         // Validate data based on type
         if ('dataType' in series && series.dataType === 'positivity') {
@@ -1084,8 +1100,7 @@ function generateTestNumberBarDatasets(
     data: TimeseriesData, 
     startIdx: number, 
     endIdx: number, 
-    colorMap: Map<string, string>,
-    reverseColorMap: Map<string, { paletteIndex: number; colorIndex: number }>
+    paletteMap: Map<string, number>
 ) {
     // Only generate bar charts for raw positivity series (not averaged, not scalar)
     const rawPositivitySeriesWithIndices = sortedSeriesWithIndices.filter(({ series }) => 
@@ -1093,18 +1108,15 @@ function generateTestNumberBarDatasets(
     );
     
     return rawPositivitySeriesWithIndices.flatMap(({ series, originalIndex }, sortedIndex) => {
-        // Use stable color mapping based on base series name
+        // Use stable palette mapping based on base series name
         const baseName = getColorBaseSeriesName(series.name);
-        const baseColor = colorMap.get(baseName) || colorPalettes[0][0];
-        
-        // Use reverse map for O(1) lookup instead of nested loop
-        const colorInfo = reverseColorMap.get(baseColor);
-        const paletteIndex = colorInfo?.paletteIndex ?? 0;
-        const colorIndex = colorInfo?.colorIndex ?? 0;
-        
+        const paletteIndex = paletteMap.get(baseName) ?? 0;
         const selectedPalette = colorPalettes[paletteIndex % colorPalettes.length];
-        const basePositiveColor = selectedPalette[colorIndex % selectedPalette.length]; // Use same color index for positive
-        const baseNegativeColor = selectedPalette[(colorIndex + 1) % selectedPalette.length]; // Use next color for negative
+        
+        // For test bars, use first two colors from the palette
+        // Positive tests use the base color (index 0), negative tests use slightly lighter (index 1)
+        const basePositiveColor = selectedPalette[0];
+        const baseNegativeColor = selectedPalette[1];
 
         // Adjust colors: reduce saturation and increase contrast
         const positiveColor = adjustColorForTestBars(basePositiveColor, true);
