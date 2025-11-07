@@ -423,7 +423,7 @@ describe('getNewWithCustomShift Tests', () => {
         expect(result.series).toHaveLength(2);
 
         // Find the shifted series
-        const shiftedSeries = result.series.find(s => s.name.includes('shifted by 2d (custom)'));
+        const shiftedSeries = result.series.find(s => s.name.includes('shifted by 2d'));
         expect(shiftedSeries).toBeDefined();
         expect(shiftedSeries?.shiftedByIndexes).toBe(2);
 
@@ -459,7 +459,7 @@ describe('getNewWithCustomShift Tests', () => {
         expect(result.dates.length).toBeGreaterThanOrEqual(data.dates.length);
 
         // Find the shifted series
-        const shiftedSeries = result.series.find(s => s.name.includes('shifted by -1d (custom)'));
+        const shiftedSeries = result.series.find(s => s.name.includes('shifted by -1d'));
         expect(shiftedSeries).toBeDefined();
         expect(shiftedSeries?.shiftedByIndexes).toBe(-1);
 
@@ -491,7 +491,7 @@ describe('getNewWithCustomShift Tests', () => {
         const result = getNewWithCustomShift(data, 1, false);
 
         // Find the shifted series
-        const shiftedSeries = result.series.find(s => s.name.includes('shifted by 1d (custom)'));
+        const shiftedSeries = result.series.find(s => s.name.includes('shifted by 1d'));
         expect(shiftedSeries).toBeDefined();
         expect(shiftedSeries?.type).toBe('averaged');
         expect(shiftedSeries?.windowSizeInDays).toBe(7);

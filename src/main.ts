@@ -1351,8 +1351,8 @@ function updateRatioTable() {
  * Examples:
  * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "PCR Positivity (28d avg) shifted"
  * - "PCR Positivity (28d avg) shifted by 1 wave 347d" -> "PCR Positivity (28d avg) shifted"
- * - "PCR Positivity (28d avg) shifted by -300d (custom)" -> "PCR Positivity (28d avg) shifted"
- * - "PCR Positivity (28d avg) shifted by 300d (custom)" -> "PCR Positivity (28d avg) shifted"
+ * - "PCR Positivity (28d avg) shifted by -300d" -> "PCR Positivity (28d avg) shifted"
+ * - "PCR Positivity (28d avg) shifted by 300d" -> "PCR Positivity (28d avg) shifted"
  * - "Influenza Positivity" -> "Influenza Positivity" (unchanged, no shift info)
  * - "Influenza Positivity (28d avg)" -> "Influenza Positivity (28d avg)" (unchanged, no shift info)
  */
@@ -1367,11 +1367,11 @@ function getBaseSeriesName(label: string): string {
     // This works across both wave-based shifts and custom day shifts
     // Pattern matches:
     // - "shifted by X wave(s) -XXXd" or "shifted by X wave(s) XXXd" (wave-based)
-    // - "shifted by -XXXd (custom)" or "shifted by XXXd (custom)" (custom days)
+    // - "shifted by -XXXd" or "shifted by XXXd" (custom days)
     // And normalizes to just "shifted" to enable cross-mode visibility preservation
     return label
         .replace(/ shifted by \d+ waves? -?\d+d/, ' shifted')
-        .replace(/ shifted by -?\d+d \(custom\)/, ' shifted')
+        .replace(/ shifted by -?\d+d/, ' shifted')
         .trim();
 }
 
