@@ -1347,9 +1347,15 @@ function updateRatioTable() {
  * Only strips shift suffix if the series is actually a shifted series to avoid
  * collision with non-shifted series that might have similar names.
  * 
+ * Note: The regex patterns must handle BOTH positive and negative day offsets (using -?)
+ * to ensure consistent normalization across different alignment shifts. Without this,
+ * visibility state would be lost when alignment changes cause the shift sign to flip.
+ * 
  * Examples:
- * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "PCR Positivity (28d avg)"
- * - "PCR Positivity (28d avg) shifted by -300d (custom)" -> "PCR Positivity (28d avg)"
+ * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "PCR Positivity (28d avg) shifted by N waves"
+ * - "PCR Positivity (28d avg) shifted by 1 wave 347d" -> "PCR Positivity (28d avg) shifted by N waves"
+ * - "PCR Positivity (28d avg) shifted by -300d (custom)" -> "PCR Positivity (28d avg) shifted by N (custom)"
+ * - "PCR Positivity (28d avg) shifted by 300d (custom)" -> "PCR Positivity (28d avg) shifted by N (custom)"
  * - "Influenza Positivity" -> "Influenza Positivity" (unchanged, no shift info)
  * - "Influenza Positivity (28d avg)" -> "Influenza Positivity (28d avg)" (unchanged, no shift info)
  */
@@ -1361,11 +1367,12 @@ function getBaseSeriesName(label: string): string {
     }
     
     // Replace only the dynamic changing parts in shifted series labels:
-    // - "shifted by X wave(s) -XXXd" → "shifted by N waves"
-    // - "shifted by -XXXd (custom)" → "shifted by N (custom)"
+    // - "shifted by X wave(s) -XXXd" or "shifted by X wave(s) XXXd" → "shifted by N waves"
+    // - "shifted by -XXXd (custom)" or "shifted by XXXd (custom)" → "shifted by N (custom)"
     // This preserves the "shifted by" part to avoid collision with base series
+    // IMPORTANT: -? makes the minus sign optional to handle both positive and negative offsets
     return label
-        .replace(/ shifted by \d+ waves? -\d+d/, ' shifted by N waves')
+        .replace(/ shifted by \d+ waves? -?\d+d/, ' shifted by N waves')
         .replace(/ shifted by -?\d+d \(custom\)/, ' shifted by N (custom)')
         .trim();
 }
