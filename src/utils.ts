@@ -46,6 +46,110 @@ export interface ExtremeSeries {
 
 export type Series = DataSeries | ExtremeSeries;
 
+interface ShiftedSeriesOptions {
+    name: string;
+    shiftByIndexes: number;
+    length: number;
+    includeCountry?: boolean;
+}
+
+const SCALAR_PLACEHOLDER = (): ScalarDatapoint => ({ virusLoad: 0 });
+const POSITIVITY_PLACEHOLDER = (): Datapoint => ({ positive: 0, tests: NaN });
+
+function buildShiftedValues<T>(values: T[], length: number, shiftByIndexes: number, placeholderFactory: () => T): T[] {
+    return Array.from({ length }, (_, i) => {
+        const idx = i + shiftByIndexes;
+        return idx < 0 || idx >= values.length ? placeholderFactory() : values[idx];
+    });
+}
+
+function createShiftedSeries(series: DataSeries, options: ShiftedSeriesOptions): DataSeries {
+    const { name, shiftByIndexes, length, includeCountry = false } = options;
+
+    const commonSeriesProps = {
+        name,
+        type: series.type,
+        shiftedByIndexes: shiftByIndexes,
+        frequencyInDays: series.frequencyInDays,
+        ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {}),
+        ...(includeCountry && series.country ? { country: series.country } : {})
+    } as const;
+
+    if ('dataType' in series && series.dataType === 'scalar') {
+        const scalarSeries = series as ScalarSeries;
+        const shiftedValues = buildShiftedValues<ScalarDatapoint>(
+            scalarSeries.values,
+            length,
+            shiftByIndexes,
+            SCALAR_PLACEHOLDER
+        );
+        return {
+            ...commonSeriesProps,
+            values: shiftedValues,
+            dataType: 'scalar' as const
+        } as ScalarSeries;
+    }
+
+    const positivitySeries = series as PositivitySeries;
+    const shiftedValues = buildShiftedValues<Datapoint>(
+        positivitySeries.values,
+        length,
+        shiftByIndexes,
+        POSITIVITY_PLACEHOLDER
+    );
+    return {
+        ...commonSeriesProps,
+        values: shiftedValues,
+        dataType: 'positivity' as const
+    } as PositivitySeries;
+}
+
+function extendDatesIfNeeded(dates: string[], extraCount: number, freqDays: number): string[] {
+    if (extraCount <= 0) return dates;
+    const lastDate = new Date(dates[dates.length - 1]);
+    const extraDates = Array.from({ length: extraCount }, (_, i) => {
+        const d = new Date(lastDate.getTime() + freqDays * 24 * 60 * 60 * 1000 * (i + 1));
+        return d.toISOString().split('T')[0];
+    });
+    return [...dates, ...extraDates];
+}
+
+function buildBaseSeries(series: DataSeries, padding: number): DataSeries {
+    const paddedValues = padding > 0
+        ? [...series.values, ...Array(padding).fill(NaN)]
+        : series.values;
+    return { ...series, values: paddedValues } as DataSeries;
+}
+
+export function getNewWithCustomShift(
+    data: TimeseriesData,
+    shiftDays: number,
+    includeFutureDates: boolean = false
+): TimeseriesData {
+    const freqDays = data.series[0]?.frequencyInDays ?? 1;
+    const extraCount = includeFutureDates && shiftDays < 0 ? Math.abs(shiftDays) / freqDays : 0;
+    const newDates = includeFutureDates ? extendDatesIfNeeded(data.dates, Math.ceil(extraCount), freqDays) : data.dates;
+
+    function buildShiftedSeriesCustom(series: DataSeries): DataSeries[] {
+        const shiftByIndexes = Math.round(shiftDays / series.frequencyInDays);
+        const extraLength = includeFutureDates ? Math.ceil(extraCount) : 0;
+        const length = series.values.length + extraLength;
+
+        const shiftedSeries = createShiftedSeries(series, {
+            name: `${series.name} shifted by ${shiftDays}d (custom)`,
+            shiftByIndexes,
+            length
+        });
+
+        const base = buildBaseSeries(series, extraLength);
+
+        return [shiftedSeries, base];
+    }
+
+    const shiftedSeries = data.series.flatMap(buildShiftedSeriesCustom);
+    return { dates: newDates, series: shiftedSeries };
+}
+
 export function getNewWithSifterToAlignExtremeDates(
     data: TimeseriesData,
     extremeSeries: ExtremeSeries[],
@@ -58,16 +162,6 @@ export function getNewWithSifterToAlignExtremeDates(
             extreme.indices[extreme.indices.length - extremeIndexShiftTo] -
             extreme.indices[extreme.indices.length - extremeIndexShiftFrom]
         );
-    }
-
-    function extendDatesIfNeeded(dates: string[], extraCount: number, freqDays: number): string[] {
-        if (extraCount <= 0) return dates;
-        const lastDate = new Date(dates[dates.length - 1]);
-        const extraDates = Array.from({ length: extraCount }, (_, i) => {
-            const d = new Date(lastDate.getTime() + freqDays * 24 * 60 * 60 * 1000 * (i + 1));
-            return d.toISOString().split('T')[0];
-        });
-        return [...dates, ...extraDates];
     }
 
     // Calculate all shifts and how many extra dates are needed
@@ -89,44 +183,17 @@ export function getNewWithSifterToAlignExtremeDates(
             .filter(extreme => extreme.originalSeriesName === series.name)
             .map(extreme => {
                 const shiftByIndexes = getShift(extreme);
-                const length = series.values.length + (includeFutureDates ? extraCount : 0);
-                
-                if ('dataType' in series && series.dataType === 'scalar') {
-                    const shiftedValues: ScalarDatapoint[] = Array.from({ length }, (_, i) => {
-                        const idx = i + shiftByIndexes;
-                        return idx < 0 || idx >= series.values.length ? { virusLoad: 0 } : series.values[idx];
-                    });
-                    return {
-                        name: `${series.name} shifted by ${extremeIndexShiftTo - extremeIndexShiftFrom} wave ${shiftByIndexes * series.frequencyInDays}d`,
-                        type: series.type,
-                        shiftedByIndexes: shiftByIndexes,
-                        values: shiftedValues,
-                        frequencyInDays: series.frequencyInDays,
-                        dataType: 'scalar' as const,
-                        ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {}),
-                        ...(series.country ? { country: series.country } : {})
-                    } as ScalarSeries;
-                } else {
-                    const shiftedValues: Datapoint[] = Array.from({ length }, (_, i) => {
-                        const idx = i + shiftByIndexes;
-                        return idx < 0 || idx >= series.values.length ? { positive: 0, tests: NaN } : (series as PositivitySeries).values[idx];
-                    });
-                    return {
-                        name: `${series.name} shifted by ${extremeIndexShiftTo - extremeIndexShiftFrom} wave ${shiftByIndexes * series.frequencyInDays}d`,
-                        type: series.type,
-                        shiftedByIndexes: shiftByIndexes,
-                        values: shiftedValues,
-                        frequencyInDays: series.frequencyInDays,
-                        dataType: 'positivity' as const,
-                        ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {}),
-                        ...(series.country ? { country: series.country } : {})
-                    } as PositivitySeries;
-                }
+                const extraLength = includeFutureDates ? extraCount : 0;
+                const length = series.values.length + extraLength;
+
+                return createShiftedSeries(series, {
+                    name: `${series.name} shifted by ${extremeIndexShiftTo - extremeIndexShiftFrom} wave ${shiftByIndexes * series.frequencyInDays}d`,
+                    shiftByIndexes,
+                    length,
+                    includeCountry: true
+                });
             });
-        const originalPadded = includeFutureDates && extraCount > 0
-            ? [...series.values, ...Array(extraCount).fill(NaN)]
-            : series.values;
-        const base = { ...series, values: originalPadded };
+        const base = buildBaseSeries(series, includeFutureDates ? extraCount : 0);
         return shifts.length > 0 ? [...shifts, base] : [base];
     }
 

@@ -4,7 +4,7 @@ import deWastewaterImport from "../data_processed/de_wastewater_amelag/wastewate
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, datapointToPercentage, compareLabels } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, datapointToPercentage, compareLabels } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -22,15 +22,21 @@ const TEST_NUMBERS_IDENTIFIER = 'tests';
 const MIN_MAX_IDENTIFIER = ['min', 'max'];
 
 // Unified app settings
+// Alignment method type: 'days' for manual shift by days, 'maxima'/'minima' for automatic wave alignment
+type AlignByExtreme = 'days' | 'maxima' | 'minima';
+
 interface AppSettings {
     timeRange: string;
     includeFuture: boolean;
     showExtremes: boolean;
     showShifted: boolean;
     showTestNumbers: boolean;
-    // Reserved for future feature: Override the automatic shift calculation for shifted series
-    // When null, uses automatic calculation based on extreme detection
-    shiftOverrideDays: number | null;
+    // Shift value: either days for manual shift or wave count for automatic alignment
+    // When alignByExtreme is 'days': shift by this many days
+    // When alignByExtreme is 'maxima' or 'minima': shift by this many waves back to align to the last wave
+    shiftOverride: number | null;
+    // Alignment method: 'days' for manual shift, 'maxima'/'minima' for automatic alignment
+    alignByExtreme: AlignByExtreme;
 }
 
 // Default values for app settings
@@ -40,7 +46,8 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
     showExtremes: false,
     showShifted: true,
     showTestNumbers: true,
-    shiftOverrideDays: null
+    shiftOverride: 1, // Default to 1 wave for maxima/minima alignment
+    alignByExtreme: 'maxima'
 };
 
 // Settings manager
@@ -51,6 +58,18 @@ function loadAppSettings(): AppSettings {
         const stored = localStorage.getItem(APP_SETTINGS_KEY);
         if (stored) {
             const parsed = JSON.parse(stored);
+            // Migrate old useCustomShift setting to new alignByExtreme format
+            if ('useCustomShift' in parsed) {
+                if (parsed.useCustomShift === true) {
+                    parsed.alignByExtreme = 'days';
+                }
+                delete parsed.useCustomShift;
+            }
+            // Migrate old shiftOverrideDays to new shiftOverride name
+            if ('shiftOverrideDays' in parsed) {
+                parsed.shiftOverride = parsed.shiftOverrideDays;
+                delete parsed.shiftOverrideDays;
+            }
             // Merge with defaults to handle missing properties
             return { ...DEFAULT_APP_SETTINGS, ...parsed };
         }
@@ -106,6 +125,13 @@ interface ChartConfig {
     chartHolder: { chart: Chart | undefined };
     datasetVisibility: { [key: string]: boolean };
     canvas?: HTMLCanvasElement | null;
+    // Cache for extremes calculations to avoid recalculating on every render
+    extremesCache?: {
+        localMaximaSeries: ExtremeSeries[][];
+        localMinimaSeries: ExtremeSeries[][];
+        filteredMaximaSeries: ExtremeSeries[];
+        filteredMinimaSeries: ExtremeSeries[];
+    };
     hasCountryFilter?: boolean;
     countryFilterKey?: string;
 }
@@ -295,7 +321,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     });
 
     // Unified callback for settings changes
-    function onSettingsChange(key?: keyof AppSettings, value?: string | boolean) {
+    function onSettingsChange(key?: keyof AppSettings, value?: AppSettings[keyof AppSettings]) {
         if (key && value !== undefined) {
             (appSettings as any)[key] = value;
             saveAppSettings(appSettings);
@@ -311,6 +337,8 @@ function renderPage(rootDiv: HTMLElement | null) {
                     appSettings.showExtremes,
                     appSettings.showShifted,
                     appSettings.showTestNumbers,
+                    appSettings.shiftOverride,
+                    appSettings.alignByExtreme,
                     countryFilter
                 );
             }
@@ -377,6 +405,82 @@ function renderPage(rootDiv: HTMLElement | null) {
         onChange: onSettingsChange
     });
 
+    // Shift settings controls
+    // Shift value input (number input)
+    const shiftDaysInput = document.createElement('input');
+    shiftDaysInput.type = 'number';
+    shiftDaysInput.id = 'shiftOverrideInput';
+    shiftDaysInput.value = (appSettings.shiftOverride ?? 1).toString();
+    shiftDaysInput.placeholder = 'Shift value';
+    shiftDaysInput.style.width = '80px';
+    
+    const shiftDaysLabel = document.createElement('label');
+    shiftDaysLabel.htmlFor = 'shiftOverrideInput';
+    shiftDaysLabel.textContent = 'Shift By:';
+    rootDiv.appendChild(shiftDaysLabel);
+    rootDiv.appendChild(shiftDaysInput);
+    
+    shiftDaysInput.addEventListener('change', (event) => {
+        const inputValue = (event.target as HTMLInputElement).value.trim();
+        if (inputValue === '') {
+            // Default to 1 for wave indices, 0 for days
+            const defaultValue = appSettings.alignByExtreme === 'days' ? 0 : 1;
+            onSettingsChange('shiftOverride', defaultValue);
+            shiftDaysInput.value = defaultValue.toString();
+            return;
+        }
+        
+        const value = parseInt(inputValue);
+        if (isNaN(value)) {
+            // Reset to previous valid value
+            shiftDaysInput.value = (appSettings.shiftOverride ?? 1).toString();
+            return;
+        }
+        
+        // For wave indices (maxima/minima), minimum is 1. For days, allow negative values.
+        let clampedValue = value;
+        if (appSettings.alignByExtreme !== 'days') {
+            // For maxima/minima: clamp to 1-10 waves
+            clampedValue = Math.max(1, Math.min(10, value));
+        } else {
+            // For days: clamp to reasonable range (-3650 to 3650 days, approximately 10 years)
+            clampedValue = Math.max(-3650, Math.min(3650, value));
+        }
+        
+        if (clampedValue !== value) {
+            shiftDaysInput.value = clampedValue.toString();
+        }
+        
+        onSettingsChange('shiftOverride', clampedValue);
+    });
+
+    // Align by selector (days/maxima/minima)
+    createUnifiedSettingsControl({
+        type: 'select',
+        id: 'alignByExtremeSelect',
+        label: '',
+        container: rootDiv,
+        settingKey: 'alignByExtreme',
+        values: [
+            { value: 'days', label: 'Days' },
+            { value: 'maxima', label: 'Maxima' },
+            { value: 'minima', label: 'Minima' }
+        ],
+        settings: appSettings,
+        onChange: (key, value) => {
+            // When switching alignment mode, reset the shift value to a sensible default
+            if (key === 'alignByExtreme') {
+                const newMode = value as AlignByExtreme;
+                const defaultValue = newMode === 'days' ? 0 : 1;
+                // Update the input value
+                shiftDaysInput.value = defaultValue.toString();
+                // Update settings
+                appSettings.shiftOverride = defaultValue;
+            }
+            onSettingsChange(key, value);
+        }
+    });
+  
     // Create country selectors for charts that have them
     chartConfigs.forEach(cfg => {
         if (cfg.hasCountryFilter && cfg.countryFilterKey) {
@@ -452,7 +556,7 @@ function getSortedSeriesWithIndices(series: DataSeries[]): { series: DataSeries,
     return seriesWithIndices;
 }
 
-function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, countryFilter?: string) {
+function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima', countryFilter?: string) {
     // Destroy existing chart if it exists
     if (cfg.chartHolder.chart) {
         cfg.chartHolder.chart.destroy();
@@ -473,29 +577,55 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         cutoffDateString = cutoffDate.toISOString().split('T')[0]; // YYYY-MM-DD
     }
 
-    const localMaximaSeries = data.series
-        .filter(series => series.type === 'averaged')
-        .filter(series => extremesForWindow == series.windowSizeInDays)
-        .map(series => findLocalExtreme(series, extremeWindow, 'maxima'))
-    const localMinimaSeries = data.series
-        .filter(series => series.type === 'averaged')
-        .filter(series => extremesForWindow == series.windowSizeInDays)
-        .map(series => findLocalExtreme(series, extremeWindow, 'minima'))
+    // Calculate extremes only once and cache them
+    if (!cfg.extremesCache) {
+        const localMaximaSeries = data.series
+            .filter(series => series.type === 'averaged')
+            .filter(series => extremesForWindow == series.windowSizeInDays)
+            .map(series => findLocalExtreme(series, extremeWindow, 'maxima'))
+        const localMinimaSeries = data.series
+            .filter(series => series.type === 'averaged')
+            .filter(series => extremesForWindow == series.windowSizeInDays)
+            .map(series => findLocalExtreme(series, extremeWindow, 'minima'))
+        
+        // Apply filtering as a separate step
+        const filteredExtremesResults = data.series
+            .filter(series => series.type === 'averaged')
+            .filter(series => extremesForWindow == series.windowSizeInDays)
+            .map(series => filterExtremesByMedianThreshold(
+                series, 
+                localMaximaSeries.flat().filter(extreme => extreme.originalSeriesName === series.name),
+                localMinimaSeries.flat().filter(extreme => extreme.originalSeriesName === series.name)
+            ));
+        
+        const filteredMaximaSeries = filteredExtremesResults.flatMap(result => result.filteredMaxima);
+        const filteredMinimaSeries = filteredExtremesResults.flatMap(result => result.filteredMinima);
+        
+        cfg.extremesCache = {
+            localMaximaSeries,
+            localMinimaSeries,
+            filteredMaximaSeries,
+            filteredMinimaSeries
+        };
+    }
     
-    // Apply filtering as a separate step
-    const filteredExtremesResults = data.series
-        .filter(series => series.type === 'averaged')
-        .filter(series => extremesForWindow == series.windowSizeInDays)
-        .map(series => filterExtremesByMedianThreshold(
-            series, 
-            localMaximaSeries.flat().filter(extreme => extreme.originalSeriesName === series.name),
-            localMinimaSeries.flat().filter(extreme => extreme.originalSeriesName === series.name)
-        ));
+    const { filteredMaximaSeries, filteredMinimaSeries, localMaximaSeries, localMinimaSeries } = cfg.extremesCache;
     
-    const filteredMaximaSeries = filteredExtremesResults.flatMap(result => result.filteredMaxima);
-    const filteredMinimaSeries = filteredExtremesResults.flatMap(result => result.filteredMinima);
-    
-    data = getNewWithSifterToAlignExtremeDates(data, filteredMaximaSeries, 1, 2, true);
+    // Apply shift based on settings
+    if (alignByExtreme === 'days') {
+        // Manual shift by specified number of days (use 0 if null)
+        const shiftDays = shiftOverride ?? 0;
+        data = getNewWithCustomShift(data, shiftDays, true);
+    } else {
+        // Use automatic alignment based on extreme type preference and wave count
+        const extremesToAlign = alignByExtreme === 'maxima' ? filteredMaximaSeries : filteredMinimaSeries;
+        // Use shiftOverride to specify how many waves back to align to the last wave
+        // waveCount = 1 means align the 1st wave back (2nd-to-last) to the last wave
+        // waveCount = 2 means align the 2nd wave back (3rd-to-last) to the last wave
+        const waveCount = (shiftOverride && shiftOverride > 0) ? shiftOverride : 1;
+        // Always align to the last wave (index 1), from wave at index (1 + waveCount)
+        data = getNewWithSifterToAlignExtremeDates(data, extremesToAlign, 1, 1 + waveCount, true);
+    }
 
     // End cutoff based on future inclusion flag
     const todayString = new Date().toISOString().split('T')[0];
@@ -552,13 +682,43 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const allDatasetsWithExtremes = [...datasets, ...barDatasets, ...localExtremeDatasets];
     const validSeriesNames = new Set<string>(allDatasetsWithExtremes.map(ds => ds.label));
     
-    validSeriesNames.forEach(seriesName => { 
-        cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[seriesName] ?? getVisibilityDefault(seriesName, showShifted, showTestNumbers);
+    // Build a map of base series names to current series names for preserving visibility
+    const baseToCurrentSeriesMap = new Map<string, string>();
+    validSeriesNames.forEach(seriesName => {
+        const baseName = getBaseSeriesName(seriesName);
+        baseToCurrentSeriesMap.set(baseName, seriesName);
     });
+    
+    // Initialize visibility for new series, checking both exact name and base name for previous state
+    validSeriesNames.forEach(seriesName => {
+        if (cfg.datasetVisibility[seriesName] === undefined) {
+            // Check if we have visibility state for the base series name (from a different shift)
+            const baseName = getBaseSeriesName(seriesName);
+            const previousVisibility = Object.keys(cfg.datasetVisibility).find(key => {
+                return getBaseSeriesName(key) === baseName;
+            });
+            
+            if (previousVisibility !== undefined) {
+                // Preserve visibility from previous shift of the same series
+                cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[previousVisibility];
+            } else {
+                // No previous state, use default
+                cfg.datasetVisibility[seriesName] = getVisibilityDefault(seriesName, showShifted, showTestNumbers);
+            }
+        }
+    });
+    
+    // Clean up visibility state for series that no longer exist
     Object.keys(cfg.datasetVisibility).forEach(seriesName => {
         if (!validSeriesNames.has(seriesName)) {
-            console.log(`Removing visibility for non-existing series: ${seriesName}`);
-            delete cfg.datasetVisibility[seriesName];
+            // Check if this is an old version of a current series (different shift)
+            const baseName = getBaseSeriesName(seriesName);
+            if (!baseToCurrentSeriesMap.has(baseName)) {
+                // Base series no longer exists, remove
+                console.log(`Removing visibility for non-existing series: ${seriesName}`);
+                delete cfg.datasetVisibility[seriesName];
+            }
+            // Otherwise keep it temporarily - it will be cleaned up next render after transferring state
         }
     });
     localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
@@ -1101,6 +1261,35 @@ function updateRatioTable() {
         
         ratioTableBody.appendChild(row);
     });
+}
+
+/**
+ * Extracts the base series name without shift information.
+ * This allows tracking visibility across different shift values.
+ * Only strips shift suffix if the series is actually a shifted series to avoid
+ * collision with non-shifted series that might have similar names.
+ * 
+ * Examples:
+ * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "PCR Positivity (28d avg)"
+ * - "PCR Positivity (28d avg) shifted by -300d (custom)" -> "PCR Positivity (28d avg)"
+ * - "Influenza Positivity" -> "Influenza Positivity" (unchanged, no shift info)
+ * - "Influenza Positivity (28d avg)" -> "Influenza Positivity (28d avg)" (unchanged, no shift info)
+ */
+function getBaseSeriesName(label: string): string {
+    // Only process if the label contains the shifted series identifier
+    // This prevents collision with non-shifted series
+    if (!label.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER)) {
+        return label;
+    }
+    
+    // Replace only the dynamic changing parts in shifted series labels:
+    // - "shifted by X wave(s) -XXXd" → "shifted by N waves"
+    // - "shifted by -XXXd (custom)" → "shifted by N (custom)"
+    // This preserves the "shifted by" part to avoid collision with base series
+    return label
+        .replace(/ shifted by \d+ waves? -\d+d/, ' shifted by N waves')
+        .replace(/ shifted by -?\d+d \(custom\)/, ' shifted by N (custom)')
+        .trim();
 }
 
 function getVisibilityDefault(label: string, showShifted: boolean = true, showTestNumbers: boolean = true): boolean {
