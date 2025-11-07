@@ -22,7 +22,7 @@ const TEST_NUMBERS_IDENTIFIER = 'tests';
 const MIN_MAX_IDENTIFIER = ['min', 'max'];
 
 // Constants for chart styling
-const SHIFTED_LINE_DASH_PATTERN = [5, 5]; // Dash pattern for shifted series: [dash length, gap length]
+const SHIFTED_LINE_DASH_PATTERN = [10, 5]; // Dash pattern for shifted series: [dash length, gap length] - more filled pattern
 
 // Unified app settings
 // Alignment method type: 'days' for manual shift by days, 'maxima'/'minima' for automatic wave alignment
@@ -1003,7 +1003,7 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
         }
         
         // Determine line style: dashed for shifted series, solid for others
-        const isShifted = series.shiftedByIndexes !== 0;
+        const isShifted = series.shiftedByIndexes !== undefined && series.shiftedByIndexes !== 0;
         const borderDash = isShifted ? SHIFTED_LINE_DASH_PATTERN : undefined;
         
         return {
