@@ -1383,6 +1383,12 @@ function getVisibilityDefault(label: string, showShifted: boolean = true, showTe
         return false;
     }
     
+    // Hide shifted test numbers by default (they contain both "shifted" and "tests")
+    // This takes precedence over the individual settings
+    if (lowerLabel.includes(SHIFTED_SERIES_IDENTIFIER) && lowerLabel.includes(TEST_NUMBERS_IDENTIFIER)) {
+        return false;
+    }
+    
     // Show/hide shifted datasets based on setting (default: shown)
     if (lowerLabel.includes(SHIFTED_SERIES_IDENTIFIER)) {
         return showShifted;
