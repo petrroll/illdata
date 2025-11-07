@@ -660,8 +660,11 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         console.error("Error parsing dataset visibility from local storage:", error);
     }
 
-    let datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx);
-    let barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx);
+    // Create stable color mapping for consistent colors across alignment modes
+    const colorMap = createStableColorMapping(data.series, colorPalettes);
+
+    let datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, colorMap);
+    let barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, colorMap);
 
     // Filter shifted series based on showShifted setting
     if (!showShifted) {
@@ -908,13 +911,46 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
     });
 }
 
-function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
-    return sortedSeriesWithIndices.map(({ series, originalIndex }, sortedIndex) => {
-        // New color assignment logic
-        const paletteIndex = sortedIndex % numberOfRawData;
-        const colorIndex = Math.floor(sortedIndex / numberOfRawData);
+/**
+ * Creates a stable color mapping for series based on their base names.
+ * This ensures that the same base series always gets the same color, regardless of
+ * sorting order or shift variations.
+ * 
+ * @param series - Array of all series in the dataset
+ * @param colorPalettes - Array of color palettes to choose from
+ * @returns A map from base series name to color string
+ */
+function createStableColorMapping(series: DataSeries[], colorPalettes: string[][]): Map<string, string> {
+    const colorMap = new Map<string, string>();
+    
+    // Extract unique base series names and sort them for stability
+    const uniqueBaseNames = Array.from(
+        new Set(series.map(s => getColorBaseSeriesName(s.name)))
+    ).sort((a, b) => compareLabels(a, b));
+    
+    // Count raw series for palette assignment
+    const rawBaseNames = Array.from(
+        new Set(series.filter(s => s.type === 'raw').map(s => getColorBaseSeriesName(s.name)))
+    ).sort((a, b) => compareLabels(a, b));
+    const numberOfRawBases = rawBaseNames.length;
+    
+    // Assign colors based on sorted base names
+    uniqueBaseNames.forEach((baseName, index) => {
+        const paletteIndex = index % numberOfRawBases;
+        const colorIndex = Math.floor(index / numberOfRawBases);
         const selectedPalette = colorPalettes[paletteIndex % colorPalettes.length];
-        const borderColor = selectedPalette[colorIndex % selectedPalette.length];
+        const color = selectedPalette[colorIndex % selectedPalette.length];
+        colorMap.set(baseName, color);
+    });
+    
+    return colorMap;
+}
+
+function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number, colorMap: Map<string, string>) {
+    return sortedSeriesWithIndices.map(({ series, originalIndex }, sortedIndex) => {
+        // Use stable color mapping based on base series name
+        const baseName = getColorBaseSeriesName(series.name);
+        const borderColor = colorMap.get(baseName) || colorPalettes[0][0];
 
         // Validate data based on type
         if ('dataType' in series && series.dataType === 'positivity') {
@@ -1035,18 +1071,36 @@ function adjustColorForTestBars(hexColor: string, isPositive: boolean): string {
     return `#${toHex(r2)}${toHex(g2)}${toHex(b2)}`;
 }
 
-function generateTestNumberBarDatasets(sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
+function generateTestNumberBarDatasets(sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number, colorMap: Map<string, string>) {
     // Only generate bar charts for raw positivity series (not averaged, not scalar)
     const rawPositivitySeriesWithIndices = sortedSeriesWithIndices.filter(({ series }) => 
         series.type === 'raw' && 'dataType' in series && series.dataType === 'positivity'
     );
     
     return rawPositivitySeriesWithIndices.flatMap(({ series, originalIndex }, sortedIndex) => {
-        // Use same color logic as line charts
-        const paletteIndex = sortedIndex % numberOfRawData;
+        // Use stable color mapping based on base series name
+        const baseName = getColorBaseSeriesName(series.name);
+        const baseColor = colorMap.get(baseName) || colorPalettes[0][0];
+        
+        // For test bars, we need two colors from the same palette
+        // Find which palette and color index this base color corresponds to
+        let paletteIndex = 0;
+        let colorIndex = 0;
+        
+        // Search through palettes to find the matching color
+        outerLoop: for (let p = 0; p < colorPalettes.length; p++) {
+            for (let c = 0; c < colorPalettes[p].length; c++) {
+                if (colorPalettes[p][c] === baseColor) {
+                    paletteIndex = p;
+                    colorIndex = c;
+                    break outerLoop;
+                }
+            }
+        }
+        
         const selectedPalette = colorPalettes[paletteIndex % colorPalettes.length];
-        const basePositiveColor = selectedPalette[0]; // Use first color for positive
-        const baseNegativeColor = selectedPalette[1]; // Use second color for negative
+        const basePositiveColor = selectedPalette[colorIndex % selectedPalette.length]; // Use same color index for positive
+        const baseNegativeColor = selectedPalette[(colorIndex + 1) % selectedPalette.length]; // Use next color for negative
 
         // Adjust colors: reduce saturation and increase contrast
         const positiveColor = adjustColorForTestBars(basePositiveColor, true);
@@ -1290,6 +1344,35 @@ function getBaseSeriesName(label: string): string {
         .replace(/ shifted by \d+ waves? -\d+d/, ' shifted by N waves')
         .replace(/ shifted by -?\d+d \(custom\)/, ' shifted by N (custom)')
         .trim();
+}
+
+/**
+ * Extracts the truly base series name for color assignment purposes.
+ * Strips both shift information and averaging window information to get the raw series name.
+ * This ensures consistent colors across all variations (raw, averaged, shifted) of the same series.
+ * 
+ * Examples:
+ * - "PCR Positivity" -> "PCR Positivity"
+ * - "PCR Positivity (28d avg)" -> "PCR Positivity"
+ * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "PCR Positivity"
+ * - "Antigen Positivity (28d avg) shifted by -300d (custom)" -> "Antigen Positivity"
+ * - "Influenza Positivity - Positive Tests" -> "Influenza Positivity - Positive Tests"
+ */
+function getColorBaseSeriesName(label: string): string {
+    let baseName = label;
+    
+    // Remove shift information (both wave-based and custom)
+    baseName = baseName
+        .replace(/ shifted by \d+ waves? -?\d+d/, '')
+        .replace(/ shifted by -?\d+d \(custom\)/, '');
+    
+    // Remove averaging window information like "(28d avg)"
+    baseName = baseName.replace(/\s*\(\d+d avg\)/, '');
+    
+    // Remove extreme indicators like "maxima over 84d" or "minima over 84d"
+    baseName = baseName.replace(/\s+(maxima|minima)\s+over\s+\d+d/, '');
+    
+    return baseName.trim();
 }
 
 function getVisibilityDefault(label: string, showShifted: boolean = true, showTestNumbers: boolean = true): boolean {
