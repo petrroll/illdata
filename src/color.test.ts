@@ -20,8 +20,8 @@ describe("Color Base Series Name Extraction Tests", () => {
     });
 
     test("extracts base name from shifted series with custom alignment", () => {
-        expect(getColorBaseSeriesName("PCR Positivity (28d avg) shifted by -300d (custom)")).toBe("PCR Positivity");
-        expect(getColorBaseSeriesName("Antigen Positivity (28d avg) shifted by 100d (custom)")).toBe("Antigen Positivity");
+        expect(getColorBaseSeriesName("PCR Positivity (28d avg) shifted by -300d")).toBe("PCR Positivity");
+        expect(getColorBaseSeriesName("Antigen Positivity (28d avg) shifted by 100d")).toBe("Antigen Positivity");
     });
 
     test("extracts base name from extreme series", () => {
@@ -50,8 +50,8 @@ describe("Color Base Series Name Extraction Tests", () => {
             "PCR Positivity (28d avg)",
             "PCR Positivity (28d avg) shifted by 1 wave -347d",
             "PCR Positivity (28d avg) shifted by 2 waves -694d",
-            "PCR Positivity (28d avg) shifted by -300d (custom)",
-            "PCR Positivity (28d avg) shifted by 100d (custom)",
+            "PCR Positivity (28d avg) shifted by -300d",
+            "PCR Positivity (28d avg) shifted by 100d",
         ];
         
         const baseNames = variations.map(getColorBaseSeriesName);

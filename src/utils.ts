@@ -136,7 +136,7 @@ export function getNewWithCustomShift(
         const length = series.values.length + extraLength;
 
         const shiftedSeries = createShiftedSeries(series, {
-            name: `${series.name} shifted by ${shiftDays}d (custom)`,
+            name: `${series.name} shifted by ${shiftDays}d`,
             shiftByIndexes,
             length
         });
@@ -519,7 +519,7 @@ export function compareLabels(labelA: string, labelB: string): number {
  * - "PCR Positivity" -> "PCR Positivity"
  * - "PCR Positivity (28d avg)" -> "PCR Positivity"
  * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "PCR Positivity"
- * - "Antigen Positivity (28d avg) shifted by -300d (custom)" -> "Antigen Positivity"
+ * - "Antigen Positivity (28d avg) shifted by -300d" -> "Antigen Positivity"
  * - "Influenza Positivity - Positive Tests" -> "Influenza Positivity - Positive Tests"
  * 
  * @param label - The full series label
@@ -531,7 +531,7 @@ export function getColorBaseSeriesName(label: string): string {
     // Remove shift information (both wave-based and custom)
     baseName = baseName
         .replace(/ shifted by \d+ waves? -?\d+d/, '')
-        .replace(/ shifted by -?\d+d \(custom\)/, '');
+        .replace(/ shifted by -?\d+d/, '');
     
     // Remove averaging window information like "(28d avg)"
     baseName = baseName.replace(/\s*\(\d+d avg\)/, '');
