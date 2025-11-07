@@ -715,16 +715,13 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     });
     
     // Clean up visibility state for series that no longer exist
+    // This prevents localStorage from growing indefinitely with old shift values
     Object.keys(cfg.datasetVisibility).forEach(seriesName => {
         if (!validSeriesNames.has(seriesName)) {
-            // Check if this is an old version of a current series (different shift)
-            const baseName = getBaseSeriesName(seriesName);
-            if (!baseToCurrentSeriesMap.has(baseName)) {
-                // Base series no longer exists, remove
-                console.log(`Removing visibility for non-existing series: ${seriesName}`);
-                delete cfg.datasetVisibility[seriesName];
-            }
-            // Otherwise keep it temporarily - it will be cleaned up next render after transferring state
+            // Remove entries that are not in the current valid series list
+            // The visibility state has already been transferred to new series above
+            console.log(`Removing visibility for non-existing series: ${seriesName}`);
+            delete cfg.datasetVisibility[seriesName];
         }
     });
     localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
