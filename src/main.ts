@@ -4,7 +4,7 @@ import deWastewaterImport from "../data_processed/de_wastewater_amelag/wastewate
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, datapointToPercentage, compareLabels } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, datapointToPercentage, compareLabels, getColorBaseSeriesName } from "./utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -20,6 +20,9 @@ const deWastewaterEnhanced = computeMovingAverageTimeseries(deWastewater, averag
 const SHIFTED_SERIES_IDENTIFIER = 'shifted';
 const TEST_NUMBERS_IDENTIFIER = 'tests';
 const MIN_MAX_IDENTIFIER = ['min', 'max'];
+
+// Constants for chart styling
+const SHIFTED_LINE_DASH_PATTERN = [15, 1]; // Dash pattern for shifted series: [dash length, gap length] - very subtle, almost solid pattern
 
 // Unified app settings
 // Alignment method type: 'days' for manual shift by days, 'maxima'/'minima' for automatic wave alignment
@@ -660,8 +663,11 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         console.error("Error parsing dataset visibility from local storage:", error);
     }
 
-    let datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx);
-    let barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx);
+    // Create stable palette mapping for consistent colors across alignment modes
+    const paletteMap = createStablePaletteMapping(data.series, colorPalettes.length);
+
+    let datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, paletteMap);
+    let barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, paletteMap);
 
     // Filter shifted series based on showShifted setting
     if (!showShifted) {
@@ -908,11 +914,65 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
     });
 }
 
-function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
+/**
+ * Creates a stable palette mapping for base series names.
+ * Each base series is assigned to a palette, and different variations (raw, averaged, shifted)
+ * get different colors within that palette.
+ * 
+ * @param series - Array of all series in the dataset
+ * @param numPalettes - Number of available color palettes
+ * @returns A map from base series name to palette index
+ */
+function createStablePaletteMapping(series: DataSeries[], numPalettes: number): Map<string, number> {
+    const paletteMap = new Map<string, number>();
+    
+    // Extract unique base series names and sort them for stability
+    const uniqueBaseNames = Array.from(
+        new Set(series.map(s => getColorBaseSeriesName(s.name)))
+    ).sort((a, b) => compareLabels(a, b));
+    
+    // Assign each base series to a palette index (cycling through available palettes)
+    uniqueBaseNames.forEach((baseName, index) => {
+        paletteMap.set(baseName, index % numPalettes);
+    });
+    
+    return paletteMap;
+}
+
+/**
+ * Determines the color index within a palette based on series characteristics.
+ * This ensures different subtypes (raw, averaged, shifted) get different colors
+ * within the same palette.
+ * 
+ * @param series - The series to determine color index for
+ * @returns The color index (0-4) within the palette
+ */
+function getSeriesColorIndex(series: DataSeries): number {
+    // Averaged series (non-shifted): use darkest color as the base (index 0)
+    if (series.type === 'averaged') {
+        // If shifted, use lighter color (index 2)
+        if (series.shiftedByIndexes !== undefined && series.shiftedByIndexes !== 0) {
+            return 2;
+        }
+        // Non-shifted averaged: use darkest color (index 0)
+        return 0;
+    }
+    
+    // Raw series: use slightly lighter color than averaged (index 1)
+    if (series.type === 'raw') {
+        return 1;
+    }
+    
+    // Default fallback
+    return 0;
+}
+
+function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number, paletteMap: Map<string, number>) {
     return sortedSeriesWithIndices.map(({ series, originalIndex }, sortedIndex) => {
-        // New color assignment logic
-        const paletteIndex = sortedIndex % numberOfRawData;
-        const colorIndex = Math.floor(sortedIndex / numberOfRawData);
+        // Use stable palette mapping based on base series name
+        const baseName = getColorBaseSeriesName(series.name);
+        const paletteIndex = paletteMap.get(baseName) ?? 0;
+        const colorIndex = getSeriesColorIndex(series);
         const selectedPalette = colorPalettes[paletteIndex % colorPalettes.length];
         const borderColor = selectedPalette[colorIndex % selectedPalette.length];
 
@@ -942,10 +1002,15 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
             chartData = series.values.slice(startIdx, endIdx).map(datapointToPercentage);
         }
         
+        // Determine line style: dashed for shifted series, solid for others
+        const isShifted = series.shiftedByIndexes !== undefined && series.shiftedByIndexes !== 0;
+        const borderDash = isShifted ? SHIFTED_LINE_DASH_PATTERN : undefined;
+        
         return {
             label: series.name,
             data: chartData,
             borderColor: borderColor,
+            borderDash: borderDash,
             fill: false,
             hidden: false,
             borderWidth: 1,
@@ -1035,18 +1100,31 @@ function adjustColorForTestBars(hexColor: string, isPositive: boolean): string {
     return `#${toHex(r2)}${toHex(g2)}${toHex(b2)}`;
 }
 
-function generateTestNumberBarDatasets(sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number) {
+function generateTestNumberBarDatasets(
+    sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], 
+    cfg: ChartConfig, 
+    numberOfRawData: number, 
+    colorPalettes: string[][], 
+    data: TimeseriesData, 
+    startIdx: number, 
+    endIdx: number, 
+    paletteMap: Map<string, number>
+) {
     // Only generate bar charts for raw positivity series (not averaged, not scalar)
     const rawPositivitySeriesWithIndices = sortedSeriesWithIndices.filter(({ series }) => 
         series.type === 'raw' && 'dataType' in series && series.dataType === 'positivity'
     );
     
     return rawPositivitySeriesWithIndices.flatMap(({ series, originalIndex }, sortedIndex) => {
-        // Use same color logic as line charts
-        const paletteIndex = sortedIndex % numberOfRawData;
+        // Use stable palette mapping based on base series name
+        const baseName = getColorBaseSeriesName(series.name);
+        const paletteIndex = paletteMap.get(baseName) ?? 0;
         const selectedPalette = colorPalettes[paletteIndex % colorPalettes.length];
-        const basePositiveColor = selectedPalette[0]; // Use first color for positive
-        const baseNegativeColor = selectedPalette[1]; // Use second color for negative
+        
+        // For test bars, use first two colors from the palette (with bounds checking)
+        // Positive tests use the base color (index 0), negative tests use slightly lighter (index 1)
+        const basePositiveColor = selectedPalette[0 % selectedPalette.length];
+        const baseNegativeColor = selectedPalette[Math.min(1, selectedPalette.length - 1)];
 
         // Adjust colors: reduce saturation and increase contrast
         const positiveColor = adjustColorForTestBars(basePositiveColor, true);
