@@ -178,6 +178,4 @@ dist
 .DS_Store
 
 data
-data_processed*.png
-*.jpg
-*.jpeg
+data_processed
