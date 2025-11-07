@@ -1340,19 +1340,19 @@ function updateRatioTable() {
 
 /**
  * Extracts the base series name without shift information.
- * This allows tracking visibility across different shift values.
+ * This allows tracking visibility across different shift values AND shift modes.
  * Only strips shift suffix if the series is actually a shifted series to avoid
  * collision with non-shifted series that might have similar names.
  * 
- * Note: The regex patterns must handle BOTH positive and negative day offsets (using -?)
- * to ensure consistent normalization across different alignment shifts. Without this,
- * visibility state would be lost when alignment changes cause the shift sign to flip.
+ * IMPORTANT: Normalizes ALL shifted series (wave-based and custom) to the same pattern
+ * "shifted" to enable visibility preservation when switching between alignment modes
+ * (e.g., from Maxima to Days mode).
  * 
  * Examples:
- * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "PCR Positivity (28d avg) shifted by N waves"
- * - "PCR Positivity (28d avg) shifted by 1 wave 347d" -> "PCR Positivity (28d avg) shifted by N waves"
- * - "PCR Positivity (28d avg) shifted by -300d (custom)" -> "PCR Positivity (28d avg) shifted by N (custom)"
- * - "PCR Positivity (28d avg) shifted by 300d (custom)" -> "PCR Positivity (28d avg) shifted by N (custom)"
+ * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "PCR Positivity (28d avg) shifted"
+ * - "PCR Positivity (28d avg) shifted by 1 wave 347d" -> "PCR Positivity (28d avg) shifted"
+ * - "PCR Positivity (28d avg) shifted by -300d (custom)" -> "PCR Positivity (28d avg) shifted"
+ * - "PCR Positivity (28d avg) shifted by 300d (custom)" -> "PCR Positivity (28d avg) shifted"
  * - "Influenza Positivity" -> "Influenza Positivity" (unchanged, no shift info)
  * - "Influenza Positivity (28d avg)" -> "Influenza Positivity (28d avg)" (unchanged, no shift info)
  */
@@ -1363,14 +1363,15 @@ function getBaseSeriesName(label: string): string {
         return label;
     }
     
-    // Replace only the dynamic changing parts in shifted series labels:
-    // - "shifted by X wave(s) -XXXd" or "shifted by X wave(s) XXXd" → "shifted by N waves"
-    // - "shifted by -XXXd (custom)" or "shifted by XXXd (custom)" → "shifted by N (custom)"
-    // This preserves the "shifted by" part to avoid collision with base series
-    // IMPORTANT: -? makes the minus sign optional to handle both positive and negative offsets
+    // Normalize ALL shifted series to the same base name pattern "shifted"
+    // This works across both wave-based shifts and custom day shifts
+    // Pattern matches:
+    // - "shifted by X wave(s) -XXXd" or "shifted by X wave(s) XXXd" (wave-based)
+    // - "shifted by -XXXd (custom)" or "shifted by XXXd (custom)" (custom days)
+    // And normalizes to just "shifted" to enable cross-mode visibility preservation
     return label
-        .replace(/ shifted by \d+ waves? -?\d+d/, ' shifted by N waves')
-        .replace(/ shifted by -?\d+d \(custom\)/, ' shifted by N (custom)')
+        .replace(/ shifted by \d+ waves? -?\d+d/, ' shifted')
+        .replace(/ shifted by -?\d+d \(custom\)/, ' shifted')
         .trim();
 }
 
