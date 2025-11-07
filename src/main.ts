@@ -21,6 +21,9 @@ const SHIFTED_SERIES_IDENTIFIER = 'shifted';
 const TEST_NUMBERS_IDENTIFIER = 'tests';
 const MIN_MAX_IDENTIFIER = ['min', 'max'];
 
+// Constants for chart styling
+const SHIFTED_LINE_DASH_PATTERN = [5, 5]; // Dash pattern for shifted series: [dash length, gap length]
+
 // Unified app settings
 // Alignment method type: 'days' for manual shift by days, 'maxima'/'minima' for automatic wave alignment
 type AlignByExtreme = 'days' | 'maxima' | 'minima';
@@ -1000,8 +1003,8 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
         }
         
         // Determine line style: dashed for shifted series, solid for others
-        const isShifted = series.shiftedByIndexes !== undefined && series.shiftedByIndexes !== 0;
-        const borderDash = isShifted ? [5, 5] : undefined; // [5, 5] creates a dashed line pattern
+        const isShifted = series.shiftedByIndexes !== 0;
+        const borderDash = isShifted ? SHIFTED_LINE_DASH_PATTERN : undefined;
         
         return {
             label: series.name,
