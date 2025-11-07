@@ -948,18 +948,18 @@ function createStablePaletteMapping(series: DataSeries[], numPalettes: number): 
  * @returns The color index (0-4) within the palette
  */
 function getSeriesColorIndex(series: DataSeries): number {
-    // Raw series: use darkest color (index 0)
-    if (series.type === 'raw') {
-        return 0;
-    }
-    
-    // Averaged series
+    // Averaged series (non-shifted): use darkest color as the base (index 0)
     if (series.type === 'averaged') {
         // If shifted, use lighter color (index 2)
         if (series.shiftedByIndexes !== undefined && series.shiftedByIndexes !== 0) {
             return 2;
         }
-        // Non-shifted averaged: use medium color (index 1)
+        // Non-shifted averaged: use darkest color (index 0)
+        return 0;
+    }
+    
+    // Raw series: use slightly lighter color than averaged (index 1)
+    if (series.type === 'raw') {
         return 1;
     }
     
