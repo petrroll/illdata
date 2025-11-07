@@ -345,6 +345,83 @@ describe('addShiftedToAlignExtremeDates Tests', () => {
         expect(shiftedRawSeries?.type).toBe('raw');
         expect(shiftedRawSeries?.windowSizeInDays).toBeUndefined();
     });
+
+    test('shifts raw series when extremes are from averaged series', () => {
+        // This test verifies the fix for: "Shift by waves doesn't produce shifted numbers of tests"
+        // When extremes are calculated on averaged series (e.g., "PCR Positivity (28d avg)"),
+        // the corresponding raw series (e.g., "PCR Positivity") should also be shifted by the same amount
+        
+        const rawSeries: PositivitySeries = {
+            name: 'PCR Positivity',
+            values: [
+                { positive: 10, tests: 100 },
+                { positive: 20, tests: 100 },
+                { positive: 30, tests: 100 },
+                { positive: 25, tests: 100 },
+                { positive: 15, tests: 100 }
+            ],
+            type: 'raw',
+            frequencyInDays: 1,
+            dataType: 'positivity' as const
+        };
+
+        const averagedSeries: PositivitySeries = {
+            name: 'PCR Positivity (28d avg)',
+            values: [
+                { positive: 15, tests: 100 },
+                { positive: 20, tests: 100 },
+                { positive: 25, tests: 100 },
+                { positive: 20, tests: 100 },
+                { positive: 15, tests: 100 }
+            ],
+            type: 'averaged',
+            windowSizeInDays: 28,
+            frequencyInDays: 1,
+            dataType: 'positivity' as const
+        };
+
+        const data: TimeseriesData = {
+            dates: ['2022-01-01', '2022-01-02', '2022-01-03', '2022-01-04', '2022-01-05'],
+            series: [rawSeries, averagedSeries]
+        };
+
+        // Extremes calculated on the AVERAGED series
+        const extremeSeries: ExtremeSeries[] = [
+            {
+                name: 'PCR Positivity (28d avg) maxima over 3d',
+                originalSeriesName: 'PCR Positivity (28d avg)',
+                indices: [2, 4], // Two maxima
+                type: 'extreme',
+                extreme: 'maxima'
+            }
+        ];
+
+        // Apply shifting - this should shift BOTH the averaged series AND the raw series
+        const result = getNewWithSifterToAlignExtremeDates(data, extremeSeries, 1, 2, false);
+
+        // Should have: raw, raw shifted, averaged, averaged shifted = 4 series
+        expect(result.series.length).toBe(4);
+
+        // Find shifted raw series - the key test!
+        const shiftedRawSeries = result.series.find(s => 
+            s.name.includes('PCR Positivity') && 
+            !s.name.includes('(28d avg)') && 
+            s.name.includes('shifted by'));
+        
+        expect(shiftedRawSeries).toBeDefined();
+        expect(shiftedRawSeries?.type).toBe('raw');
+        expect(shiftedRawSeries?.shiftedByIndexes).toBe(-2); // Should be shifted by the difference between the two maxima
+        expect('dataType' in shiftedRawSeries! && shiftedRawSeries.dataType).toBe('positivity');
+
+        // Find shifted averaged series
+        const shiftedAveragedSeries = result.series.find(s => 
+            s.name.includes('PCR Positivity (28d avg)') && 
+            s.name.includes('shifted by'));
+        
+        expect(shiftedAveragedSeries).toBeDefined();
+        expect(shiftedAveragedSeries?.type).toBe('averaged');
+        expect(shiftedAveragedSeries?.shiftedByIndexes).toBe(-2); // Should have the same shift as the raw series
+    });
 });
 
 describe('findLocalExtreme - Filtering Tests', () => {
