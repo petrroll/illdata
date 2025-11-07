@@ -694,11 +694,15 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         if (cfg.datasetVisibility[seriesName] === undefined) {
             // Check if we have visibility state for the base series name (from a different shift)
             const baseName = getBaseSeriesName(seriesName);
-            const previousVisibility = Object.keys(cfg.datasetVisibility).find(key => {
+            
+            // Find all previous series with the same base name
+            const allPreviousMatches = Object.keys(cfg.datasetVisibility).filter(key => {
                 return getBaseSeriesName(key) === baseName;
             });
             
-            if (previousVisibility !== undefined) {
+            if (allPreviousMatches.length > 0) {
+                // Use the MOST RECENT match (last in the array, since Object.keys() returns in insertion order)
+                const previousVisibility = allPreviousMatches[allPreviousMatches.length - 1];
                 // Preserve visibility from previous shift of the same series
                 cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[previousVisibility];
             } else {
@@ -711,14 +715,19 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     // Clean up visibility state for series that no longer exist
     Object.keys(cfg.datasetVisibility).forEach(seriesName => {
         if (!validSeriesNames.has(seriesName)) {
+            // This series is no longer in the current render
             // Check if this is an old version of a current series (different shift)
             const baseName = getBaseSeriesName(seriesName);
-            if (!baseToCurrentSeriesMap.has(baseName)) {
-                // Base series no longer exists, remove
-                console.log(`Removing visibility for non-existing series: ${seriesName}`);
+            const currentSeriesWithSameBase = baseToCurrentSeriesMap.get(baseName);
+            
+            if (currentSeriesWithSameBase && cfg.datasetVisibility[currentSeriesWithSameBase] !== undefined) {
+                // We've already transferred visibility to the current version, safe to remove old version
+                delete cfg.datasetVisibility[seriesName];
+            } else if (!baseToCurrentSeriesMap.has(baseName)) {
+                // Base series no longer exists at all, remove
                 delete cfg.datasetVisibility[seriesName];
             }
-            // Otherwise keep it temporarily - it will be cleaned up next render after transferring state
+            // Otherwise keep temporarily until visibility is transferred
         }
     });
     localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
