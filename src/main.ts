@@ -999,10 +999,15 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
             chartData = series.values.slice(startIdx, endIdx).map(datapointToPercentage);
         }
         
+        // Determine line style: dashed for shifted series, solid for others
+        const isShifted = series.shiftedByIndexes !== undefined && series.shiftedByIndexes !== 0;
+        const borderDash = isShifted ? [5, 5] : undefined; // [5, 5] creates a dashed line pattern
+        
         return {
             label: series.name,
             data: chartData,
             borderColor: borderColor,
+            borderDash: borderDash,
             fill: false,
             hidden: false,
             borderWidth: 1,
