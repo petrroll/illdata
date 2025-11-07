@@ -22,12 +22,18 @@ interface AppSettings {
     timeRange: string;
     includeFuture: boolean;
     showExtremes: boolean;
+    showShifted?: boolean;
+    showTestNumbers?: boolean;
+    showShiftedTestNumbers?: boolean;
 }
 
 const DEFAULT_APP_SETTINGS: AppSettings = {
     timeRange: "all",
     includeFuture: true,
-    showExtremes: false
+    showExtremes: false,
+    showShifted: true,
+    showTestNumbers: true,
+    showShiftedTestNumbers: false
 };
 
 const APP_SETTINGS_KEY = "appSettings";
@@ -87,7 +93,10 @@ describe('Unified Settings Tests', () => {
         const customSettings: AppSettings = {
             timeRange: "365",
             includeFuture: false,
-            showExtremes: true
+            showExtremes: true,
+            showShifted: true,
+            showTestNumbers: true,
+            showShiftedTestNumbers: false
         };
         
         saveAppSettings(customSettings);
@@ -105,7 +114,10 @@ describe('Unified Settings Tests', () => {
         expect(settings).toEqual({
             timeRange: "90",
             includeFuture: true,  // from defaults
-            showExtremes: false   // from defaults
+            showExtremes: false,   // from defaults
+            showShifted: true,  // from defaults
+            showTestNumbers: true,  // from defaults
+            showShiftedTestNumbers: false  // from defaults
         });
     });
 
@@ -122,7 +134,10 @@ describe('Unified Settings Tests', () => {
         expect(settings).toEqual({
             timeRange: "365",
             includeFuture: false,
-            showExtremes: true
+            showExtremes: true,
+            showShifted: true,  // from defaults
+            showTestNumbers: true,  // from defaults
+            showShiftedTestNumbers: false  // from defaults
         });
         
         // Check that old keys were removed
@@ -143,7 +158,10 @@ describe('Unified Settings Tests', () => {
         expect(settings).toEqual({
             timeRange: "90",
             includeFuture: true,  // from defaults
-            showExtremes: true
+            showExtremes: true,
+            showShifted: true,  // from defaults
+            showTestNumbers: true,  // from defaults
+            showShiftedTestNumbers: false  // from defaults
         });
     });
 
@@ -152,5 +170,27 @@ describe('Unified Settings Tests', () => {
         
         const settings = loadAppSettings();
         expect(settings).toEqual(DEFAULT_APP_SETTINGS);
+    });
+
+    test('showShiftedTestNumbers defaults to false', () => {
+        const settings = loadAppSettings();
+        expect(settings.showShiftedTestNumbers).toBe(false);
+    });
+
+    test('saves and loads showShiftedTestNumbers correctly', () => {
+        const customSettings: AppSettings = {
+            timeRange: "365",
+            includeFuture: false,
+            showExtremes: true,
+            showShifted: true,
+            showTestNumbers: true,
+            showShiftedTestNumbers: true  // Enable the new setting
+        };
+        
+        saveAppSettings(customSettings);
+        const loadedSettings = loadAppSettings();
+        
+        expect(loadedSettings.showShiftedTestNumbers).toBe(true);
+        expect(loadedSettings).toEqual(customSettings);
     });
 });
