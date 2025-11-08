@@ -2,7 +2,13 @@
   "name": "illmeter",
   "module": "index.ts",
   "type": "module",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed"
+  },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@types/bun": "latest",
     "@types/chart.js": "^2.9.41",
     "@types/jest": "^29.5.14",
