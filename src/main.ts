@@ -630,7 +630,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     // Apply shift based on settings
     if (alignByExtreme === 'days') {
         // Manual shift by specified number of days (use 0 if null)
-        const shiftDays = shiftOverride ?? 0;
+        // Negate the value so positive inputs shift backward (show past data)
+        const shiftDays = -(shiftOverride ?? 0);
         data = getNewWithCustomShift(data, shiftDays, true);
     } else {
         // Use automatic alignment based on extreme type preference and wave count
