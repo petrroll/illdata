@@ -1575,9 +1575,12 @@ function updateRatioTable() {
                 }
             }
             
+            // Translate the series name to current language for visibility check
+            const translatedSeriesName = translateSeriesName(series.name);
+            
             // Check if any key in datasetVisibility contains this series name and has a true value
             return Object.entries(cfg.datasetVisibility).some(([key, isVisible]) => {
-                return key.includes(series.name) && isVisible;
+                return key.includes(translatedSeriesName) && isVisible;
             });
         });
 
