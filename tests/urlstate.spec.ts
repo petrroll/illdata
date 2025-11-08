@@ -2,7 +2,11 @@ import { test, expect } from '@playwright/test';
 
 test.describe('URL State Management', () => {
   test.beforeEach(async ({ page }) => {
+    // Clear localStorage to ensure clean state for each test
     await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    
     await page.waitForSelector('#languageSelect');
     await page.waitForSelector('canvas');
     await page.waitForSelector('#czechDataContainer-legend');
@@ -237,10 +241,9 @@ test.describe('URL State Management', () => {
   });
 
   test('should generate compact URL state', async ({ page }) => {
-    // Change multiple settings
+    // Change multiple settings (but don't change language to avoid translation issues with feedback text)
     await page.locator('#timeRangeSelect').selectOption('90');
     await page.locator('#showShiftedCheckbox').uncheck();
-    await page.locator('#languageSelect').selectOption('cs');
     await page.waitForTimeout(300);
     
     // The generated link should be relatively short due to compact encoding

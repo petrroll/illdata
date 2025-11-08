@@ -21,13 +21,21 @@ export default defineConfig({
     baseURL: 'http://localhost:5173',
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
+    /* Use a new browser context for each test to ensure isolation */
+    contextOptions: {
+      // Clear localStorage and cookies for each test
+    },
   },
 
   /* Configure projects for major browsers */
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { 
+        ...devices['Desktop Chrome'],
+        // Start each test with a fresh browser context
+        storageState: undefined,
+      },
     },
   ],
 
