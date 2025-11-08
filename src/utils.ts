@@ -164,11 +164,18 @@ export function getNewWithSifterToAlignExtremeDates(
         );
     }
 
+    // Helper function to find extremes that match a series by base name
+    function findMatchingExtremes(series: DataSeries): ExtremeSeries[] {
+        const seriesBaseName = getColorBaseSeriesName(series.name);
+        return extremeSeries.filter(extreme => {
+            const extremeBaseName = getColorBaseSeriesName(extreme.originalSeriesName);
+            return extremeBaseName === seriesBaseName;
+        });
+    }
+
     // Calculate all shifts and how many extra dates are needed
     const allShifts = data.series.flatMap(series =>
-        extremeSeries
-            .filter(extreme => extreme.originalSeriesName === series.name)
-            .map(getShift)
+        findMatchingExtremes(series).map(getShift)
     );
     const negativeShifts = allShifts.filter(s => s < 0);
     const extraCount = includeFutureDates && negativeShifts.length > 0
@@ -179,20 +186,19 @@ export function getNewWithSifterToAlignExtremeDates(
     const newDates = includeFutureDates ? extendDatesIfNeeded(data.dates, extraCount, freqDays) : data.dates;
 
     function buildShiftedSeries(series: DataSeries): DataSeries[] {
-        const shifts = extremeSeries
-            .filter(extreme => extreme.originalSeriesName === series.name)
-            .map(extreme => {
-                const shiftByIndexes = getShift(extreme);
-                const extraLength = includeFutureDates ? extraCount : 0;
-                const length = series.values.length + extraLength;
+        const matchingExtremes = findMatchingExtremes(series);
+        const shifts = matchingExtremes.map(extreme => {
+            const shiftByIndexes = getShift(extreme);
+            const extraLength = includeFutureDates ? extraCount : 0;
+            const length = series.values.length + extraLength;
 
-                return createShiftedSeries(series, {
-                    name: `${series.name} shifted by ${extremeIndexShiftTo - extremeIndexShiftFrom} wave ${shiftByIndexes * series.frequencyInDays}d`,
-                    shiftByIndexes,
-                    length,
-                    includeCountry: true
-                });
+            return createShiftedSeries(series, {
+                name: `${series.name} shifted by ${extremeIndexShiftTo - extremeIndexShiftFrom} wave ${shiftByIndexes * series.frequencyInDays}d`,
+                shiftByIndexes,
+                length,
+                includeCountry: true
             });
+        });
         const base = buildBaseSeries(series, includeFutureDates ? extraCount : 0);
         return shifts.length > 0 ? [...shifts, base] : [base];
     }
