@@ -268,8 +268,12 @@ function updateAllUITexts() {
     if (pageTitle) pageTitle.textContent = t.pageTitle;
     
     // Update footer
-    const footerAboutLink = document.getElementById("footerAboutLink");
-    if (footerAboutLink) footerAboutLink.textContent = t.footerAbout;
+    const footerAboutLink = document.getElementById("footerAboutLink") as HTMLAnchorElement;
+    if (footerAboutLink) {
+        footerAboutLink.textContent = t.footerAbout;
+        // Update href to point to correct language version
+        footerAboutLink.href = currentLanguage === 'cs' ? 'about-cs.html' : 'about.html';
+    }
     
     const footerGithubLink = document.getElementById("footerGithubLink");
     if (footerGithubLink) footerGithubLink.textContent = t.footerGithub;
@@ -319,8 +323,12 @@ if (languageSelect) {
         currentLanguage = newLang;
         translations = getTranslations(newLang);
         
-        // Update all UI texts and re-render
+        // Update all UI texts
         updateAllUITexts();
+        
+        // Update chart titles and re-render charts with translated labels
+        // Note: We call renderPage to regenerate charts with translated series names
+        // This does reset visibility, which is a known limitation when switching languages
         renderPage(container);
     });
 }
@@ -956,12 +964,34 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         if (cfg.datasetVisibility[seriesName] === undefined) {
             // Check if we have visibility state for the base series name (from a different shift)
             const baseName = getBaseSeriesName(seriesName);
-            const previousVisibility = Object.keys(cfg.datasetVisibility).find(key => {
+            let previousVisibility = Object.keys(cfg.datasetVisibility).find(key => {
                 return getBaseSeriesName(key) === baseName;
             });
             
+            // If no previous visibility found and we're using non-English language,
+            // try to find visibility for the English version of this series name
+            if (previousVisibility === undefined && currentLanguage !== 'en') {
+                // Try to find an English version by translating to English then back
+                // This is a heuristic: look for series with similar structure
+                // For now, check if there's any stored visibility that matches the pattern
+                const pattern = baseName
+                    .replace(/pozitivita/i, 'Positivity')
+                    .replace(/Antigenní/i, 'Antigen')
+                    .replace(/Chřipka/i, 'Influenza')
+                    .replace(/odpadní vody/i, 'Wastewater')
+                    .replace(/posunuto/i, 'shifted')
+                    .replace(/prům\./i, 'avg')
+                    .replace(/negativní testy/i, 'Negative Tests')
+                    .replace(/pozitivní testy/i, 'Positive Tests');
+                
+                previousVisibility = Object.keys(cfg.datasetVisibility).find(key => {
+                    const keyBase = getBaseSeriesName(key);
+                    return keyBase === pattern || pattern.includes(keyBase) || keyBase.includes(pattern);
+                });
+            }
+            
             if (previousVisibility !== undefined) {
-                // Preserve visibility from previous shift of the same series
+                // Preserve visibility from previous shift of the same series or English equivalent
                 cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[previousVisibility];
             } else {
                 // No previous state, use default
