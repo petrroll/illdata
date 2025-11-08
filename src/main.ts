@@ -1635,9 +1635,10 @@ function getVisibilityDefault(label: string, showShifted: boolean = true, showTe
         return false;
     }
     
-    // Show/hide shifted datasets based on setting (default: shown)
+    // Shifted series should be hidden by default (though the toggle remains ON)
+    // This allows them to be toggled in the legend but starts them as disabled
     if (isShifted) {
-        return showShifted;
+        return false;
     }
 
     // Show/hide test number bar charts based on setting (default: shown)
