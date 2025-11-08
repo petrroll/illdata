@@ -5,7 +5,7 @@ import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: 
 
 import { Chart, Legend } from 'chart.js/auto';
 import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, datapointToPercentage, compareLabels, getColorBaseSeriesName } from "./utils";
-import { getLanguage, setLanguage, getTranslations, translateSeriesName, type Language } from "./locales";
+import { getLanguage, setLanguage, getTranslations, translateSeriesName, normalizeSeriesName, type Language } from "./locales";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -952,62 +952,50 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const allDatasetsWithExtremes = [...datasets, ...barDatasets, ...localExtremeDatasets];
     const validSeriesNames = new Set<string>(allDatasetsWithExtremes.map(ds => ds.label));
     
+    // Normalize all series names to English for storage
+    const normalizedValidNames = new Set<string>();
+    const displayToNormalizedMap = new Map<string, string>();
+    validSeriesNames.forEach(seriesName => {
+        const normalized = normalizeSeriesName(seriesName);
+        normalizedValidNames.add(normalized);
+        displayToNormalizedMap.set(seriesName, normalized);
+    });
+    
     // Build a map of base series names to current series names for preserving visibility
     const baseToCurrentSeriesMap = new Map<string, string>();
-    validSeriesNames.forEach(seriesName => {
-        const baseName = getBaseSeriesName(seriesName);
-        baseToCurrentSeriesMap.set(baseName, seriesName);
+    normalizedValidNames.forEach(normalizedName => {
+        const baseName = getBaseSeriesName(normalizedName);
+        baseToCurrentSeriesMap.set(baseName, normalizedName);
     });
     
     // Initialize visibility for new series, checking both exact name and base name for previous state
-    validSeriesNames.forEach(seriesName => {
-        if (cfg.datasetVisibility[seriesName] === undefined) {
+    // Always use normalized (English) names for storage
+    normalizedValidNames.forEach(normalizedName => {
+        if (cfg.datasetVisibility[normalizedName] === undefined) {
             // Check if we have visibility state for the base series name (from a different shift)
-            const baseName = getBaseSeriesName(seriesName);
-            let previousVisibility = Object.keys(cfg.datasetVisibility).find(key => {
+            const baseName = getBaseSeriesName(normalizedName);
+            const previousVisibility = Object.keys(cfg.datasetVisibility).find(key => {
                 return getBaseSeriesName(key) === baseName;
             });
             
-            // If no previous visibility found and we're using non-English language,
-            // try to find visibility for the English version of this series name
-            if (previousVisibility === undefined && currentLanguage !== 'en') {
-                // Try to find an English version by translating to English then back
-                // This is a heuristic: look for series with similar structure
-                // For now, check if there's any stored visibility that matches the pattern
-                const pattern = baseName
-                    .replace(/pozitivita/i, 'Positivity')
-                    .replace(/Antigenní/i, 'Antigen')
-                    .replace(/Chřipka/i, 'Influenza')
-                    .replace(/odpadní vody/i, 'Wastewater')
-                    .replace(/posunuto/i, 'shifted')
-                    .replace(/prům\./i, 'avg')
-                    .replace(/negativní testy/i, 'Negative Tests')
-                    .replace(/pozitivní testy/i, 'Positive Tests');
-                
-                previousVisibility = Object.keys(cfg.datasetVisibility).find(key => {
-                    const keyBase = getBaseSeriesName(key);
-                    return keyBase === pattern || pattern.includes(keyBase) || keyBase.includes(pattern);
-                });
-            }
-            
             if (previousVisibility !== undefined) {
-                // Preserve visibility from previous shift of the same series or English equivalent
-                cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[previousVisibility];
+                // Preserve visibility from previous shift of the same series
+                cfg.datasetVisibility[normalizedName] = cfg.datasetVisibility[previousVisibility];
             } else {
                 // No previous state, use default
-                cfg.datasetVisibility[seriesName] = getVisibilityDefault(seriesName, showShifted, showTestNumbers, showShiftedTestNumbers);
+                cfg.datasetVisibility[normalizedName] = getVisibilityDefault(normalizedName, showShifted, showTestNumbers, showShiftedTestNumbers);
             }
         }
     });
     
     // Clean up visibility state for series that no longer exist
     // This prevents localStorage from growing indefinitely with old shift values
-    Object.keys(cfg.datasetVisibility).forEach(seriesName => {
-        if (!validSeriesNames.has(seriesName)) {
+    Object.keys(cfg.datasetVisibility).forEach(storedName => {
+        if (!normalizedValidNames.has(storedName)) {
             // Remove entries that are not in the current valid series list
             // The visibility state has already been transferred to new series above
-            console.log(`Removing visibility for non-existing series: ${seriesName}`);
-            delete cfg.datasetVisibility[seriesName];
+            console.log(`Removing visibility for non-existing series: ${storedName}`);
+            delete cfg.datasetVisibility[storedName];
         }
     });
     localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
@@ -1017,7 +1005,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     }
     const allVisibleDatasets = [...datasets, ...barDatasets];
     allVisibleDatasets.forEach(dataset => {
-        dataset.hidden = !cfg.datasetVisibility[dataset.label];
+        // Normalize the label to English for looking up visibility
+        const normalizedLabel = normalizeSeriesName(dataset.label);
+        dataset.hidden = !cfg.datasetVisibility[normalizedLabel];
     });
 
     const newChart = new Chart(cfg.canvas as HTMLCanvasElement, {
@@ -1226,11 +1216,13 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
         // Add click handler for toggling visibility
         legendItem.addEventListener('click', () => {
             const datasetLabel = dataset.label || `Dataset ${index}`;
-            const currentlyHidden = !cfg.datasetVisibility[datasetLabel];
+            // Normalize to English for storage
+            const normalizedLabel = normalizeSeriesName(datasetLabel);
+            const currentlyHidden = !cfg.datasetVisibility[normalizedLabel];
             const newVisibility = currentlyHidden;
             
-            // Update visibility state first
-            cfg.datasetVisibility[datasetLabel] = newVisibility;
+            // Update visibility state first (store with normalized name)
+            cfg.datasetVisibility[normalizedLabel] = newVisibility;
             localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
             
             // Update chart metadata and dataset
@@ -1575,12 +1567,13 @@ function updateRatioTable() {
                 }
             }
             
-            // Translate the series name to current language for visibility check
-            const translatedSeriesName = translateSeriesName(series.name);
+            // Normalize the series name to English for visibility check
+            // Raw data series names are in English, so normalize them for consistency
+            const normalizedSeriesName = normalizeSeriesName(series.name);
             
             // Check if any key in datasetVisibility contains this series name and has a true value
             return Object.entries(cfg.datasetVisibility).some(([key, isVisible]) => {
-                return key.includes(translatedSeriesName) && isVisible;
+                return key.includes(normalizedSeriesName) && isVisible;
             });
         });
 

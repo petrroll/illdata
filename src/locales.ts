@@ -584,3 +584,48 @@ export function translateSeriesName(seriesName: string, lang?: Language): string
     return translated + avgSuffix + shiftSuffix + testSuffix;
 }
 
+/**
+ * Normalizes a series name to its English base form for storage purposes.
+ * This ensures visibility settings are stored with language-independent keys.
+ * 
+ * @param seriesName - The series name in any language
+ * @returns Series name normalized to English
+ */
+export function normalizeSeriesName(seriesName: string): string {
+    // If it's already in English format (contains English keywords), return as is
+    if (seriesName.includes('Positivity') || seriesName.includes('Wastewater')) {
+        return seriesName;
+    }
+    
+    // Otherwise, translate Czech back to English
+    let normalized = seriesName;
+    
+    // 1. Reverse test type suffixes
+    normalized = normalized
+        .replace(/ - pozitivní testy/g, ' - Positive Tests')
+        .replace(/ - negativní testy/g, ' - Negative Tests');
+    
+    // 2. Reverse shift information
+    normalized = normalized
+        .replace(/ posunuto o (\d+) (vlna|vlny) (-?\d+)d/g, ' shifted by $1 wave $3d');
+    
+    // 3. Reverse averaging suffix
+    normalized = normalized.replace(/ \((\d+)d prům\.\)/g, ' ($1d avg)');
+    
+    // 4. Reverse base series name translations
+    normalized = normalized
+        .replace(/PCR pozitivita/g, 'PCR Positivity')
+        .replace(/Antigenní pozitivita/g, 'Antigen Positivity')
+        .replace(/antigenní pozitivita/g, 'Antigen Positivity')
+        .replace(/Chřipka pozitivita/g, 'Influenza Positivity')
+        .replace(/chřipka pozitivita/g, 'Influenza Positivity')
+        .replace(/RSV pozitivita/g, 'RSV Positivity')
+        .replace(/SARS-CoV-2 pozitivita/g, 'SARS-CoV-2 Positivity')
+        .replace(/Chřipka odpadní vody/g, 'Influenza Wastewater')
+        .replace(/chřipka odpadní vody/g, 'Influenza Wastewater')
+        .replace(/RSV odpadní vody/g, 'RSV Wastewater')
+        .replace(/SARS-CoV-2 odpadní vody/g, 'SARS-CoV-2 Wastewater');
+    
+    return normalized;
+}
+
