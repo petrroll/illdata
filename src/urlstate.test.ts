@@ -39,6 +39,7 @@ interface UrlState {
     countryFilters: {
         [key: string]: string;
     };
+    language?: string; // Optional for backward compatibility
 }
 
 interface ChartConfig {
@@ -59,12 +60,22 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
     alignByExtreme: 'maxima'
 };
 
+// Mock language functions for testing
+function getLanguage(): string {
+    return mockLocalStorage.getItem('illmeter-language') || 'en';
+}
+
+function setLanguage(lang: string): void {
+    mockLocalStorage.setItem('illmeter-language', lang);
+}
+
 // Implementation functions for testing
 function encodeUrlState(appSettings: AppSettings, chartConfigs: ChartConfig[], countryFilters: Map<string, string>): string {
     const state: UrlState = {
         settings: appSettings,
         visibility: {},
-        countryFilters: {}
+        countryFilters: {},
+        language: getLanguage() // Include current language in shared link
     };
     
     // Collect visibility state from all charts
@@ -322,5 +333,43 @@ describe('URL State Management Tests', () => {
         
         expect(decoded).not.toBeNull();
         expect(decoded!.settings.shiftOverride).toBeNull();
+    });
+
+    test('encodes and decodes language correctly', () => {
+        const settings = DEFAULT_APP_SETTINGS;
+        const chartConfigs: ChartConfig[] = [];
+        const countryFilters = new Map<string, string>();
+        
+        // Set language to Czech in localStorage
+        mockLocalStorage.setItem('illmeter-language', 'cs');
+        
+        const encoded = encodeUrlState(settings, chartConfigs, countryFilters);
+        const decoded = decodeUrlState(encoded);
+        
+        expect(decoded).not.toBeNull();
+        expect(decoded!.language).toBe('cs');
+        
+        // Test with English
+        mockLocalStorage.setItem('illmeter-language', 'en');
+        const encodedEn = encodeUrlState(settings, chartConfigs, countryFilters);
+        const decodedEn = decodeUrlState(encodedEn);
+        
+        expect(decodedEn).not.toBeNull();
+        expect(decodedEn!.language).toBe('en');
+    });
+
+    test('handles missing language for backward compatibility', () => {
+        // Create a state without language field (old version)
+        const oldState = {
+            settings: DEFAULT_APP_SETTINGS,
+            visibility: {},
+            countryFilters: {}
+        };
+        
+        const encoded = btoa(JSON.stringify(oldState));
+        const decoded = decodeUrlState(encoded);
+        
+        expect(decoded).not.toBeNull();
+        expect(decoded!.language).toBeUndefined();
     });
 });

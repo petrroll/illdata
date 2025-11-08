@@ -124,13 +124,15 @@ interface UrlState {
     countryFilters: {
         [key: string]: string;
     };
+    language?: string; // Optional for backward compatibility
 }
 
 function encodeUrlState(appSettings: AppSettings, chartConfigs: ChartConfig[], countryFilters: Map<string, string>): string {
     const state: UrlState = {
         settings: appSettings,
         visibility: {},
-        countryFilters: {}
+        countryFilters: {},
+        language: getLanguage() // Include current language in shared link
     };
     
     // Collect visibility state from all charts
@@ -173,6 +175,11 @@ function loadStateFromUrl(): UrlState | null {
 }
 
 function applyUrlState(state: UrlState, chartConfigs: ChartConfig[]): { appSettings: AppSettings, countryFilters: Map<string, string> } {
+    // Apply language if present in state and valid
+    if (state.language && (state.language === 'en' || state.language === 'cs')) {
+        setLanguage(state.language as Language);
+    }
+    
     // Apply settings
     const appSettings = { ...DEFAULT_APP_SETTINGS, ...state.settings };
     saveAppSettings(appSettings);
