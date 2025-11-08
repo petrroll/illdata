@@ -876,7 +876,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             // Return both dates
                             return [
                                 `Date: ${currentDate}`,
-                                `Original: ${originalDateString} (${shiftDays > 0 ? '+' : ''}${shiftDays}d)`
+                                `Shifted Original: ${originalDateString} (${shiftDays > 0 ? '+' : ''}${shiftDays}d)`
                             ];
                         }
                     }
