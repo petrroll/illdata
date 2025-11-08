@@ -105,7 +105,65 @@ export interface Translations {
     aboutSourceCodeDescription: string;
     aboutDisclaimerTitle: string;
     aboutDisclaimerText: string;
+    
+    // Series name components (for translation)
+    seriesPositivity: string;
+    seriesPcr: string;
+    seriesAntigen: string;
+    seriesInfluenza: string;
+    seriesRsv: string;
+    seriesSarsCov2: string;
+    seriesWastewater: string;
+    seriesAvgSuffix: string;  // e.g., "28d avg"
+    seriesShiftedBy: string;  // "shifted by"
+    seriesWave: string;  // "wave"
+    seriesWaves: string;  // "waves"
+    seriesPositiveTests: string;  // "Positive Tests"
+    seriesNegativeTests: string;  // "Negative Tests"
 }
+
+// Series name translation mapping
+interface SeriesNameMap {
+    [key: string]: {
+        en: string;
+        cs: string;
+    };
+}
+
+const seriesNameMap: SeriesNameMap = {
+    'PCR Positivity': {
+        en: 'PCR Positivity',
+        cs: 'PCR pozitivita'
+    },
+    'Antigen Positivity': {
+        en: 'Antigen Positivity',
+        cs: 'Antigenní pozitivita'
+    },
+    'Influenza Positivity': {
+        en: 'Influenza Positivity',
+        cs: 'Chřipka pozitivita'
+    },
+    'RSV Positivity': {
+        en: 'RSV Positivity',
+        cs: 'RSV pozitivita'
+    },
+    'SARS-CoV-2 Positivity': {
+        en: 'SARS-CoV-2 Positivity',
+        cs: 'SARS-CoV-2 pozitivita'
+    },
+    'Influenza Wastewater': {
+        en: 'Influenza Wastewater',
+        cs: 'Chřipka odpadní vody'
+    },
+    'RSV Wastewater': {
+        en: 'RSV Wastewater',
+        cs: 'RSV odpadní vody'
+    },
+    'SARS-CoV-2 Wastewater': {
+        en: 'SARS-CoV-2 Wastewater',
+        cs: 'SARS-CoV-2 odpadní vody'
+    }
+};
 
 const en: Translations = {
     // Page titles
@@ -239,7 +297,22 @@ const en: Translations = {
     aboutSourceCodeTitle: 'Source Code',
     aboutSourceCodeDescription: 'illmeter is open source and available on GitHub. Contributions and feedback are welcome!',
     aboutDisclaimerTitle: 'Disclaimer:',
-    aboutDisclaimerText: 'This dashboard is provided for informational purposes only. The data is sourced from official public health repositories. Always refer to official health authorities for public health guidance and decisions.'
+    aboutDisclaimerText: 'This dashboard is provided for informational purposes only. The data is sourced from official public health repositories. Always refer to official health authorities for public health guidance and decisions.',
+    
+    // Series name components
+    seriesPositivity: 'Positivity',
+    seriesPcr: 'PCR',
+    seriesAntigen: 'Antigen',
+    seriesInfluenza: 'Influenza',
+    seriesRsv: 'RSV',
+    seriesSarsCov2: 'SARS-CoV-2',
+    seriesWastewater: 'Wastewater',
+    seriesAvgSuffix: 'd avg',
+    seriesShiftedBy: 'shifted by',
+    seriesWave: 'wave',
+    seriesWaves: 'waves',
+    seriesPositiveTests: 'Positive Tests',
+    seriesNegativeTests: 'Negative Tests'
 };
 
 const cs: Translations = {
@@ -374,7 +447,22 @@ const cs: Translations = {
     aboutSourceCodeTitle: 'Zdrojový kód',
     aboutSourceCodeDescription: 'illmeter je open source a dostupný na GitHubu. Příspěvky a zpětná vazba jsou vítány!',
     aboutDisclaimerTitle: 'Upozornění:',
-    aboutDisclaimerText: 'Tento dashboard je poskytován pouze pro informační účely. Data pocházejí z oficiálních veřejných zdravotních úložišť. Vždy se obracejte na oficiální zdravotnické orgány pro pokyny a rozhodnutí týkající se veřejného zdraví.'
+    aboutDisclaimerText: 'Tento dashboard je poskytován pouze pro informační účely. Data pocházejí z oficiálních veřejných zdravotních úložišť. Vždy se obracejte na oficiální zdravotnické orgány pro pokyny a rozhodnutí týkající se veřejného zdraví.',
+    
+    // Series name components
+    seriesPositivity: 'pozitivita',
+    seriesPcr: 'PCR',
+    seriesAntigen: 'antigenní',
+    seriesInfluenza: 'chřipka',
+    seriesRsv: 'RSV',
+    seriesSarsCov2: 'SARS-CoV-2',
+    seriesWastewater: 'odpadní vody',
+    seriesAvgSuffix: 'd prům.',
+    seriesShiftedBy: 'posunuto o',
+    seriesWave: 'vlna',
+    seriesWaves: 'vlny',
+    seriesPositiveTests: 'pozitivní testy',
+    seriesNegativeTests: 'negativní testy'
 };
 
 // Language management
@@ -404,3 +492,92 @@ export function getTranslations(lang?: Language): Translations {
     const currentLang = lang || getLanguage();
     return currentLang === 'cs' ? cs : en;
 }
+
+/**
+ * Translates a series name from English to the specified language.
+ * Handles complex series names including:
+ * - Base series names (e.g., "PCR Positivity")
+ * - Averaged series (e.g., "PCR Positivity (28d avg)")
+ * - Shifted series (e.g., "PCR Positivity shifted by 1 wave -347d")
+ * - Test numbers (e.g., "PCR Positivity - Positive Tests")
+ * 
+ * @param seriesName - The series name in English
+ * @param lang - Target language (optional, uses current language if not specified)
+ * @returns Translated series name
+ */
+export function translateSeriesName(seriesName: string, lang?: Language): string {
+    const currentLang = lang || getLanguage();
+    
+    // If English, return as is
+    if (currentLang === 'en') {
+        return seriesName;
+    }
+    
+    const t = getTranslations(currentLang);
+    let translated = seriesName;
+    
+    // Extract components from the series name
+    // Pattern: "BaseName (Xd avg) shifted by Y wave Zd - Test Type"
+    
+    // 1. Extract and translate test type suffix (- Positive/Negative Tests)
+    let testSuffix = '';
+    if (translated.includes(' - Positive Tests')) {
+        testSuffix = ` - ${t.seriesPositiveTests}`;
+        translated = translated.replace(' - Positive Tests', '');
+    } else if (translated.includes(' - Negative Tests')) {
+        testSuffix = ` - ${t.seriesNegativeTests}`;
+        translated = translated.replace(' - Negative Tests', '');
+    }
+    
+    // 2. Extract and translate shift information
+    let shiftSuffix = '';
+    const shiftPatternWave = / shifted by (\d+) (wave|waves) (-?\d+)d/;
+    const shiftPatternDays = / shifted by (-?\d+)d/;
+    
+    const waveMatch = translated.match(shiftPatternWave);
+    if (waveMatch) {
+        const [full, count, waveWord, days] = waveMatch;
+        const translatedWave = count === '1' ? t.seriesWave : t.seriesWaves;
+        shiftSuffix = ` ${t.seriesShiftedBy} ${count} ${translatedWave} ${days}d`;
+        translated = translated.replace(full, '');
+    } else {
+        const daysMatch = translated.match(shiftPatternDays);
+        if (daysMatch) {
+            const [full, days] = daysMatch;
+            shiftSuffix = ` ${t.seriesShiftedBy} ${days}d`;
+            translated = translated.replace(full, '');
+        }
+    }
+    
+    // 3. Extract and translate averaging suffix (Xd avg)
+    let avgSuffix = '';
+    const avgPattern = / \((\d+)d avg\)/;
+    const avgMatch = translated.match(avgPattern);
+    if (avgMatch) {
+        const [full, days] = avgMatch;
+        avgSuffix = ` (${days}${t.seriesAvgSuffix})`;
+        translated = translated.replace(full, '');
+    }
+    
+    // 4. Translate the base series name
+    // Check if we have a direct mapping
+    if (seriesNameMap[translated]) {
+        translated = seriesNameMap[translated][currentLang];
+    } else {
+        // If no direct mapping, try to construct from components
+        // This handles any edge cases or new series
+        translated = translated
+            .replace(/PCR Positivity/g, `PCR ${t.seriesPositivity}`)
+            .replace(/Antigen Positivity/g, `${t.seriesAntigen} ${t.seriesPositivity}`)
+            .replace(/Influenza Positivity/g, `${t.seriesInfluenza} ${t.seriesPositivity}`)
+            .replace(/RSV Positivity/g, `${t.seriesRsv} ${t.seriesPositivity}`)
+            .replace(/SARS-CoV-2 Positivity/g, `${t.seriesSarsCov2} ${t.seriesPositivity}`)
+            .replace(/Influenza Wastewater/g, `${t.seriesInfluenza} ${t.seriesWastewater}`)
+            .replace(/RSV Wastewater/g, `${t.seriesRsv} ${t.seriesWastewater}`)
+            .replace(/SARS-CoV-2 Wastewater/g, `${t.seriesSarsCov2} ${t.seriesWastewater}`);
+    }
+    
+    // 5. Reconstruct the full series name
+    return translated + avgSuffix + shiftSuffix + testSuffix;
+}
+

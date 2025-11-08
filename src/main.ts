@@ -5,7 +5,7 @@ import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: 
 
 import { Chart, Legend } from 'chart.js/auto';
 import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, datapointToPercentage, compareLabels, getColorBaseSeriesName } from "./utils";
-import { getLanguage, setLanguage, getTranslations, type Language } from "./locales";
+import { getLanguage, setLanguage, getTranslations, translateSeriesName, type Language } from "./locales";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -1182,7 +1182,7 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
         const borderDash = isShifted ? SHIFTED_LINE_DASH_PATTERN : undefined;
         
         return {
-            label: series.name,
+            label: translateSeriesName(series.name),
             data: chartData,
             borderColor: borderColor,
             borderDash: borderDash,
@@ -1310,7 +1310,7 @@ function generateTestNumberBarDatasets(
 
         return [
             {
-                label: `${series.name} - Positive Tests`,
+                label: translateSeriesName(`${series.name} - Positive Tests`),
                 data: positiveData,
                 backgroundColor: positiveColor,
                 borderColor: positiveColor,
@@ -1320,7 +1320,7 @@ function generateTestNumberBarDatasets(
                 hidden: false,
             },
             {
-                label: `${series.name} - Negative Tests`,
+                label: translateSeriesName(`${series.name} - Negative Tests`),
                 data: negativeData,
                 backgroundColor: negativeColor,
                 borderColor: negativeColor,
@@ -1338,7 +1338,7 @@ function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData:
     return extremeData.flat().map(extrSeries => {
         const originalSeries = normalData.series.find(series => series.name === extrSeries.originalSeriesName);
         return {
-            label: extrSeries.name,
+            label: translateSeriesName(extrSeries.name),
             data: extrSeries.indices.map(index => {
                 let yValue: number;
                 if (originalSeries && 'dataType' in originalSeries && originalSeries.dataType === 'scalar') {
@@ -1441,7 +1441,8 @@ function updateRatioTable() {
         const ratios = calculateRatios(cfg.data, seriesNames);
         ratios.forEach(ratio => {
             const daysSinceLastData = (new Date().getTime() - (ratio.lastDataDate ?? new Date()).getTime()) / (1000 * 60 * 60 * 24);
-            ratio.seriesName =  `${ratio.seriesName} - ${cfg.shortTitle} (last: -${Math.ceil(daysSinceLastData)}d)`; 
+            const translatedSeriesName = translateSeriesName(ratio.seriesName);
+            ratio.seriesName =  `${translatedSeriesName} - ${cfg.shortTitle} (last: -${Math.ceil(daysSinceLastData)}d)`; 
         });
         allRatios.push(...ratios);
     });
