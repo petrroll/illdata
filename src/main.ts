@@ -1002,22 +1002,31 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
 
     // Filter shifted series based on showShifted setting
     if (!showShifted) {
-        datasets = datasets.filter(ds => !ds.label.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER));
+        datasets = datasets.filter(ds => {
+            // Normalize to English for consistent identifier matching across languages
+            const normalizedLabel = normalizeSeriesName(ds.label).toLowerCase();
+            return !normalizedLabel.includes(SHIFTED_SERIES_IDENTIFIER);
+        });
     }
 
     // Filter test number series based on showTestNumbers setting
     if (!showTestNumbers) {
-        barDatasets = barDatasets.filter(ds => !ds.label.toLowerCase().includes(TEST_NUMBERS_IDENTIFIER));
+        barDatasets = barDatasets.filter(ds => {
+            // Normalize to English for consistent identifier matching across languages
+            const normalizedLabel = normalizeSeriesName(ds.label).toLowerCase();
+            return !normalizedLabel.includes(TEST_NUMBERS_IDENTIFIER);
+        });
     }
 
     // Filter shifted test number series based on showShiftedTestNumbers setting
     // Only apply if the general filters haven't already removed them
     if (!showShiftedTestNumbers) {
         barDatasets = barDatasets.filter(ds => {
-            const label = ds.label.toLowerCase();
+            // Normalize to English for consistent identifier matching across languages
+            const normalizedLabel = normalizeSeriesName(ds.label).toLowerCase();
             // Filter out datasets that are both test numbers AND shifted
-            const isTestNumber = label.includes(TEST_NUMBERS_IDENTIFIER);
-            const isShifted = label.includes(SHIFTED_SERIES_IDENTIFIER);
+            const isTestNumber = normalizedLabel.includes(TEST_NUMBERS_IDENTIFIER);
+            const isShifted = normalizedLabel.includes(SHIFTED_SERIES_IDENTIFIER);
             // Keep if not both test number and shifted
             return !(isTestNumber && isShifted);
         });
@@ -1131,7 +1140,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             // Check if any visible shifted series exist
                             const hasVisibleShiftedSeries = context.some(item => {
                                 const label = item.dataset.label || '';
-                                const isShifted = label.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER);
+                                // Normalize to English for consistent identifier matching across languages
+                                const normalizedLabel = normalizeSeriesName(label).toLowerCase();
+                                const isShifted = normalizedLabel.includes(SHIFTED_SERIES_IDENTIFIER);
                                 const isVisible = !item.dataset.hidden;
                                 return isShifted && isVisible;
                             });
@@ -1146,7 +1157,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             let shiftDays: number | null = null;
                             for (const item of context) {
                                 const label = item.dataset.label || '';
-                                if (label.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER)) {
+                                // Normalize to English for consistent identifier matching across languages
+                                const normalizedLabel = normalizeSeriesName(label).toLowerCase();
+                                if (normalizedLabel.includes(SHIFTED_SERIES_IDENTIFIER)) {
                                     const shiftInfo = extractShiftFromLabel(label);
                                     if (shiftInfo !== null) {
                                         shiftDays = shiftInfo;
@@ -1774,9 +1787,12 @@ function updateRatioTable() {
  * - "Influenza Positivity (28d avg)" -> "Influenza Positivity (28d avg)" (unchanged, no shift info)
  */
 function getBaseSeriesName(label: string): string {
+    // Normalize to English first for consistent identifier matching across languages
+    const normalizedLabel = normalizeSeriesName(label);
+    
     // Only process if the label contains the shifted series identifier
     // This prevents collision with non-shifted series
-    if (!label.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER)) {
+    if (!normalizedLabel.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER)) {
         return label;
     }
     
@@ -1793,7 +1809,9 @@ function getBaseSeriesName(label: string): string {
 }
 
 function getVisibilityDefault(label: string, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false): boolean {
-    const lowerLabel = label.toLowerCase();
+    // Normalize to English for consistent identifier matching across languages
+    const normalizedLabel = normalizeSeriesName(label);
+    const lowerLabel = normalizedLabel.toLowerCase();
     
     // Hide min/max datasets by default
     if (MIN_MAX_IDENTIFIER.some(id => lowerLabel.includes(id))) {
