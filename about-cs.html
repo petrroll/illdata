@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>O aplikaci - illmeter</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+        color: #333;
+      }
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        background-color: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-bottom: 80px;
+      }
+      h1 {
+        color: #2c3e50;
+        border-bottom: 3px solid #3498db;
+        padding-bottom: 10px;
+      }
+      h2 {
+        color: #34495e;
+        margin-top: 30px;
+        border-bottom: 1px solid #e0e0e0;
+        padding-bottom: 5px;
+      }
+      h3 {
+        color: #555;
+        margin-top: 20px;
+      }
+      a {
+        color: #3498db;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      ul {
+        margin: 10px 0;
+        padding-left: 25px;
+      }
+      li {
+        margin: 8px 0;
+      }
+      .data-source {
+        background-color: #f8f9fa;
+        padding: 15px;
+        margin: 15px 0;
+        border-left: 4px solid #3498db;
+        border-radius: 4px;
+      }
+      .data-source h3 {
+        margin-top: 0;
+        color: #2c3e50;
+      }
+      .series-type {
+        background-color: #e8f5e9;
+        padding: 10px 15px;
+        margin: 10px 0;
+        border-radius: 4px;
+      }
+      .series-type strong {
+        color: #2e7d32;
+      }
+      footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 10px;
+        text-align: center;
+        font-size: 0.9em;
+        border-top: 1px solid #eee;
+      }
+      footer a {
+        color: #666;
+        text-decoration: none;
+      }
+      footer a:hover {
+        text-decoration: underline;
+      }
+      .back-link {
+        display: inline-block;
+        margin-bottom: 20px;
+        padding: 8px 16px;
+        background-color: #3498db;
+        color: white !important;
+        border-radius: 4px;
+        text-decoration: none;
+      }
+      .back-link:hover {
+        background-color: #2980b9;
+        text-decoration: none;
+      }
+      code {
+        background-color: #f4f4f4;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: 'Courier New', monospace;
+      }
+      #languageSwitcher {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+        background: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      #languageSwitcher select {
+        border: 1px solid #ddd;
+        padding: 4px 8px;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="languageSwitcher">
+      <select id="languageSelect">
+        <option value="en">English</option>
+        <option value="cs" selected>Čeština</option>
+      </select>
+    </div>
+    <div class="container">
+      <a href="index.html" class="back-link">← Zpět na dashboard</a>
+      
+      <h1>O aplikaci illmeter</h1>
+      
+      <p>
+        illmeter je dashboard pro vizualizaci dat, který zkoumá míru pozitivity nemocí napříč Evropou—s primárním zaměřením na Česko. Poskytuje jednotné místo pro sledování trendů COVID-19 a respiračních virů prostřednictvím pozitivity testů a sledování odpadních vod.
+      </p>
+
+      <h2>Zdroje dat</h2>
+      
+      <p>Tento dashboard agreguje data z více autoritativních zdrojů:</p>
+
+      <div class="data-source">
+        <h3>Česká data COVID (MZČR)</h3>
+        <p><strong>Source:</strong> Ministerstvo zdravotnictví České republiky</p>
+        <p><strong>Data Type:</strong> Pozitivita testů COVID-19 (PCR a antigenní testy)</p>
+        <p><strong>Frequency:</strong> Denně</p>
+        <p><strong>Link:</strong> <a href="https://onemocneni-aktualne.mzcr.cz/api/v2/covid-19" target="_blank">MZČR COVID-19 API</a></p>
+        <p><strong>What it shows:</strong> Denní výsledky PCR a antigenních testů na COVID-19 v Česku, včetně celkového počtu provedených testů a pozitivních výsledků.</p>
+      </div>
+
+      <div class="data-source">
+        <h3>Respirační viry EU ECDC (ERV-IS)</h3>
+        <p><strong>Source:</strong> Evropské centrum pro prevenci a kontrolu nemocí</p>
+        <p><strong>Data Type:</strong> Data ze sentinelového sledování pro více respiračních virů (COVID-19, chřipka, RSV)</p>
+        <p><strong>Frequency:</strong> Týdně</p>
+        <p><strong>Link:</strong> <a href="https://github.com/EU-ECDC/Respiratory_viruses_weekly_data" target="_blank">ECDC týdenní data o respiračních virech</a></p>
+        <p><strong>What it shows:</strong> Agregované míry pozitivity napříč zeměmi EU/EEA a individuální data zemí pro různé respirační patogeny.</p>
+        <p><strong>Note on Sentinel Data:</strong> Sentinelové sledování využívá síť vybraných poskytovatelů zdravotní péče (jako jsou konkrétní kliniky a laboratoře) k systematickému monitorování trendů nemocí. Na rozdíl od komplexního testování všech případů, sentinelová místa hlásí data z reprezentativního vzorku populace, poskytující včasná varování a trendové indikátory pro aktivitu respiračních nemocí napříč regiony.</p>
+      </div>
+
+      <div class="data-source">
+        <h3>Sledování odpadních vod v Německu (AMELAG)</h3>
+        <p><strong>Source:</strong> Institut Roberta Kocha</p>
+        <p><strong>Data Type:</strong> Virová nálož SARS-CoV-2 v odpadních vodách</p>
+        <p><strong>Frequency:</strong> Denně</p>
+        <p><strong>Link:</strong> <a href="https://github.com/robert-koch-institut/Abwassersurveillance_AMELAG" target="_blank">RKI Abwassersurveillance AMELAG</a></p>
+        <p><strong>What it shows:</strong> Normalizovaná měření virové nálože ze vzorků odpadních vod napříč Německem, poskytující včasný varovný indikátor pro trendy COVID-19.</p>
+      </div>
+
+      <h2>Porozumění datovým sériím</h2>
+
+      <p>Dashboard prezentuje data v několika různých formátech, které vám pomohou porozumět trendům:</p>
+
+      <div class="series-type">
+        <p><strong>Surové série:</strong> Přímá data ze zdroje bez jakéhokoli zpracování. Zobrazují skutečné denní hodnoty, jak byly hlášeny. Mohou být zašuměné a vykazovat vysokou variabilitu.</p>
+      </div>
+
+      <div class="series-type">
+        <p><strong>Zprůměrované série (např. \"28d prům.\"):</strong> Klouzavý průměr vypočítaný přes specifikované okno (typicky 28 dní). To vyhlazuje denní fluktuace a usnadňuje vidět celkové trendy.</p>
+      </div>
+
+      <div class="series-type">
+        <p><strong>Posunuté série:</strong> Časově posunuté verze datových sérií, které umožňují porovnat aktuální trendy s minulými vlnami. Posun může být:
+          <ul>
+            <li><strong>Po dnech:</strong> Manuální posun o specifikovaný počet dní zpět nebo vpřed</li>
+            <li><strong>Po maximech/minimech:</strong> Automatické zarovnání založené na vrcholech vln nebo propadech pro přímé porovnání vln</li>
+          </ul>
+        </p>
+      </div>
+
+      <div class="series-type">
+        <p><strong>Počty testů:</strong> Sloupcové grafy zobrazující skutečný počet provedených testů (rozdělené na pozitivní a negativní). Dostupné pro surová data o pozitivitě pro poskytnutí kontextu k mírám pozitivity.</p>
+      </div>
+
+      <div class="series-type">
+        <p><strong>Série Min/Max:</strong> Body označující lokální minima a maxima v datech, užitečné pro identifikaci vrcholů a propadů vln.</p>
+      </div>
+
+      <h2>Klíčové rozdíly mezi typy dat</h2>
+
+      <h3>Data o pozitivitě vs. data z odpadních vod</h3>
+      <ul>
+        <li><strong>Data o pozitivitě:</strong> Zobrazují procento testů, které jsou pozitivní. Závisí na testovacím chování a politikách. Hodnoty jsou zobrazeny jako procenta.</li>
+        <li><strong>Data z odpadních vod:</strong> Měří virovou RNA v odpadních vodách. Nezávislé na testovacím chování, poskytuje populační úroveň sledování. Hodnoty jsou zobrazeny jako normalizovaná virová nálož (vědecká notace).</li>
+      </ul>
+
+      <h3>Země-specifická vs. agregovaná data</h3>
+      <ul>
+        <li><strong>Česká MZČR:</strong> Specifické pouze pro Českou republiku</li>
+        <li><strong>EU ECDC:</strong> Nabízí jak agregovaná data EU/EEA, tak individuální data zemí (použijte výběr země)</li>
+        <li><strong>Německé odpadní vody:</strong> Specifické pouze pro Německo</li>
+      </ul>
+
+      <h2>Jak používat dashboard</h2>
+
+      <h3>Základní ovládací prvky</h3>
+      <ul>
+        <li><strong>Výběr časového rozsahu:</strong> Vyberte, jak daleko zpět zobrazit data (30 dní až celá historie)</li>
+        <li><strong>Zahrnout budoucí data:</strong> Zobrazit nebo skrýt projektovaná/budoucí datové body (zobrazené šedě)</li>
+        <li><strong>Výběr země (data EU):</strong> Filtrujte data EU podle konkrétní země nebo zobrazte agregovaná data EU/EEA</li>
+      </ul>
+
+      <h3>Viditelnost sérií</h3>
+      <ul>
+        <li><strong>Položky legendy:</strong> Klikněte na jakýkoli barevný název série pod grafem pro zobrazení/skrytí této série</li>
+        <li><strong>Tlačítko Skrýt všechny série:</strong> Rychle skryjte všechny série napříč všemi grafy a začněte znovu</li>
+        <li><strong>Zobrazit posunuté série:</strong> Přepínat viditelnost časově posunutých srovnávacích sérií</li>
+        <li><strong>Zobrazit počty testů:</strong> Přepínat sloupcové grafy zobrazující objemy testů</li>
+        <li><strong>Zobrazit série Min/Max:</strong> Přepínat značky pro vrcholy vln a propady</li>
+      </ul>
+
+      <h3>Pokročilé funkce</h3>
+      <ul>
+        <li><strong>Ovládací prvky posunu:</strong> 
+          <ul>
+            <li>Vyberte \"Dny\" pro manuální posun o konkrétní počet dní</li>
+            <li>Vyberte \"Maxima\" nebo \"Minima\" pro automatické zarovnání vln na základě vrcholů nebo propadů</li>
+            <li>Číselný vstup specifikuje buď dny k posunu, nebo kterou vlnu porovnat (1 = nejnovější vlna, 2 = druhá vlna zpět, atd.)</li>
+          </ul>
+        </li>
+        <li><strong>Tabulka aktuálních trendů:</strong> Zobrazuje 7denní a 28denní trendové poměry (aktuální období vs. předchozí období) pro viditelné série</li>
+        <li><strong>Interaktivní nápovědy:</strong> Najeďte myší na jakýkoli graf pro zobrazení podrobných hodnot pro toto datum napříč všemi viditelnými sériemi</li>
+      </ul>
+
+      <h3>Čtení grafů</h3>
+      <ul>
+        <li><strong>Levá osa Y:</strong> Procento pozitivity nebo virová nálož (v závislosti na typu dat)</li>
+        <li><strong>Pravá osa Y:</strong> Počet testů (když jsou viditelné sloupcové testy)</li>
+        <li><strong>Osa X:</strong> Datum (budoucí data zobrazena šedě)</li>
+        <li><strong>Plné čáry:</strong> Původní časové série</li>
+        <li><strong>Čárkované čáry:</strong> Časově posunuté srovnávací série</li>
+      </ul>
+
+      <h2>Tipy pro analýzu</h2>
+      <ul>
+        <li>Používejte zprůměrované série (28d) pro identifikaci celkových trendů bez denního šumu</li>
+        <li>Porovnejte posunuté série s aktuálními daty, abyste viděli, zda se vzorce opakují</li>
+        <li>Sledujte data z odpadních vod jako včasný indikátor—často předchází pozitivitě testů o několik dní</li>
+        <li>Kontrolujte počty testů spolu s pozitivitou, abyste pochopili, zda změny jsou způsobeny objemem testování</li>
+        <li>Používejte tabulku trendů pro rychlé posouzení, zda metriky stoupají nebo klesají</li>
+      </ul>
+
+      <h2>Technické detaily</h2>
+      <ul>
+        <li><strong>Zpracování dat:</strong> Surová data jsou získávána ze zdrojů a zpracovávána denně</li>
+        <li><strong>Klouzavé průměry:</strong> Centrované klouzavé průměry pro vyhlazení trendů</li>
+        <li><strong>Lokální úložiště:</strong> Vaše preference (viditelnost sérií, časový rozsah, atd.) jsou uloženy ve vašem prohlížeči</li>
+        <li><strong>Aktualizace:</strong> Data jsou aktualizována během buildů; zkontrolujte čas poslední aktualizace v patičce</li>
+      </ul>
+
+      <h2>Zdrojový kód</h2>
+      <p>
+        illmeter je open source a dostupný na <a href="https://github.com/petrroll/illdata" target="_blank">GitHubu</a>. 
+        Příspěvky a zpětná vazba jsou vítány!
+      </p>
+
+      <p style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e0e0e0; color: #666; font-size: 0.9em;">
+        <strong>Upozornění:</strong> Tento dashboard je poskytován pouze pro informační účely. 
+        Data pocházejí z oficiálních veřejných zdravotních úložišť. Vždy se obracejte na oficiální zdravotnické orgány pro pokyny a rozhodnutí týkající se veřejného zdraví.
+      </p>
+    </div>
+
+    <footer>
+      <span>
+        <a href="index.html">Zpět na dashboard</a>
+      </span>
+      <span> | </span>
+      <span>
+        <a href="https://github.com/petrroll/illdata" target="_blank">Zobrazit na GitHubu</a>
+      </span>
+    </footer>
+    
+    <script>
+      // Handle language switching
+      document.getElementById('languageSelect').addEventListener('change', function(e) {
+        const lang = e.target.value;
+        try {
+          localStorage.setItem('illmeter-language', lang);
+        } catch (error) {
+          console.error('Error saving language preference:', error);
+        }
+        
+        if (lang === 'en') {
+          window.location.href = 'about.html';
+        }
+      });
+    </script>
+  </body>
+</html>
