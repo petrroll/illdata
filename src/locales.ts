@@ -174,7 +174,7 @@ const en: Translations = {
     // Footer
     footerAbout: 'About',
     footerGithub: 'View on GitHub',
-    footerGetLink: 'Get Link',
+    footerGetLink: 'Share Link',
     footerLastUpdate: 'Last data update:',
     
     // Main controls
@@ -325,7 +325,7 @@ const cs: Translations = {
     // Footer
     footerAbout: 'O aplikaci',
     footerGithub: 'Zobrazit na GitHubu',
-    footerGetLink: 'Získat odkaz',
+    footerGetLink: 'Sdílet odkaz',
     footerLastUpdate: 'Poslední aktualizace dat:',
     
     // Main controls
