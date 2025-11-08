@@ -469,7 +469,7 @@ const cs: Translations = {
 };
 
 // Language management
-const LANGUAGE_KEY = 'selectedLanguage';
+const LANGUAGE_KEY = 'illmeter-language';  // Changed to match about pages
 
 export function getLanguage(): Language {
     try {
