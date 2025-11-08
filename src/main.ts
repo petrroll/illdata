@@ -1072,11 +1072,28 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
             
             if (previousVisibility !== undefined) {
                 // Preserve visibility from previous shift of the same series
-                cfg.datasetVisibility[normalizedName] = cfg.datasetVisibility[previousVisibility];
+                // BUT: Always respect current filter settings - defaultState tells us what filters allow
+                const previousState = cfg.datasetVisibility[previousVisibility];
+                const defaultState = getVisibilityDefault(normalizedName, showShifted, showTestNumbers, showShiftedTestNumbers);
+                // If filters say it should be hidden (defaultState is false), hide it regardless of previous state
+                // If filters allow it (defaultState is true), preserve the previous user choice
+                cfg.datasetVisibility[normalizedName] = defaultState === false ? false : previousState;
             } else {
                 // No previous state, use default
                 cfg.datasetVisibility[normalizedName] = getVisibilityDefault(normalizedName, showShifted, showTestNumbers, showShiftedTestNumbers);
             }
+        }
+        
+        // Also initialize visibility for test number bar variations (Positive Tests / Negative Tests)
+        // These are created dynamically from positivity series but need their own visibility entries
+        const positiveTestsName = `${normalizedName} - Positive Tests`;
+        const negativeTestsName = `${normalizedName} - Negative Tests`;
+        
+        if (cfg.datasetVisibility[positiveTestsName] === undefined) {
+            cfg.datasetVisibility[positiveTestsName] = getVisibilityDefault(positiveTestsName, showShifted, showTestNumbers, showShiftedTestNumbers);
+        }
+        if (cfg.datasetVisibility[negativeTestsName] === undefined) {
+            cfg.datasetVisibility[negativeTestsName] = getVisibilityDefault(negativeTestsName, showShifted, showTestNumbers, showShiftedTestNumbers);
         }
     });
     
@@ -1825,14 +1842,17 @@ function getBaseSeriesName(label: string): string {
     }
     
     // Normalize ALL shifted series to the same base name pattern "shifted"
-    // This works across both wave-based shifts and custom day shifts
+    // This works across both wave-based shifts, custom day shifts, and maxima/minima alignment
     // Pattern matches:
     // - "shifted by X wave(s) -XXXd" or "shifted by X wave(s) XXXd" (wave-based)
     // - "shifted by -XXXd" or "shifted by XXXd" (custom days)
+    // - "maxima over XXXd" or "minima over XXXd" (extreme alignment modes)
     // And normalizes to just "shifted" to enable cross-mode visibility preservation
     return label
         .replace(/ shifted by \d+ waves? -?\d+d/, ' shifted')
         .replace(/ shifted by -?\d+d/, ' shifted')
+        .replace(/ maxima over \d+d/, ' shifted')
+        .replace(/ minima over \d+d/, ' shifted')
         .trim();
 }
 
@@ -1849,8 +1869,15 @@ function getVisibilityDefault(label: string, showShifted: boolean = true, showTe
     const isShifted = lowerLabel.includes(SHIFTED_SERIES_IDENTIFIER);
     const isTestNumber = lowerLabel.includes(TEST_NUMBERS_IDENTIFIER);
     
+    // Check if this is a test positivity series (PCR/Antigen/Influenza/RSV/SARS-CoV-2 Positivity)
+    // These are conceptually test numbers even though they don't have "tests" in the name
+    const isTestPositivitySeries = lowerLabel.includes('positivity');
+    
+    // Treat shifted test positivity series as shifted test numbers for filtering
+    const isShiftedTestNumberSeries = isShifted && (isTestNumber || isTestPositivitySeries);
+    
     // Hide shifted test numbers if the setting is false
-    if (isShifted && isTestNumber && !showShiftedTestNumbers) {
+    if (isShiftedTestNumberSeries && !showShiftedTestNumbers) {
         return false;
     }
     
