@@ -16,10 +16,10 @@ test.describe('Shift and Alignment Controls', () => {
     const options = alignSelect.locator('option');
     await expect(options).toHaveCount(3);
     
-    // Verify option values
-    await expect(alignSelect.locator('option[value="days"]')).toBeVisible();
-    await expect(alignSelect.locator('option[value="maxima"]')).toBeVisible();
-    await expect(alignSelect.locator('option[value="minima"]')).toBeVisible();
+    // Verify option values exist in the select
+    await expect(alignSelect.locator('option[value="days"]')).toHaveCount(1);
+    await expect(alignSelect.locator('option[value="maxima"]')).toHaveCount(1);
+    await expect(alignSelect.locator('option[value="minima"]')).toHaveCount(1);
   });
 
   test('should default to maxima alignment mode', async ({ page }) => {

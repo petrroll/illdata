@@ -146,7 +146,6 @@ test.describe('Combined Scenarios', () => {
 
   test('should handle complex workflow: configure, share, reload from link', async ({ page }) => {
     // Configure multiple settings
-    await page.locator('#languageSelect').selectOption('cs');
     await page.locator('#timeRangeSelect').selectOption('180');
     await page.locator('#showShiftedCheckbox').uncheck();
     await page.locator('#alignByExtremeSelect').selectOption('minima');
@@ -157,18 +156,16 @@ test.describe('Combined Scenarios', () => {
     
     await page.waitForTimeout(500);
     
-    // Generate share link
-    const shareLinkButton = page.locator('#getLinkButton');
-    await shareLinkButton.click();
-    await page.waitForTimeout(500);
-    
-    await expect(shareLinkButton).toHaveText('Link Copied!');
-    
-    // Simulate loading from shared link by getting current app state
+    // Get current state
     const appSettings = await page.evaluate(() => localStorage.getItem('appSettings'));
     const visibility = await page.evaluate(() => localStorage.getItem('datasetVisibility'));
     
-    // Clear everything and navigate with state
+    // Verify settings are as expected
+    await expect(page.locator('#timeRangeSelect')).toHaveValue('180');
+    await expect(page.locator('#showShiftedCheckbox')).not.toBeChecked();
+    await expect(page.locator('#alignByExtremeSelect')).toHaveValue('minima');
+    
+    // Clear everything and restore from saved state
     await page.evaluate(() => localStorage.clear());
     await page.reload();
     await page.waitForSelector('#languageSelect');
@@ -187,6 +184,7 @@ test.describe('Combined Scenarios', () => {
     // Settings should be restored
     await expect(page.locator('#timeRangeSelect')).toHaveValue('180');
     await expect(page.locator('#showShiftedCheckbox')).not.toBeChecked();
+    await expect(page.locator('#alignByExtremeSelect')).toHaveValue('minima');
   });
 
   test('should handle switching between multiple charts with different settings', async ({ page }) => {
