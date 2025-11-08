@@ -1001,7 +1001,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const paletteMap = createStablePaletteMapping(data.series, colorPalettes.length);
 
     let datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, paletteMap);
-    let barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, paletteMap);
+    let barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, paletteMap, showShifted, showShiftedTestNumbers);
 
     // Filter shifted series based on showShifted setting
     if (!showShifted) {
@@ -1533,12 +1533,37 @@ function generateTestNumberBarDatasets(
     data: TimeseriesData, 
     startIdx: number, 
     endIdx: number, 
-    paletteMap: Map<string, number>
+    paletteMap: Map<string, number>,
+    showShifted: boolean,
+    showShiftedTestNumbers: boolean
 ) {
     // Only generate bar charts for raw positivity series (not averaged, not scalar)
-    const rawPositivitySeriesWithIndices = sortedSeriesWithIndices.filter(({ series }) => 
+    let rawPositivitySeriesWithIndices = sortedSeriesWithIndices.filter(({ series }) => 
         series.type === 'raw' && 'dataType' in series && series.dataType === 'positivity'
     );
+    
+    // Filter out shifted series if showShifted is false or showShiftedTestNumbers is false
+    // We need to check the series name BEFORE creating test number datasets
+    if (!showShifted || !showShiftedTestNumbers) {
+        rawPositivitySeriesWithIndices = rawPositivitySeriesWithIndices.filter(({ series }) => {
+            // Normalize series name to English for consistent checking
+            const normalizedName = normalizeSeriesName(series.name).toLowerCase();
+            const isShifted = normalizedName.includes(SHIFTED_SERIES_IDENTIFIER);
+            
+            // If shifted series are completely disabled, filter out all shifted series
+            if (!showShifted && isShifted) {
+                return false;
+            }
+            
+            // If shifted test numbers are disabled (but regular shifted might be ok),
+            // filter out shifted series since they will become test number bars
+            if (!showShiftedTestNumbers && isShifted) {
+                return false;
+            }
+            
+            return true;
+        });
+    }
     
     return rawPositivitySeriesWithIndices.flatMap(({ series, originalIndex }, sortedIndex) => {
         // Use stable palette mapping based on base series name
