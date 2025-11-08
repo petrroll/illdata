@@ -21,6 +21,8 @@ export default defineConfig({
     baseURL: 'http://localhost:5173',
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
+    /* Grant clipboard permissions for testing share link functionality */
+    permissions: ['clipboard-read', 'clipboard-write'],
     /* Use a new browser context for each test to ensure isolation */
     contextOptions: {
       // Clear localStorage and cookies for each test
