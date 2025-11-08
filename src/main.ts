@@ -572,6 +572,40 @@ function getSortedSeriesWithIndices(series: DataSeries[]): { series: DataSeries,
     return seriesWithIndices;
 }
 
+/**
+ * Extracts the shift amount in days from a series label.
+ * 
+ * Handles two label formats:
+ * 1. Wave-based shifts: "... shifted by X wave -347d" or "... shifted by X wave 347d"
+ * 2. Custom day shifts: "... shifted by -180d" or "... shifted by 180d"
+ * 
+ * @param label - The series label that may contain shift information
+ * @returns The shift amount in days, or null if no shift information found
+ * 
+ * Examples:
+ * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> -347
+ * - "PCR Positivity (28d avg) shifted by 1 wave 347d" -> 347
+ * - "PCR Positivity (28d avg) shifted by -180d" -> -180
+ * - "PCR Positivity (28d avg)" -> null
+ */
+function extractShiftFromLabel(label: string): number | null {
+    // Pattern 1: Wave-based shift: "shifted by X wave(s) -347d" or "shifted by X wave(s) 347d"
+    const wavePattern = /shifted by \d+ waves? (-?\d+)d/;
+    const waveMatch = label.match(wavePattern);
+    if (waveMatch) {
+        return parseInt(waveMatch[1], 10);
+    }
+    
+    // Pattern 2: Custom day shift: "shifted by -180d" or "shifted by 180d"
+    const dayPattern = /shifted by (-?\d+)d/;
+    const dayMatch = label.match(dayPattern);
+    if (dayMatch) {
+        return parseInt(dayMatch[1], 10);
+    }
+    
+    return null;
+}
+
 function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima', countryFilter?: string) {
     // Destroy existing chart if it exists
     if (cfg.chartHolder.chart) {
@@ -791,6 +825,58 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     mode: 'index', // Snap tooltip to vertical line
                     intersect: false,
                     axis: 'x',
+                    callbacks: {
+                        title: function(context) {
+                            if (context.length === 0) return '';
+                            
+                            // Get the current date being hovered over
+                            const currentDate = context[0].label;
+                            
+                            // Check if any visible shifted series exist
+                            const hasVisibleShiftedSeries = context.some(item => {
+                                const label = item.dataset.label || '';
+                                const isShifted = label.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER);
+                                const isVisible = !item.dataset.hidden;
+                                return isShifted && isVisible;
+                            });
+                            
+                            if (!hasVisibleShiftedSeries) {
+                                // No shifted series visible, show only current date
+                                return currentDate;
+                            }
+                            
+                            // Find the shift amount from any shifted series
+                            // All shifted series in the same chart should have the same shift
+                            let shiftDays: number | null = null;
+                            for (const item of context) {
+                                const label = item.dataset.label || '';
+                                if (label.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER)) {
+                                    const shiftInfo = extractShiftFromLabel(label);
+                                    if (shiftInfo !== null) {
+                                        shiftDays = shiftInfo;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if (shiftDays === null) {
+                                // Couldn't extract shift, show only current date
+                                return currentDate;
+                            }
+                            
+                            // Calculate the original date
+                            const date = new Date(currentDate);
+                            const originalDate = new Date(date);
+                            originalDate.setDate(originalDate.getDate() - shiftDays);
+                            const originalDateString = originalDate.toISOString().split('T')[0];
+                            
+                            // Return both dates
+                            return [
+                                `Date: ${currentDate}`,
+                                `Original: ${originalDateString} (${shiftDays > 0 ? '+' : ''}${shiftDays}d)`
+                            ];
+                        }
+                    }
                 },
             },
             scales: {
