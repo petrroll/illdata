@@ -5,6 +5,7 @@ import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: 
 
 import { Chart, Legend } from 'chart.js/auto';
 import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, datapointToPercentage, compareLabels, getColorBaseSeriesName } from "./utils";
+import { getLanguage, setLanguage, getTranslations, type Language } from "./locales";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -177,7 +178,66 @@ const chartConfigs : ChartConfig[] = [
     }
 ];
 
+// Function to update all static UI texts based on current language
+function updateAllUITexts() {
+    const t = translations;
+    
+    // Update page title
+    const pageTitle = document.getElementById("pageTitle");
+    if (pageTitle) pageTitle.textContent = t.pageTitle;
+    
+    // Update footer
+    const footerAboutLink = document.getElementById("footerAboutLink");
+    if (footerAboutLink) footerAboutLink.textContent = t.footerAbout;
+    
+    const footerGithubLink = document.getElementById("footerGithubLink");
+    if (footerGithubLink) footerGithubLink.textContent = t.footerGithub;
+    
+    const footerLastUpdateLabel = document.getElementById("footerLastUpdateLabel");
+    if (footerLastUpdateLabel) footerLastUpdateLabel.textContent = t.footerLastUpdate;
+    
+    // Update trends table title
+    const trendsTableTitle = document.getElementById("trendsTableTitle");
+    if (trendsTableTitle) trendsTableTitle.textContent = t.trendsTableTitle;
+    
+    const trendPeriodHeader = document.getElementById("trendPeriodHeader");
+    if (trendPeriodHeader) trendPeriodHeader.textContent = t.trendsTablePeriodLabel;
+    
+    // Update hide all button
+    const hideAllButton = document.getElementById("hideAllButton");
+    if (hideAllButton) hideAllButton.textContent = t.hideAllButton;
+    
+    // Update chart titles (these will be updated when charts are re-rendered)
+    chartConfigs[0].title = t.chartTitleCzechCovid;
+    chartConfigs[1].title = t.chartTitleEuViruses;
+    chartConfigs[2].title = t.chartTitleDeWastewater;
+}
+
+// Initialize UI texts
+updateAllUITexts();
+
 const container = document.getElementById("root");
+
+// Initialize language system
+let currentLanguage = getLanguage();
+let translations = getTranslations(currentLanguage);
+
+// Set up language switcher
+const languageSelect = document.getElementById("languageSelect") as HTMLSelectElement;
+if (languageSelect) {
+    languageSelect.value = currentLanguage;
+    languageSelect.addEventListener('change', () => {
+        const newLang = languageSelect.value as Language;
+        setLanguage(newLang);
+        currentLanguage = newLang;
+        translations = getTranslations(newLang);
+        
+        // Update all UI texts and re-render
+        updateAllUITexts();
+        renderPage(container);
+    });
+}
+
 renderPage(container);
 
 // Unified settings control creation function
@@ -254,7 +314,7 @@ function createCountrySelector(cfg: ChartConfig, countryFilters: Map<string, str
     // Create label
     const label = document.createElement('label');
     label.htmlFor = `${cfg.containerId}-country-select`;
-    label.textContent = 'Country: ';
+    label.textContent = translations.countryLabel;
 
     // Create select element with minimal styling
     const select = document.createElement('select');
@@ -360,12 +420,12 @@ function renderPage(rootDiv: HTMLElement | null) {
         container: rootDiv,
         settingKey: 'timeRange',
         values: [
-            { value: "30", label: "Last Month" },
-            { value: "90", label: "Last 90 Days" },
-            { value: "180", label: "Last 180 Days" },
-            { value: "365", label: "Last Year" },
-            { value: `${365*2}`, label: "Last 2 Years" },
-            { value: "all", label: "All Time" },
+            { value: "30", label: translations.timeRangeLastMonth },
+            { value: "90", label: translations.timeRangeLast90Days },
+            { value: "180", label: translations.timeRangeLast180Days },
+            { value: "365", label: translations.timeRangeLastYear },
+            { value: `${365*2}`, label: translations.timeRangeLast2Years },
+            { value: "all", label: translations.timeRangeAllTime },
         ],
         settings: appSettings,
         onChange: onSettingsChange
@@ -374,7 +434,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     createUnifiedSettingsControl({
         type: 'checkbox',
         id: 'includeFutureCheckbox',
-        label: 'Include Future Data',
+        label: translations.includeFutureData,
         container: rootDiv,
         settingKey: 'includeFuture',
         settings: appSettings,
@@ -384,7 +444,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     createUnifiedSettingsControl({
         type: 'checkbox',
         id: 'showExtremesCheckbox',
-        label: 'Show Min/Max Series',
+        label: translations.showMinMaxSeries,
         container: rootDiv,
         settingKey: 'showExtremes',
         settings: appSettings,
@@ -394,7 +454,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     createUnifiedSettingsControl({
         type: 'checkbox',
         id: 'showShiftedCheckbox',
-        label: 'Show Shifted Series',
+        label: translations.showShiftedSeries,
         container: rootDiv,
         settingKey: 'showShifted',
         settings: appSettings,
@@ -404,7 +464,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     createUnifiedSettingsControl({
         type: 'checkbox',
         id: 'showTestNumbersCheckbox',
-        label: 'Show Test Numbers',
+        label: translations.showTestNumbers,
         container: rootDiv,
         settingKey: 'showTestNumbers',
         settings: appSettings,
@@ -414,7 +474,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     createUnifiedSettingsControl({
         type: 'checkbox',
         id: 'showShiftedTestNumbersCheckbox',
-        label: 'Show Shifted Test Numbers',
+        label: translations.showShiftedTestNumbers,
         container: rootDiv,
         settingKey: 'showShiftedTestNumbers',
         settings: appSettings,
@@ -432,7 +492,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     
     const shiftDaysLabel = document.createElement('label');
     shiftDaysLabel.htmlFor = 'shiftOverrideInput';
-    shiftDaysLabel.textContent = 'Shift By:';
+    shiftDaysLabel.textContent = translations.shiftBy;
     rootDiv.appendChild(shiftDaysLabel);
     rootDiv.appendChild(shiftDaysInput);
     
@@ -478,9 +538,9 @@ function renderPage(rootDiv: HTMLElement | null) {
         container: rootDiv,
         settingKey: 'alignByExtreme',
         values: [
-            { value: 'days', label: 'Days' },
-            { value: 'maxima', label: 'Maxima' },
-            { value: 'minima', label: 'Minima' }
+            { value: 'days', label: translations.shiftByDays },
+            { value: 'maxima', label: translations.shiftByMaxima },
+            { value: 'minima', label: translations.shiftByMinima }
         ],
         settings: appSettings,
         onChange: (key, value) => {
@@ -1368,7 +1428,7 @@ function updateRatioTable() {
     
     if (visiblePerChart.length === 0) {
         console.error('No visible main series found');
-        ratioTableBody.innerHTML = '<tr><td colspan="2" style="text-align: center; padding: 8px; border: 1px solid #ddd;">No main series visible</td></tr>';
+        ratioTableBody.innerHTML = `<tr><td colspan="2" style="text-align: center; padding: 8px; border: 1px solid #ddd;">${translations.trendsNoDataAvailable}</td></tr>`;
         return;
     }
     
@@ -1405,8 +1465,8 @@ function updateRatioTable() {
     
     // Create rows for 7-day and 28-day trends
     const trendPeriods = [
-        { label: '7d trend<br><small>(vs prior)</small>', getValue: (ratio: RatioData) => ratio.ratio7days },
-        { label: '28d trend<br><small>(vs prior)</small>', getValue: (ratio: RatioData) => ratio.ratio28days }
+        { label: `${translations.trendsPeriod7d}<br><small>${translations.trendsPeriod7dSub}</small>`, getValue: (ratio: RatioData) => ratio.ratio7days },
+        { label: `${translations.trendsPeriod28d}<br><small>${translations.trendsPeriod28dSub}</small>`, getValue: (ratio: RatioData) => ratio.ratio28days }
     ];
     
     trendPeriods.forEach(period => {

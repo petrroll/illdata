@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>illmeter</title>
+    <title id="pageTitle">illmeter</title>
     <style>
       footer {
         position: fixed;
@@ -37,16 +37,38 @@
       #root select, #root input[type="number"] {
         margin-right: 15px;
       }
+      #languageSwitcher {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+        background: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      #languageSwitcher select {
+        border: 1px solid #ddd;
+        padding: 4px 8px;
+        border-radius: 3px;
+        cursor: pointer;
+      }
     </style>
   </head>
   <body>
+    <div id="languageSwitcher">
+      <select id="languageSelect">
+        <option value="en">English</option>
+        <option value="cs">Čeština</option>
+      </select>
+    </div>
     <div id="root">
       <div id="ratioTableContainer">
-        <h3>Current Trends</h3>
+        <h3 id="trendsTableTitle">Current Trends</h3>
         <table id="ratioTable" style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <thead id="ratioTableHead">
             <tr style="background-color: #f5f5f5;">
-              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Trend Period</th>
+              <th id="trendPeriodHeader" style="border: 1px solid #ddd; padding: 8px; text-align: left;">Trend Period</th>
             </tr>
           </thead>
           <tbody id="ratioTableBody">
@@ -60,15 +82,15 @@
     </div>
     <footer>
       <span>
-        <a href="about.html">About</a>
+        <a href="about.html" id="footerAboutLink">About</a>
       </span>
       <span> | </span>
       <span>
-        <a href="https://github.com/petrroll/illdata" target="_blank">View on GitHub</a>
+        <a href="https://github.com/petrroll/illdata" target="_blank" id="footerGithubLink">View on GitHub</a>
       </span>
       <span> | </span>
       <span>
-        Last data update: <span id="lastUpdateTime">UNKNOWN</span>
+        <span id="footerLastUpdateLabel">Last data update:</span> <span id="lastUpdateTime">UNKNOWN</span>
       </span>
     </footer>
     <script src="https://cdnjs.com/libraries/Chart.js"></script>
