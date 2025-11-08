@@ -11,6 +11,7 @@ export interface Translations {
     // Footer
     footerAbout: string;
     footerGithub: string;
+    footerGetLink: string;
     footerLastUpdate: string;
     
     // Main controls
@@ -173,6 +174,7 @@ const en: Translations = {
     // Footer
     footerAbout: 'About',
     footerGithub: 'View on GitHub',
+    footerGetLink: 'Get Link',
     footerLastUpdate: 'Last data update:',
     
     // Main controls
@@ -323,6 +325,7 @@ const cs: Translations = {
     // Footer
     footerAbout: 'O aplikaci',
     footerGithub: 'Zobrazit na GitHubu',
+    footerGetLink: 'Získat odkaz',
     footerLastUpdate: 'Poslední aktualizace dat:',
     
     // Main controls

@@ -115,6 +115,87 @@ function migrateOldSettings(): void {
     }
 }
 
+// URL state management
+interface UrlState {
+    settings: AppSettings;
+    visibility: {
+        [key: string]: { [seriesName: string]: boolean };
+    };
+    countryFilters: {
+        [key: string]: string;
+    };
+}
+
+function encodeUrlState(appSettings: AppSettings, chartConfigs: ChartConfig[], countryFilters: Map<string, string>): string {
+    const state: UrlState = {
+        settings: appSettings,
+        visibility: {},
+        countryFilters: {}
+    };
+    
+    // Collect visibility state from all charts
+    chartConfigs.forEach(cfg => {
+        state.visibility[cfg.visibilityKey] = cfg.datasetVisibility;
+    });
+    
+    // Collect country filters
+    countryFilters.forEach((country, containerId) => {
+        const cfg = chartConfigs.find(c => c.containerId === containerId);
+        if (cfg && cfg.countryFilterKey) {
+            state.countryFilters[cfg.countryFilterKey] = country;
+        }
+    });
+    
+    // Encode state to base64 URL parameter
+    const jsonStr = JSON.stringify(state);
+    const base64 = btoa(jsonStr);
+    return base64;
+}
+
+function decodeUrlState(encoded: string): UrlState | null {
+    try {
+        const jsonStr = atob(encoded);
+        const state = JSON.parse(jsonStr) as UrlState;
+        return state;
+    } catch (error) {
+        console.error("Error decoding URL state:", error);
+        return null;
+    }
+}
+
+function loadStateFromUrl(): UrlState | null {
+    const params = new URLSearchParams(window.location.search);
+    const stateParam = params.get('state');
+    if (stateParam) {
+        return decodeUrlState(stateParam);
+    }
+    return null;
+}
+
+function applyUrlState(state: UrlState, chartConfigs: ChartConfig[]): { appSettings: AppSettings, countryFilters: Map<string, string> } {
+    // Apply settings
+    const appSettings = { ...DEFAULT_APP_SETTINGS, ...state.settings };
+    saveAppSettings(appSettings);
+    
+    // Apply visibility state
+    Object.entries(state.visibility).forEach(([visibilityKey, visibilityMap]) => {
+        localStorage.setItem(visibilityKey, JSON.stringify(visibilityMap));
+    });
+    
+    // Apply country filters
+    const countryFilters = new Map<string, string>();
+    Object.entries(state.countryFilters).forEach(([filterKey, country]) => {
+        localStorage.setItem(filterKey, country);
+        // Map back to container ID for the countryFilters map
+        const cfg = chartConfigs.find(c => c.countryFilterKey === filterKey);
+        if (cfg) {
+            countryFilters.set(cfg.containerId, country);
+        }
+    });
+    
+    return { appSettings, countryFilters };
+}
+
 // Dataset visibility keys (kept separate as recommended)
 const DATASET_VISIBILITY_KEY = "datasetVisibility";
 const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
@@ -192,6 +273,9 @@ function updateAllUITexts() {
     
     const footerGithubLink = document.getElementById("footerGithubLink");
     if (footerGithubLink) footerGithubLink.textContent = t.footerGithub;
+    
+    const footerGetLinkButton = document.getElementById("getLinkButton");
+    if (footerGetLinkButton) footerGetLinkButton.textContent = t.footerGetLink;
     
     const footerLastUpdateLabel = document.getElementById("footerLastUpdateLabel");
     if (footerLastUpdateLabel) footerLastUpdateLabel.textContent = t.footerLastUpdate;
@@ -362,8 +446,26 @@ function renderPage(rootDiv: HTMLElement | null) {
     // Migrate old settings if needed
     migrateOldSettings();
 
-    // Load unified settings
-    let appSettings = loadAppSettings();
+    // Check for URL state and apply it if present
+    const urlState = loadStateFromUrl();
+    let appSettings: AppSettings;
+    let countryFilters: Map<string, string>;
+    
+    if (urlState) {
+        // Apply state from URL
+        const applied = applyUrlState(urlState, chartConfigs);
+        appSettings = applied.appSettings;
+        countryFilters = applied.countryFilters;
+    } else {
+        // Load from localStorage
+        appSettings = loadAppSettings();
+        countryFilters = new Map<string, string>();
+        chartConfigs.forEach(cfg => {
+            if (cfg.hasCountryFilter && cfg.countryFilterKey) {
+                countryFilters.set(cfg.containerId, loadCountryFilter(cfg.countryFilterKey));
+            }
+        });
+    }
 
     // Update last update timestamp
     const lastUpdateSpan = document.getElementById("lastUpdateTime");
@@ -378,14 +480,6 @@ function renderPage(rootDiv: HTMLElement | null) {
     chartConfigs.forEach(cfg => {
         const canvas = createChartContainerAndCanvas(cfg.containerId, cfg.canvasId);
         cfg.canvas = canvas;
-    });
-
-    // Load country filters for charts that have them
-    const countryFilters = new Map<string, string>();
-    chartConfigs.forEach(cfg => {
-        if (cfg.hasCountryFilter && cfg.countryFilterKey) {
-            countryFilters.set(cfg.containerId, loadCountryFilter(cfg.countryFilterKey));
-        }
     });
 
     // Unified callback for settings changes
@@ -575,6 +669,44 @@ function renderPage(rootDiv: HTMLElement | null) {
     if (hideAllButton) {
         hideAllButton.addEventListener('click', () => hideAllSeries(() => onSettingsChange()));
     }
+    
+    // Create and attach "Get Link" functionality
+    createGetLinkButton(appSettings, chartConfigs, countryFilters);
+}
+
+function createGetLinkButton(appSettings: AppSettings, chartConfigs: ChartConfig[], countryFilters: Map<string, string>) {
+    const getLinkElement = document.getElementById('getLinkButton');
+    if (!getLinkElement) {
+        console.error("Get Link button not found");
+        return;
+    }
+    
+    getLinkElement.addEventListener('click', () => {
+        // Encode current state
+        const encoded = encodeUrlState(appSettings, chartConfigs, countryFilters);
+        
+        // Create URL with state parameter
+        const url = new URL(window.location.href);
+        url.search = ''; // Clear existing query params
+        url.searchParams.set('state', encoded);
+        
+        // Copy to clipboard
+        navigator.clipboard.writeText(url.toString()).then(() => {
+            // Show feedback to user
+            const originalText = getLinkElement.textContent;
+            getLinkElement.textContent = 'Link Copied!';
+            getLinkElement.style.color = '#2ca02c';
+            
+            setTimeout(() => {
+                getLinkElement.textContent = originalText;
+                getLinkElement.style.color = '';
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy link:', err);
+            // Fallback: show the link in an alert
+            alert('Copy this link:\n\n' + url.toString());
+        });
+    });
 }
 
 function createChartContainerAndCanvas(containerId: string, canvasId: string): HTMLCanvasElement | null {
