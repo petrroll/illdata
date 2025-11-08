@@ -4,19 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>About - illmeter</title>
-    <script>
-      // Redirect to language-specific page based on localStorage preference
-      (function() {
-        try {
-          const savedLang = localStorage.getItem('illmeter-language');
-          if (savedLang === 'cs' && window.location.pathname.endsWith('about.html')) {
-            window.location.replace('about-cs.html');
-          }
-        } catch (error) {
-          console.error('Error checking language preference:', error);
-        }
-      })();
-    </script>
     <style>
       body {
         font-family: Arial, sans-serif;

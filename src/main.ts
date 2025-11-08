@@ -5,6 +5,7 @@ import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: 
 
 import { Chart, Legend } from 'chart.js/auto';
 import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, datapointToPercentage, compareLabels, getColorBaseSeriesName } from "./utils";
+import { getLanguage, setLanguage, getTranslations, translateSeriesName, normalizeSeriesName, type Language } from "./locales";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -123,30 +124,43 @@ interface UrlState {
     countryFilters: {
         [key: string]: string;
     };
+    language?: string; // Optional for backward compatibility
 }
 
 function encodeUrlState(appSettings: AppSettings, chartConfigs: ChartConfig[], countryFilters: Map<string, string>): string {
-    const state: UrlState = {
-        settings: appSettings,
-        visibility: {},
-        countryFilters: {}
-    };
-    
-    // Collect visibility state from all charts
+    // Collect visibility state from all charts, storing only 'true' values to reduce size
+    const compactVisibility: { [key: string]: { [seriesName: string]: boolean } } = {};
     chartConfigs.forEach(cfg => {
-        state.visibility[cfg.visibilityKey] = cfg.datasetVisibility;
-    });
-    
-    // Collect country filters
-    countryFilters.forEach((country, containerId) => {
-        const cfg = chartConfigs.find(c => c.containerId === containerId);
-        if (cfg && cfg.countryFilterKey) {
-            state.countryFilters[cfg.countryFilterKey] = country;
+        const trueOnly: { [seriesName: string]: boolean } = {};
+        Object.entries(cfg.datasetVisibility).forEach(([seriesName, isVisible]) => {
+            if (isVisible === true) {
+                trueOnly[seriesName] = true;
+            }
+        });
+        if (Object.keys(trueOnly).length > 0) {
+            compactVisibility[cfg.visibilityKey] = trueOnly;
         }
     });
     
+    // Collect country filters
+    const compactCountryFilters: { [key: string]: string } = {};
+    countryFilters.forEach((country, containerId) => {
+        const cfg = chartConfigs.find(c => c.containerId === containerId);
+        if (cfg && cfg.countryFilterKey) {
+            compactCountryFilters[cfg.countryFilterKey] = country;
+        }
+    });
+    
+    // Use short keys to minimize URL length
+    const compactState = {
+        s: appSettings,
+        v: compactVisibility,
+        c: compactCountryFilters,
+        l: getLanguage() // Include current language in shared link
+    };
+    
     // Encode state to base64 URL parameter
-    const jsonStr = JSON.stringify(state);
+    const jsonStr = JSON.stringify(compactState);
     const base64 = btoa(jsonStr);
     return base64;
 }
@@ -154,7 +168,23 @@ function encodeUrlState(appSettings: AppSettings, chartConfigs: ChartConfig[], c
 function decodeUrlState(encoded: string): UrlState | null {
     try {
         const jsonStr = atob(encoded);
-        const state = JSON.parse(jsonStr) as UrlState;
+        const parsed = JSON.parse(jsonStr) as any;
+        
+        // Handle both compact format (new) and full format (old) for backward compatibility
+        let state: UrlState;
+        if ('s' in parsed || 'v' in parsed || 'c' in parsed || 'l' in parsed) {
+            // New compact format with short keys
+            state = {
+                settings: parsed.s || {},
+                visibility: parsed.v || {},
+                countryFilters: parsed.c || {},
+                language: parsed.l
+            };
+        } else {
+            // Old format with full keys
+            state = parsed as UrlState;
+        }
+        
         return state;
     } catch (error) {
         console.error("Error decoding URL state:", error);
@@ -172,13 +202,32 @@ function loadStateFromUrl(): UrlState | null {
 }
 
 function applyUrlState(state: UrlState, chartConfigs: ChartConfig[]): { appSettings: AppSettings, countryFilters: Map<string, string> } {
+    // Apply language if present in state and valid
+    if (state.language && (state.language === 'en' || state.language === 'cs')) {
+        setLanguage(state.language as Language);
+    }
+    
     // Apply settings
     const appSettings = { ...DEFAULT_APP_SETTINGS, ...state.settings };
     saveAppSettings(appSettings);
     
     // Apply visibility state
+    // Note: In new compact format, only 'true' values are stored, so missing series should default to false
     Object.entries(state.visibility).forEach(([visibilityKey, visibilityMap]) => {
-        localStorage.setItem(visibilityKey, JSON.stringify(visibilityMap));
+        // For each chart, get all series and set visibility based on the map
+        // Missing entries default to false (hidden)
+        const cfg = chartConfigs.find(c => c.visibilityKey === visibilityKey);
+        if (cfg) {
+            // Build complete visibility map with defaults
+            const completeVisibility: { [key: string]: boolean } = {};
+            Object.keys(cfg.datasetVisibility).forEach(seriesName => {
+                completeVisibility[seriesName] = visibilityMap[seriesName] === true;
+            });
+            localStorage.setItem(visibilityKey, JSON.stringify(completeVisibility));
+        } else {
+            // If chart not found, store as-is for compatibility
+            localStorage.setItem(visibilityKey, JSON.stringify(visibilityMap));
+        }
     });
     
     // Apply country filters
@@ -258,7 +307,80 @@ const chartConfigs : ChartConfig[] = [
     }
 ];
 
+// Function to update all static UI texts based on current language
+function updateAllUITexts() {
+    const t = translations;
+    
+    // Update page title
+    const pageTitle = document.getElementById("pageTitle");
+    if (pageTitle) pageTitle.textContent = t.pageTitle;
+    
+    // Update footer
+    const footerAboutLink = document.getElementById("footerAboutLink") as HTMLAnchorElement;
+    if (footerAboutLink) {
+        footerAboutLink.textContent = t.footerAbout;
+        // Update href to point to correct language version
+        footerAboutLink.href = currentLanguage === 'cs' ? 'about-cs.html' : 'about.html';
+    }
+    
+    const footerGithubLink = document.getElementById("footerGithubLink");
+    if (footerGithubLink) footerGithubLink.textContent = t.footerGithub;
+    
+    const footerGetLinkButton = document.getElementById("getLinkButton");
+    if (footerGetLinkButton) footerGetLinkButton.textContent = t.footerGetLink;
+    
+    const footerLastUpdateLabel = document.getElementById("footerLastUpdateLabel");
+    if (footerLastUpdateLabel) footerLastUpdateLabel.textContent = t.footerLastUpdate;
+    
+    // Update trends table title
+    const trendsTableTitle = document.getElementById("trendsTableTitle");
+    if (trendsTableTitle) trendsTableTitle.textContent = t.trendsTableTitle;
+    
+    const trendPeriodHeader = document.getElementById("trendPeriodHeader");
+    if (trendPeriodHeader) trendPeriodHeader.textContent = t.trendsTablePeriodLabel;
+    
+    // Update hide all button
+    const hideAllButton = document.getElementById("hideAllButton");
+    if (hideAllButton) hideAllButton.textContent = t.hideAllButton;
+    
+    // Update chart titles (these will be updated when charts are re-rendered)
+    chartConfigs[0].title = t.chartTitleCzechCovid;
+    chartConfigs[1].title = t.chartTitleEuViruses;
+    chartConfigs[2].title = t.chartTitleDeWastewater;
+}
+
+// Initialize UI texts
+// (moved after language initialization)
+
 const container = document.getElementById("root");
+
+// Initialize language system
+let currentLanguage = getLanguage();
+let translations = getTranslations(currentLanguage);
+
+// Now we can safely call updateAllUITexts
+updateAllUITexts();
+
+// Set up language switcher
+const languageSelect = document.getElementById("languageSelect") as HTMLSelectElement;
+if (languageSelect) {
+    languageSelect.value = currentLanguage;
+    languageSelect.addEventListener('change', () => {
+        const newLang = languageSelect.value as Language;
+        setLanguage(newLang);
+        currentLanguage = newLang;
+        translations = getTranslations(newLang);
+        
+        // Update all UI texts
+        updateAllUITexts();
+        
+        // Update chart titles and re-render charts with translated labels
+        // Note: We call renderPage to regenerate charts with translated series names
+        // This does reset visibility, which is a known limitation when switching languages
+        renderPage(container);
+    });
+}
+
 renderPage(container);
 
 // Unified settings control creation function
@@ -335,7 +457,7 @@ function createCountrySelector(cfg: ChartConfig, countryFilters: Map<string, str
     // Create label
     const label = document.createElement('label');
     label.htmlFor = `${cfg.containerId}-country-select`;
-    label.textContent = 'Country: ';
+    label.textContent = translations.countryLabel;
 
     // Create select element with minimal styling
     const select = document.createElement('select');
@@ -376,6 +498,38 @@ function renderPage(rootDiv: HTMLElement | null) {
         console.error("Root element not found.");
         return;
     }
+
+    // Clear dynamically created controls to prevent duplication when re-rendering
+    // Keep only: ratioTableContainer, chart containers, and hideAllButton
+    const elementsToKeep = [
+        'ratioTableContainer',
+        'czechDataContainer',
+        'euDataContainer',
+        'deWastewaterContainer',
+        'hideAllButton'
+    ];
+    
+    // Remove all child elements that are not in the keep list
+    Array.from(rootDiv.children).forEach(child => {
+        if (child.id && !elementsToKeep.includes(child.id)) {
+            child.remove();
+        } else if (!child.id) {
+            // Remove elements without IDs (labels, inputs created dynamically)
+            child.remove();
+        }
+    });
+    
+    // Also clear country selectors from chart containers (they have IDs like "euDataContainer-country-selector")
+    chartConfigs.forEach(cfg => {
+        const container = document.getElementById(cfg.containerId);
+        if (container) {
+            const selectorId = `${cfg.containerId}-country-selector`;
+            const existingSelector = document.getElementById(selectorId);
+            if (existingSelector) {
+                existingSelector.remove();
+            }
+        }
+    });
 
     // Migrate old settings if needed
     migrateOldSettings();
@@ -451,12 +605,12 @@ function renderPage(rootDiv: HTMLElement | null) {
         container: rootDiv,
         settingKey: 'timeRange',
         values: [
-            { value: "30", label: "Last Month" },
-            { value: "90", label: "Last 90 Days" },
-            { value: "180", label: "Last 180 Days" },
-            { value: "365", label: "Last Year" },
-            { value: `${365*2}`, label: "Last 2 Years" },
-            { value: "all", label: "All Time" },
+            { value: "30", label: translations.timeRangeLastMonth },
+            { value: "90", label: translations.timeRangeLast90Days },
+            { value: "180", label: translations.timeRangeLast180Days },
+            { value: "365", label: translations.timeRangeLastYear },
+            { value: `${365*2}`, label: translations.timeRangeLast2Years },
+            { value: "all", label: translations.timeRangeAllTime },
         ],
         settings: appSettings,
         onChange: onSettingsChange
@@ -465,7 +619,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     createUnifiedSettingsControl({
         type: 'checkbox',
         id: 'includeFutureCheckbox',
-        label: 'Include Future Data',
+        label: translations.includeFutureData,
         container: rootDiv,
         settingKey: 'includeFuture',
         settings: appSettings,
@@ -475,7 +629,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     createUnifiedSettingsControl({
         type: 'checkbox',
         id: 'showExtremesCheckbox',
-        label: 'Show Min/Max Series',
+        label: translations.showMinMaxSeries,
         container: rootDiv,
         settingKey: 'showExtremes',
         settings: appSettings,
@@ -485,7 +639,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     createUnifiedSettingsControl({
         type: 'checkbox',
         id: 'showShiftedCheckbox',
-        label: 'Show Shifted Series',
+        label: translations.showShiftedSeries,
         container: rootDiv,
         settingKey: 'showShifted',
         settings: appSettings,
@@ -495,7 +649,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     createUnifiedSettingsControl({
         type: 'checkbox',
         id: 'showTestNumbersCheckbox',
-        label: 'Show Test Numbers',
+        label: translations.showTestNumbers,
         container: rootDiv,
         settingKey: 'showTestNumbers',
         settings: appSettings,
@@ -505,7 +659,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     createUnifiedSettingsControl({
         type: 'checkbox',
         id: 'showShiftedTestNumbersCheckbox',
-        label: 'Show Shifted Test Numbers',
+        label: translations.showShiftedTestNumbers,
         container: rootDiv,
         settingKey: 'showShiftedTestNumbers',
         settings: appSettings,
@@ -523,7 +677,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     
     const shiftDaysLabel = document.createElement('label');
     shiftDaysLabel.htmlFor = 'shiftOverrideInput';
-    shiftDaysLabel.textContent = 'Shift By:';
+    shiftDaysLabel.textContent = translations.shiftBy;
     rootDiv.appendChild(shiftDaysLabel);
     rootDiv.appendChild(shiftDaysInput);
     
@@ -569,9 +723,9 @@ function renderPage(rootDiv: HTMLElement | null) {
         container: rootDiv,
         settingKey: 'alignByExtreme',
         values: [
-            { value: 'days', label: 'Days' },
-            { value: 'maxima', label: 'Maxima' },
-            { value: 'minima', label: 'Minima' }
+            { value: 'days', label: translations.shiftByDays },
+            { value: 'maxima', label: translations.shiftByMaxima },
+            { value: 'minima', label: translations.shiftByMinima }
         ],
         settings: appSettings,
         onChange: (key, value) => {
@@ -708,26 +862,29 @@ function getSortedSeriesWithIndices(series: DataSeries[]): { series: DataSeries,
  * 1. Wave-based shifts: "... shifted by X wave -347d" or "... shifted by X wave 347d"
  * 2. Custom day shifts: "... shifted by -180d" or "... shifted by 180d"
  * 
- * @param label - The series label that may contain shift information
+ * @param label - The series label that may contain shift information (in any language)
  * @returns The shift amount in days, or null if no shift information found
  * 
  * Examples:
  * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> -347
- * - "PCR Positivity (28d avg) shifted by 1 wave 347d" -> 347
+ * - "PCR pozitivita (28d prům.) posunuto o 1 vlna -347d" -> -347
  * - "PCR Positivity (28d avg) shifted by -180d" -> -180
  * - "PCR Positivity (28d avg)" -> null
  */
 function extractShiftFromLabel(label: string): number | null {
+    // Normalize to English first to handle Czech labels
+    const normalizedLabel = normalizeSeriesName(label);
+    
     // Pattern 1: Wave-based shift: "shifted by X wave(s) -347d" or "shifted by X wave(s) 347d"
     const wavePattern = /shifted by \d+ waves? (-?\d+)d/;
-    const waveMatch = label.match(wavePattern);
+    const waveMatch = normalizedLabel.match(wavePattern);
     if (waveMatch) {
         return parseInt(waveMatch[1], 10);
     }
     
     // Pattern 2: Custom day shift: "shifted by -180d" or "shifted by 180d"
     const dayPattern = /shifted by (-?\d+)d/;
-    const dayMatch = label.match(dayPattern);
+    const dayMatch = normalizedLabel.match(dayPattern);
     if (dayMatch) {
         return parseInt(dayMatch[1], 10);
     }
@@ -844,26 +1001,35 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const paletteMap = createStablePaletteMapping(data.series, colorPalettes.length);
 
     let datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, paletteMap);
-    let barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, paletteMap);
+    let barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, paletteMap, showShifted, showShiftedTestNumbers);
 
     // Filter shifted series based on showShifted setting
     if (!showShifted) {
-        datasets = datasets.filter(ds => !ds.label.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER));
+        datasets = datasets.filter(ds => {
+            // Normalize to English for consistent identifier matching across languages
+            const normalizedLabel = normalizeSeriesName(ds.label).toLowerCase();
+            return !normalizedLabel.includes(SHIFTED_SERIES_IDENTIFIER);
+        });
     }
 
     // Filter test number series based on showTestNumbers setting
     if (!showTestNumbers) {
-        barDatasets = barDatasets.filter(ds => !ds.label.toLowerCase().includes(TEST_NUMBERS_IDENTIFIER));
+        barDatasets = barDatasets.filter(ds => {
+            // Normalize to English for consistent identifier matching across languages
+            const normalizedLabel = normalizeSeriesName(ds.label).toLowerCase();
+            return !normalizedLabel.includes(TEST_NUMBERS_IDENTIFIER);
+        });
     }
 
     // Filter shifted test number series based on showShiftedTestNumbers setting
     // Only apply if the general filters haven't already removed them
     if (!showShiftedTestNumbers) {
         barDatasets = barDatasets.filter(ds => {
-            const label = ds.label.toLowerCase();
+            // Normalize to English for consistent identifier matching across languages
+            const normalizedLabel = normalizeSeriesName(ds.label).toLowerCase();
             // Filter out datasets that are both test numbers AND shifted
-            const isTestNumber = label.includes(TEST_NUMBERS_IDENTIFIER);
-            const isShifted = label.includes(SHIFTED_SERIES_IDENTIFIER);
+            const isTestNumber = normalizedLabel.includes(TEST_NUMBERS_IDENTIFIER);
+            const isShifted = normalizedLabel.includes(SHIFTED_SERIES_IDENTIFIER);
             // Keep if not both test number and shifted
             return !(isTestNumber && isShifted);
         });
@@ -878,40 +1044,67 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const allDatasetsWithExtremes = [...datasets, ...barDatasets, ...localExtremeDatasets];
     const validSeriesNames = new Set<string>(allDatasetsWithExtremes.map(ds => ds.label));
     
+    // Normalize all series names to English for storage
+    const normalizedValidNames = new Set<string>();
+    const displayToNormalizedMap = new Map<string, string>();
+    validSeriesNames.forEach(seriesName => {
+        const normalized = normalizeSeriesName(seriesName);
+        normalizedValidNames.add(normalized);
+        displayToNormalizedMap.set(seriesName, normalized);
+    });
+    
     // Build a map of base series names to current series names for preserving visibility
     const baseToCurrentSeriesMap = new Map<string, string>();
-    validSeriesNames.forEach(seriesName => {
-        const baseName = getBaseSeriesName(seriesName);
-        baseToCurrentSeriesMap.set(baseName, seriesName);
+    normalizedValidNames.forEach(normalizedName => {
+        const baseName = getBaseSeriesName(normalizedName);
+        baseToCurrentSeriesMap.set(baseName, normalizedName);
     });
     
     // Initialize visibility for new series, checking both exact name and base name for previous state
-    validSeriesNames.forEach(seriesName => {
-        if (cfg.datasetVisibility[seriesName] === undefined) {
+    // Always use normalized (English) names for storage
+    normalizedValidNames.forEach(normalizedName => {
+        if (cfg.datasetVisibility[normalizedName] === undefined) {
             // Check if we have visibility state for the base series name (from a different shift)
-            const baseName = getBaseSeriesName(seriesName);
+            const baseName = getBaseSeriesName(normalizedName);
             const previousVisibility = Object.keys(cfg.datasetVisibility).find(key => {
                 return getBaseSeriesName(key) === baseName;
             });
             
             if (previousVisibility !== undefined) {
                 // Preserve visibility from previous shift of the same series
-                cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[previousVisibility];
+                // BUT: Always respect current filter settings - defaultState tells us what filters allow
+                const previousState = cfg.datasetVisibility[previousVisibility];
+                const defaultState = getVisibilityDefault(normalizedName, showShifted, showTestNumbers, showShiftedTestNumbers);
+                // If filters say it should be hidden (defaultState is false), hide it regardless of previous state
+                // If filters allow it (defaultState is true), preserve the previous user choice
+                cfg.datasetVisibility[normalizedName] = defaultState === false ? false : previousState;
             } else {
                 // No previous state, use default
-                cfg.datasetVisibility[seriesName] = getVisibilityDefault(seriesName, showShifted, showTestNumbers, showShiftedTestNumbers);
+                cfg.datasetVisibility[normalizedName] = getVisibilityDefault(normalizedName, showShifted, showTestNumbers, showShiftedTestNumbers);
             }
+        }
+        
+        // Also initialize visibility for test number bar variations (Positive Tests / Negative Tests)
+        // These are created dynamically from positivity series but need their own visibility entries
+        const positiveTestsName = `${normalizedName} - Positive Tests`;
+        const negativeTestsName = `${normalizedName} - Negative Tests`;
+        
+        if (cfg.datasetVisibility[positiveTestsName] === undefined) {
+            cfg.datasetVisibility[positiveTestsName] = getVisibilityDefault(positiveTestsName, showShifted, showTestNumbers, showShiftedTestNumbers);
+        }
+        if (cfg.datasetVisibility[negativeTestsName] === undefined) {
+            cfg.datasetVisibility[negativeTestsName] = getVisibilityDefault(negativeTestsName, showShifted, showTestNumbers, showShiftedTestNumbers);
         }
     });
     
     // Clean up visibility state for series that no longer exist
     // This prevents localStorage from growing indefinitely with old shift values
-    Object.keys(cfg.datasetVisibility).forEach(seriesName => {
-        if (!validSeriesNames.has(seriesName)) {
+    Object.keys(cfg.datasetVisibility).forEach(storedName => {
+        if (!normalizedValidNames.has(storedName)) {
             // Remove entries that are not in the current valid series list
             // The visibility state has already been transferred to new series above
-            console.log(`Removing visibility for non-existing series: ${seriesName}`);
-            delete cfg.datasetVisibility[seriesName];
+            console.log(`Removing visibility for non-existing series: ${storedName}`);
+            delete cfg.datasetVisibility[storedName];
         }
     });
     localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
@@ -921,7 +1114,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     }
     const allVisibleDatasets = [...datasets, ...barDatasets];
     allVisibleDatasets.forEach(dataset => {
-        dataset.hidden = !cfg.datasetVisibility[dataset.label];
+        // Normalize the label to English for looking up visibility
+        const normalizedLabel = normalizeSeriesName(dataset.label);
+        dataset.hidden = !cfg.datasetVisibility[normalizedLabel];
     });
 
     const newChart = new Chart(cfg.canvas as HTMLCanvasElement, {
@@ -965,7 +1160,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             // Check if any visible shifted series exist
                             const hasVisibleShiftedSeries = context.some(item => {
                                 const label = item.dataset.label || '';
-                                const isShifted = label.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER);
+                                // Normalize to English for consistent identifier matching across languages
+                                const normalizedLabel = normalizeSeriesName(label).toLowerCase();
+                                const isShifted = normalizedLabel.includes(SHIFTED_SERIES_IDENTIFIER);
                                 const isVisible = !item.dataset.hidden;
                                 return isShifted && isVisible;
                             });
@@ -980,7 +1177,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             let shiftDays: number | null = null;
                             for (const item of context) {
                                 const label = item.dataset.label || '';
-                                if (label.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER)) {
+                                // Normalize to English for consistent identifier matching across languages
+                                const normalizedLabel = normalizeSeriesName(label).toLowerCase();
+                                if (normalizedLabel.includes(SHIFTED_SERIES_IDENTIFIER)) {
                                     const shiftInfo = extractShiftFromLabel(label);
                                     if (shiftInfo !== null) {
                                         shiftDays = shiftInfo;
@@ -1130,11 +1329,13 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
         // Add click handler for toggling visibility
         legendItem.addEventListener('click', () => {
             const datasetLabel = dataset.label || `Dataset ${index}`;
-            const currentlyHidden = !cfg.datasetVisibility[datasetLabel];
+            // Normalize to English for storage
+            const normalizedLabel = normalizeSeriesName(datasetLabel);
+            const currentlyHidden = !cfg.datasetVisibility[normalizedLabel];
             const newVisibility = currentlyHidden;
             
-            // Update visibility state first
-            cfg.datasetVisibility[datasetLabel] = newVisibility;
+            // Update visibility state first (store with normalized name)
+            cfg.datasetVisibility[normalizedLabel] = newVisibility;
             localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
             
             // Update chart metadata and dataset
@@ -1248,7 +1449,7 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
         const borderDash = isShifted ? SHIFTED_LINE_DASH_PATTERN : undefined;
         
         return {
-            label: series.name,
+            label: translateSeriesName(series.name),
             data: chartData,
             borderColor: borderColor,
             borderDash: borderDash,
@@ -1349,12 +1550,37 @@ function generateTestNumberBarDatasets(
     data: TimeseriesData, 
     startIdx: number, 
     endIdx: number, 
-    paletteMap: Map<string, number>
+    paletteMap: Map<string, number>,
+    showShifted: boolean,
+    showShiftedTestNumbers: boolean
 ) {
     // Only generate bar charts for raw positivity series (not averaged, not scalar)
-    const rawPositivitySeriesWithIndices = sortedSeriesWithIndices.filter(({ series }) => 
+    let rawPositivitySeriesWithIndices = sortedSeriesWithIndices.filter(({ series }) => 
         series.type === 'raw' && 'dataType' in series && series.dataType === 'positivity'
     );
+    
+    // Filter out shifted series if showShifted is false or showShiftedTestNumbers is false
+    // We need to check the series name BEFORE creating test number datasets
+    if (!showShifted || !showShiftedTestNumbers) {
+        rawPositivitySeriesWithIndices = rawPositivitySeriesWithIndices.filter(({ series }) => {
+            // Normalize series name to English for consistent checking
+            const normalizedName = normalizeSeriesName(series.name).toLowerCase();
+            const isShifted = normalizedName.includes(SHIFTED_SERIES_IDENTIFIER);
+            
+            // If shifted series are completely disabled, filter out all shifted series
+            if (!showShifted && isShifted) {
+                return false;
+            }
+            
+            // If shifted test numbers are disabled (but regular shifted might be ok),
+            // filter out shifted series since they will become test number bars
+            if (!showShiftedTestNumbers && isShifted) {
+                return false;
+            }
+            
+            return true;
+        });
+    }
     
     return rawPositivitySeriesWithIndices.flatMap(({ series, originalIndex }, sortedIndex) => {
         // Use stable palette mapping based on base series name
@@ -1376,7 +1602,7 @@ function generateTestNumberBarDatasets(
 
         return [
             {
-                label: `${series.name} - Positive Tests`,
+                label: translateSeriesName(`${series.name} - Positive Tests`),
                 data: positiveData,
                 backgroundColor: positiveColor,
                 borderColor: positiveColor,
@@ -1386,7 +1612,7 @@ function generateTestNumberBarDatasets(
                 hidden: false,
             },
             {
-                label: `${series.name} - Negative Tests`,
+                label: translateSeriesName(`${series.name} - Negative Tests`),
                 data: negativeData,
                 backgroundColor: negativeColor,
                 borderColor: negativeColor,
@@ -1404,7 +1630,7 @@ function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData:
     return extremeData.flat().map(extrSeries => {
         const originalSeries = normalData.series.find(series => series.name === extrSeries.originalSeriesName);
         return {
-            label: extrSeries.name,
+            label: translateSeriesName(extrSeries.name),
             data: extrSeries.indices.map(index => {
                 let yValue: number;
                 if (originalSeries && 'dataType' in originalSeries && originalSeries.dataType === 'scalar') {
@@ -1479,9 +1705,13 @@ function updateRatioTable() {
                 }
             }
             
+            // Normalize the series name to English for visibility check
+            // Raw data series names are in English, so normalize them for consistency
+            const normalizedSeriesName = normalizeSeriesName(series.name);
+            
             // Check if any key in datasetVisibility contains this series name and has a true value
             return Object.entries(cfg.datasetVisibility).some(([key, isVisible]) => {
-                return key.includes(series.name) && isVisible;
+                return key.includes(normalizedSeriesName) && isVisible;
             });
         });
 
@@ -1497,7 +1727,7 @@ function updateRatioTable() {
     
     if (visiblePerChart.length === 0) {
         console.error('No visible main series found');
-        ratioTableBody.innerHTML = '<tr><td colspan="2" style="text-align: center; padding: 8px; border: 1px solid #ddd;">No main series visible</td></tr>';
+        ratioTableBody.innerHTML = `<tr><td colspan="2" style="text-align: center; padding: 8px; border: 1px solid #ddd;">${translations.trendsNoDataAvailable}</td></tr>`;
         return;
     }
     
@@ -1507,7 +1737,8 @@ function updateRatioTable() {
         const ratios = calculateRatios(cfg.data, seriesNames);
         ratios.forEach(ratio => {
             const daysSinceLastData = (new Date().getTime() - (ratio.lastDataDate ?? new Date()).getTime()) / (1000 * 60 * 60 * 24);
-            ratio.seriesName =  `${ratio.seriesName} - ${cfg.shortTitle} (last: -${Math.ceil(daysSinceLastData)}d)`; 
+            const translatedSeriesName = translateSeriesName(ratio.seriesName);
+            ratio.seriesName =  `${translatedSeriesName} - ${cfg.shortTitle} (last: -${Math.ceil(daysSinceLastData)}d)`; 
         });
         allRatios.push(...ratios);
     });
@@ -1534,8 +1765,8 @@ function updateRatioTable() {
     
     // Create rows for 7-day and 28-day trends
     const trendPeriods = [
-        { label: '7d trend<br><small>(vs prior)</small>', getValue: (ratio: RatioData) => ratio.ratio7days },
-        { label: '28d trend<br><small>(vs prior)</small>', getValue: (ratio: RatioData) => ratio.ratio28days }
+        { label: `${translations.trendsPeriod7d}<br><small>${translations.trendsPeriod7dSub}</small>`, getValue: (ratio: RatioData) => ratio.ratio7days },
+        { label: `${translations.trendsPeriod28d}<br><small>${translations.trendsPeriod28dSub}</small>`, getValue: (ratio: RatioData) => ratio.ratio28days }
     ];
     
     trendPeriods.forEach(period => {
@@ -1601,26 +1832,34 @@ function updateRatioTable() {
  * - "Influenza Positivity (28d avg)" -> "Influenza Positivity (28d avg)" (unchanged, no shift info)
  */
 function getBaseSeriesName(label: string): string {
+    // Normalize to English first for consistent identifier matching across languages
+    const normalizedLabel = normalizeSeriesName(label);
+    
     // Only process if the label contains the shifted series identifier
     // This prevents collision with non-shifted series
-    if (!label.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER)) {
+    if (!normalizedLabel.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER)) {
         return label;
     }
     
     // Normalize ALL shifted series to the same base name pattern "shifted"
-    // This works across both wave-based shifts and custom day shifts
+    // This works across both wave-based shifts, custom day shifts, and maxima/minima alignment
     // Pattern matches:
     // - "shifted by X wave(s) -XXXd" or "shifted by X wave(s) XXXd" (wave-based)
     // - "shifted by -XXXd" or "shifted by XXXd" (custom days)
+    // - "maxima over XXXd" or "minima over XXXd" (extreme alignment modes)
     // And normalizes to just "shifted" to enable cross-mode visibility preservation
     return label
         .replace(/ shifted by \d+ waves? -?\d+d/, ' shifted')
         .replace(/ shifted by -?\d+d/, ' shifted')
+        .replace(/ maxima over \d+d/, ' shifted')
+        .replace(/ minima over \d+d/, ' shifted')
         .trim();
 }
 
 function getVisibilityDefault(label: string, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false): boolean {
-    const lowerLabel = label.toLowerCase();
+    // Normalize to English for consistent identifier matching across languages
+    const normalizedLabel = normalizeSeriesName(label);
+    const lowerLabel = normalizedLabel.toLowerCase();
     
     // Hide min/max datasets by default
     if (MIN_MAX_IDENTIFIER.some(id => lowerLabel.includes(id))) {
@@ -1630,8 +1869,15 @@ function getVisibilityDefault(label: string, showShifted: boolean = true, showTe
     const isShifted = lowerLabel.includes(SHIFTED_SERIES_IDENTIFIER);
     const isTestNumber = lowerLabel.includes(TEST_NUMBERS_IDENTIFIER);
     
+    // Check if this is a test positivity series (PCR/Antigen/Influenza/RSV/SARS-CoV-2 Positivity)
+    // These are conceptually test numbers even though they don't have "tests" in the name
+    const isTestPositivitySeries = lowerLabel.includes('positivity');
+    
+    // Treat shifted test positivity series as shifted test numbers for filtering
+    const isShiftedTestNumberSeries = isShifted && (isTestNumber || isTestPositivitySeries);
+    
     // Hide shifted test numbers if the setting is false
-    if (isShifted && isTestNumber && !showShiftedTestNumbers) {
+    if (isShiftedTestNumberSeries && !showShiftedTestNumbers) {
         return false;
     }
     

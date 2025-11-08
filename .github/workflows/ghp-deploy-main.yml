@@ -54,8 +54,8 @@ jobs:
       - name: Build index.html with Bun
         run: bun build ./index.html --outdir=./dist
 
-      - name: Copy about.html to dist
-        run: cp about.html dist/
+      - name: Copy about pages to dist
+        run: cp about*.html dist/
 
       - name: Prepare deployment with existing previews
         run: ./.github/scripts/prepare-deployment.sh main "" "$EXISTING_SITE_PATH"
