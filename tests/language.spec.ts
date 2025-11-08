@@ -2,11 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Language Switching', () => {
   test.beforeEach(async ({ page }) => {
-    // Clear localStorage to ensure clean state for each test
     await page.goto('/');
-    await page.evaluate(() => localStorage.clear());
-    await page.reload();
-    
     // Wait for the page to be fully loaded
     await page.waitForSelector('#languageSelect');
     await page.waitForSelector('canvas');
