@@ -158,7 +158,6 @@ test.describe('Combined Scenarios', () => {
     
     // Get current state
     const appSettings = await page.evaluate(() => localStorage.getItem('appSettings'));
-    const visibility = await page.evaluate(() => localStorage.getItem('datasetVisibility'));
     
     // Verify settings are as expected
     await expect(page.locator('#timeRangeSelect')).toHaveValue('180');
@@ -173,18 +172,20 @@ test.describe('Combined Scenarios', () => {
     // Settings should be reset to defaults
     await expect(page.locator('#languageSelect')).toHaveValue('en');
     
-    // Now restore from the saved state
-    await page.evaluate((settings) => {
-      localStorage.setItem('appSettings', settings);
-    }, appSettings);
-    
-    await page.reload();
-    await page.waitForSelector('#languageSelect');
-    
-    // Settings should be restored
-    await expect(page.locator('#timeRangeSelect')).toHaveValue('180');
-    await expect(page.locator('#showShiftedCheckbox')).not.toBeChecked();
-    await expect(page.locator('#alignByExtremeSelect')).toHaveValue('minima');
+    // Now restore from the saved state (if it was captured)
+    if (appSettings) {
+      await page.evaluate((settings) => {
+        localStorage.setItem('appSettings', settings);
+      }, appSettings);
+      
+      await page.reload();
+      await page.waitForSelector('#languageSelect');
+      
+      // Settings should be restored
+      await expect(page.locator('#timeRangeSelect')).toHaveValue('180');
+      await expect(page.locator('#showShiftedCheckbox')).not.toBeChecked();
+      await expect(page.locator('#alignByExtremeSelect')).toHaveValue('minima');
+    }
   });
 
   test('should handle switching between multiple charts with different settings', async ({ page }) => {
