@@ -451,6 +451,38 @@ function renderPage(rootDiv: HTMLElement | null) {
         return;
     }
 
+    // Clear dynamically created controls to prevent duplication when re-rendering
+    // Keep only: ratioTableContainer, chart containers, and hideAllButton
+    const elementsToKeep = [
+        'ratioTableContainer',
+        'czechDataContainer',
+        'euDataContainer',
+        'deWastewaterContainer',
+        'hideAllButton'
+    ];
+    
+    // Remove all child elements that are not in the keep list
+    Array.from(rootDiv.children).forEach(child => {
+        if (child.id && !elementsToKeep.includes(child.id)) {
+            child.remove();
+        } else if (!child.id) {
+            // Remove elements without IDs (labels, inputs created dynamically)
+            child.remove();
+        }
+    });
+    
+    // Also clear country selectors from chart containers (they have IDs like "euDataContainer-country-selector")
+    chartConfigs.forEach(cfg => {
+        const container = document.getElementById(cfg.containerId);
+        if (container) {
+            const selectorId = `${cfg.containerId}-country-selector`;
+            const existingSelector = document.getElementById(selectorId);
+            if (existingSelector) {
+                existingSelector.remove();
+            }
+        }
+    });
+
     // Migrate old settings if needed
     migrateOldSettings();
 
