@@ -86,20 +86,24 @@ jobs:
             const previewUrl = `${baseUrl}previews/pr-${prNumber}/`;
             const previewListUrl = `${baseUrl}previews/`;
             
-            const commentBody = `🚀 **Preview deployment ready!**
+            // Unique marker to identify our bot comments
+            const botIdentifier = '<!-- gh-pages-preview-comment -->';
             
-            Your changes have been deployed to a preview environment:
-            
-            **📱 Preview URL:** ${previewUrl}
-            **📋 All Previews:** ${previewListUrl}
-            
-            This preview will be updated automatically when you push new commits to this PR.
-            
-            ---
-            
-            ℹ️ This is an automated preview deployment for PR #${prNumber}
-            
-            > **Note:** It may take a few minutes for GitHub Pages to serve the updated content.`;
+            const commentBody = `${botIdentifier}
+🚀 **Preview deployment ready!**
+
+Your changes have been deployed to a preview environment:
+
+**📱 Preview URL:** ${previewUrl}
+**📋 All Previews:** ${previewListUrl}
+
+This preview will be updated automatically when you push new commits to this PR.
+
+---
+
+ℹ️ This is an automated preview deployment for PR #${prNumber}
+
+> **Note:** It may take a few minutes for GitHub Pages to serve the updated content.`;
             
             // Find existing preview comment from this bot
             const comments = await github.rest.issues.listComments({
@@ -109,9 +113,7 @@ jobs:
             });
             
             const botComment = comments.data.find(comment => 
-              comment.user.type === 'Bot' && 
-              comment.body.includes('🚀 **Preview deployment ready!**') &&
-              comment.body.includes(`ℹ️ This is an automated preview deployment for PR #${prNumber}`)
+              comment.body && comment.body.includes(botIdentifier)
             );
             
             if (botComment) {
