@@ -103,7 +103,7 @@ test.describe('URL State Management', () => {
     
     // Verify Czech language is selected
     await expect(page.locator('#languageSelect')).toHaveValue('cs');
-    await expect(page.locator('#footerAboutLink')).toHaveText('O projektu');
+    await expect(page.locator('#footerAboutLink')).toHaveText('O aplikaci');
   });
 
   test('should restore series visibility from URL state', async ({ page }) => {

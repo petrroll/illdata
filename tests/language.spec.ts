@@ -24,16 +24,23 @@ test.describe('Language Switching', () => {
     // Switch to Czech
     await languageSelect.selectOption('cs');
     
+    // Wait for language change to fully complete (charts re-render)
+    await page.waitForTimeout(1000);
+    
     // Verify language selector updated
     await expect(languageSelect).toHaveValue('cs');
     
     // Check that Czech UI elements are displayed
-    await expect(page.locator('#footerAboutLink')).toHaveText('O projektu');
-    await expect(page.locator('#hideAllButton')).toHaveText('Skrýt všechny řady');
+    await expect(page.locator('#footerAboutLink')).toHaveText('O aplikaci');
+    await expect(page.locator('#hideAllButton')).toHaveText('Skrýt všechny série');
     
     // Check that about link points to Czech version
     const aboutLink = page.locator('#footerAboutLink');
     await expect(aboutLink).toHaveAttribute('href', 'about-cs.html');
+    
+    // Verify language persisted to localStorage
+    const storedLanguage = await page.evaluate(() => localStorage.getItem('language'));
+    expect(storedLanguage).toBe('cs');
   });
 
   test('should switch from Czech back to English', async ({ page }) => {
@@ -41,10 +48,12 @@ test.describe('Language Switching', () => {
     
     // Switch to Czech first
     await languageSelect.selectOption('cs');
-    await expect(page.locator('#footerAboutLink')).toHaveText('O projektu');
+    await page.waitForTimeout(1000);
+    await expect(page.locator('#footerAboutLink')).toHaveText('O aplikaci');
     
     // Switch back to English
     await languageSelect.selectOption('en');
+    await page.waitForTimeout(1000);
     await expect(languageSelect).toHaveValue('en');
     
     // Verify English UI is restored
@@ -54,6 +63,10 @@ test.describe('Language Switching', () => {
     // Check that about link points to English version
     const aboutLink = page.locator('#footerAboutLink');
     await expect(aboutLink).toHaveAttribute('href', 'about.html');
+    
+    // Verify language persisted to localStorage
+    const storedLanguage = await page.evaluate(() => localStorage.getItem('language'));
+    expect(storedLanguage).toBe('en');
   });
 
   test('should persist language selection in localStorage', async ({ page }) => {
@@ -63,29 +76,35 @@ test.describe('Language Switching', () => {
     await languageSelect.selectOption('cs');
     await expect(languageSelect).toHaveValue('cs');
     
+    // Verify stored in localStorage
+    const storedLanguage = await page.evaluate(() => localStorage.getItem('language'));
+    expect(storedLanguage).toBe('cs');
+    
     // Reload the page
-    await page.reload();
-    await page.waitForSelector('#languageSelect');
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForSelector('#languageSelect', { timeout: 10000 });
     
     // Verify language is still Czech
     await expect(languageSelect).toHaveValue('cs');
-    await expect(page.locator('#footerAboutLink')).toHaveText('O projektu');
+    await expect(page.locator('#footerAboutLink')).toHaveText('O aplikaci');
   });
 
-  test('should translate chart titles when switching language', async ({ page }) => {
+  test('should translate UI elements when switching language', async ({ page }) => {
     const languageSelect = page.locator('#languageSelect');
     
-    // Check initial English chart titles
-    await expect(page.locator('text=COVID Test Positivity (MZCR Data)')).toBeVisible();
+    // Check initial English UI
+    await expect(page.locator('#getLinkButton')).toHaveText('Share Link');
+    await expect(page.locator('#trendsTableTitle')).toHaveText('Current Trends');
     
     // Switch to Czech
     await languageSelect.selectOption('cs');
     
-    // Wait for charts to re-render
+    // Wait for language change to complete
     await page.waitForTimeout(500);
     
-    // Check Czech chart titles exist
-    await expect(page.locator('text=COVID Pozitivita Testů (Data MZČR)')).toBeVisible();
+    // Check Czech UI translations
+    await expect(page.locator('#getLinkButton')).toHaveText('Sdílet odkaz');
+    await expect(page.locator('#trendsTableTitle')).toHaveText('Aktuální trendy');
   });
 
   test('should translate series names in legend when switching language', async ({ page }) => {

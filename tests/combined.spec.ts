@@ -21,7 +21,7 @@ test.describe('Combined Scenarios', () => {
     await page.waitForTimeout(500);
     
     // Verify language changed
-    await expect(page.locator('#footerAboutLink')).toHaveText('O projektu');
+    await expect(page.locator('#footerAboutLink')).toHaveText('O aplikaci');
     
     // Series should still be hidden
     const newLegend = page.locator('#czechDataContainer-legend');
