@@ -55,7 +55,28 @@ GitHub Pages (gh-pages branch):
 - Only deploys if cleanup was actually performed
 - Updates PR comment to indicate cleanup
 
-### 4. Test Build (`test-build.yml`)
+### 4. Testing (`test.yml`)
+
+**Triggers:**
+- Pull request against `main` branch
+- Push to `main` branch
+- Manual workflow dispatch
+
+**Jobs:**
+- **unit-tests**: Runs TypeScript type checking and Bun unit tests (72 tests)
+- **e2e-tests**: Runs Playwright end-to-end tests (60 tests)
+
+**Actions:**
+- Installs Bun, Just, and project dependencies
+- Runs data processor to generate test data
+- Installs Playwright browsers with system dependencies
+- Uploads Playwright HTML report as artifact on test failures (30-day retention)
+
+**Test Coverage:**
+- Unit tests for utilities, data processing, and core functionality
+- E2E tests for language switching, visibility, filters, shift controls, URL state, and localStorage
+
+### 5. Test Build (`test-build.yml`)
 
 **Triggers:**
 - Manual trigger via workflow dispatch

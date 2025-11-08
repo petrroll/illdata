@@ -61,16 +61,52 @@ The project uses [Bun](https://bun.sh/) as its runtime and package manager, whic
 The project uses **Bun** as its test runner with built-in TypeScript support:
 
 - Test files use the `.test.ts` suffix (e.g., `utils.test.ts`)
-- Tests are located alongside the source files they test
-- Run tests with: `just test` (runs type checking and tests)
+- Tests are located alongside the source files they test in `src/`
+- Run tests with: `just test` (runs type checking and unit tests)
 - Run type checking only with: `just check-ts`
 - All tests must pass before committing changes
+
+### Unit Tests
+
+Unit tests are located in `src/` alongside the code they test:
+- 72 unit tests covering utilities, data processing, and core functionality
+- Run with `bun test` (or `just test` which also runs TypeScript checks)
+- Test files: `utils.test.ts`, `settings.test.ts`, `urlstate.test.ts`, etc.
+
+### End-to-End Tests
+
+E2E tests use **Playwright** and are located in `tests/`:
+- 60 E2E tests covering all major user workflows
+- Run with `bunx playwright test` (or `just test-e2e`)
+- Test browsers in headless mode by default
+- Playwright config: `playwright.config.ts`
+
+**E2E Test Coverage:**
+- Language switching (EN ↔ CS)
+- Series visibility toggling
+- Category filters (shifted series, test numbers, extremes)
+- Shift and alignment controls
+- URL state management (shareable links)
+- LocalStorage persistence
+
+**Commands:**
+- `just test-e2e` - Run all E2E tests headless
+- `just test-e2e-ui` - Open Playwright UI for debugging
+- `just test-e2e-headed` - Run tests in visible browser
+- `just test-all` - Run both unit and E2E tests
+
+**First-time setup:**
+```bash
+bunx playwright install chromium
+```
 
 ### Testing Best Practices
 - Write tests for new functionality
 - Follow the existing test structure and patterns
 - Use descriptive test names that explain what's being tested
 - Test edge cases and error conditions
+- Unit tests for utilities and data processing
+- E2E tests for user workflows and UI interactions
 
 ## TypeScript Configuration
 
@@ -86,6 +122,7 @@ The project uses strict TypeScript settings:
 The project uses GitHub Actions for:
 - **Main Deployment**: Automatic deployment to GitHub Pages on push to main
 - **PR Previews**: Each PR gets a preview deployment at `/previews/pr-{number}/`
+- **Testing**: Automated unit and E2E tests run on every PR and push to main
 - **Test Build**: Manual workflow to test build process
 - **Setup Validation**: Tests Bun and Just installation
 
