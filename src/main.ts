@@ -866,9 +866,11 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             }
                             
                             // Calculate the original date
+                            // The shift is applied as: shiftedValues[i] = originalValues[i + shiftByIndexes]
+                            // So if we're at currentDate (after shift), the original date is: currentDate + shiftDays
                             const date = new Date(currentDate);
                             const originalDate = new Date(date);
-                            originalDate.setDate(originalDate.getDate() - shiftDays);
+                            originalDate.setDate(originalDate.getDate() + shiftDays);
                             const originalDateString = originalDate.toISOString().split('T')[0];
                             
                             // Return both dates
