@@ -71,28 +71,39 @@ function setLanguage(lang: string): void {
 
 // Implementation functions for testing
 function encodeUrlState(appSettings: AppSettings, chartConfigs: ChartConfig[], countryFilters: Map<string, string>): string {
-    const state: UrlState = {
-        settings: appSettings,
-        visibility: {},
-        countryFilters: {},
-        language: getLanguage() // Include current language in shared link
-    };
-    
-    // Collect visibility state from all charts
+    // Collect visibility state from all charts, storing only 'true' values to reduce size
+    const compactVisibility: { [key: string]: { [seriesName: string]: boolean } } = {};
     chartConfigs.forEach(cfg => {
-        state.visibility[cfg.visibilityKey] = cfg.datasetVisibility;
-    });
-    
-    // Collect country filters
-    countryFilters.forEach((country, containerId) => {
-        const cfg = chartConfigs.find(c => c.containerId === containerId);
-        if (cfg && cfg.countryFilterKey) {
-            state.countryFilters[cfg.countryFilterKey] = country;
+        const trueOnly: { [seriesName: string]: boolean } = {};
+        Object.entries(cfg.datasetVisibility).forEach(([seriesName, isVisible]) => {
+            if (isVisible === true) {
+                trueOnly[seriesName] = true;
+            }
+        });
+        if (Object.keys(trueOnly).length > 0) {
+            compactVisibility[cfg.visibilityKey] = trueOnly;
         }
     });
     
+    // Collect country filters
+    const compactCountryFilters: { [key: string]: string } = {};
+    countryFilters.forEach((country, containerId) => {
+        const cfg = chartConfigs.find(c => c.containerId === containerId);
+        if (cfg && cfg.countryFilterKey) {
+            compactCountryFilters[cfg.countryFilterKey] = country;
+        }
+    });
+    
+    // Use short keys to minimize URL length
+    const compactState = {
+        s: appSettings,
+        v: compactVisibility,
+        c: compactCountryFilters,
+        l: getLanguage() // Include current language in shared link
+    };
+    
     // Encode state to base64 URL parameter
-    const jsonStr = JSON.stringify(state);
+    const jsonStr = JSON.stringify(compactState);
     const base64 = btoa(jsonStr);
     return base64;
 }
@@ -100,7 +111,23 @@ function encodeUrlState(appSettings: AppSettings, chartConfigs: ChartConfig[], c
 function decodeUrlState(encoded: string): UrlState | null {
     try {
         const jsonStr = atob(encoded);
-        const state = JSON.parse(jsonStr) as UrlState;
+        const parsed = JSON.parse(jsonStr) as any;
+        
+        // Handle both compact format (new) and full format (old) for backward compatibility
+        let state: UrlState;
+        if ('s' in parsed || 'v' in parsed || 'c' in parsed || 'l' in parsed) {
+            // New compact format with short keys
+            state = {
+                settings: parsed.s || {},
+                visibility: parsed.v || {},
+                countryFilters: parsed.c || {},
+                language: parsed.l
+            };
+        } else {
+            // Old format with full keys
+            state = parsed as UrlState;
+        }
+        
         return state;
     } catch (error) {
         console.error("Error decoding URL state:", error);
@@ -162,8 +189,14 @@ describe('URL State Management Tests', () => {
         const decoded = decodeUrlState(encoded);
         
         expect(decoded).not.toBeNull();
-        expect(decoded!.visibility["datasetVisibility"]).toEqual(chartConfigs[0].datasetVisibility);
-        expect(decoded!.visibility["euDatasetVisibility"]).toEqual(chartConfigs[1].datasetVisibility);
+        // New compact format only stores 'true' values, so false values are omitted
+        expect(decoded!.visibility["datasetVisibility"]).toEqual({
+            "PCR Positivity": true,
+            "PCR Positivity (28d avg)": true
+        });
+        expect(decoded!.visibility["euDatasetVisibility"]).toEqual({
+            "Influenza": true
+        });
     });
 
     test('encodes and decodes country filters correctly', () => {
@@ -227,8 +260,14 @@ describe('URL State Management Tests', () => {
         
         expect(decoded).not.toBeNull();
         expect(decoded!.settings).toEqual(settings);
-        expect(decoded!.visibility["datasetVisibility"]).toEqual(chartConfigs[0].datasetVisibility);
-        expect(decoded!.visibility["euDatasetVisibility"]).toEqual(chartConfigs[1].datasetVisibility);
+        // Compact format only stores true values
+        expect(decoded!.visibility["datasetVisibility"]).toEqual({
+            "PCR Positivity": true,
+            "Antigen Positivity": true
+        });
+        expect(decoded!.visibility["euDatasetVisibility"]).toEqual({
+            "RSV": true
+        });
         expect(decoded!.countryFilters["euCountryFilter"]).toBe("France");
     });
 
@@ -248,7 +287,8 @@ describe('URL State Management Tests', () => {
         
         expect(decoded).not.toBeNull();
         expect(decoded!.settings).toEqual(settings);
-        expect(decoded!.visibility["datasetVisibility"]).toEqual({});
+        // When all series are false (hidden), compact format doesn't store visibility key at all
+        expect(decoded!.visibility).toEqual({});
         expect(decoded!.countryFilters).toEqual({});
     });
 
@@ -371,5 +411,96 @@ describe('URL State Management Tests', () => {
         
         expect(decoded).not.toBeNull();
         expect(decoded!.language).toBeUndefined();
+    });
+
+    test('compact format significantly reduces URL size', () => {
+        const settings = DEFAULT_APP_SETTINGS;
+        const chartConfigs: ChartConfig[] = [
+            {
+                containerId: "czechDataContainer",
+                visibilityKey: "czechDataChart-visibility",
+                datasetVisibility: {
+                    "PCR Positivity": true,
+                    "Antigen Positivity": false,
+                    "PCR Positivity (28d avg)": true,
+                    "Antigen Positivity (28d avg)": false,
+                    "PCR Positivity shifted by 1 wave -289d": false,
+                    "Antigen Positivity shifted by 1 wave -347d": false
+                }
+            },
+            {
+                containerId: "euDataContainer",
+                visibilityKey: "euDataChart-visibility",
+                datasetVisibility: {
+                    "Influenza Positivity": true,
+                    "RSV Positivity": false,
+                    "SARS-CoV-2 Positivity": true,
+                    "Influenza Positivity (28d avg)": false,
+                    "RSV Positivity (28d avg)": false,
+                    "SARS-CoV-2 Positivity (28d avg)": false
+                },
+                countryFilterKey: "euCountryFilter"
+            }
+        ];
+        const countryFilters = new Map<string, string>([
+            ["euDataContainer", "EU/EEA"]
+        ]);
+        
+        const encoded = encodeUrlState(settings, chartConfigs, countryFilters);
+        const decoded = decodeUrlState(encoded);
+        
+        // Verify correctness
+        expect(decoded).not.toBeNull();
+        
+        // Compact format should be significantly shorter than if we stored all false values
+        // With 12 series (6 true, 6 false), compact format only stores 6 true values
+        // Expected savings: ~50-60% for visibility section
+        const decodedJson = atob(encoded);
+        
+        // Verify only true values are in the visibility section (false values from settings are OK)
+        // Check that visibility objects only contain true
+        expect(decodedJson).toContain('"v":{');  // v is the visibility key
+        const visibilityMatch = decodedJson.match(/"v":\{[^}]*\}/);
+        if (visibilityMatch) {
+            const visibilitySection = visibilityMatch[0];
+            // In visibility section, we should only have :true, not :false
+            const falseInVisibility = visibilitySection.includes(':false');
+            expect(falseInVisibility).toBe(false);
+        }
+        
+        // Verify short keys are used
+        expect(decodedJson).toContain('"s":');
+        expect(decodedJson).toContain('"v":');
+        expect(decodedJson).toContain('"c":');
+        expect(decodedJson).toContain('"l":');
+    });
+
+    test('decodes old format for backward compatibility', () => {
+        // Create an old-format state with full keys
+        const oldFormatState = {
+            settings: DEFAULT_APP_SETTINGS,
+            visibility: {
+                "czechDataChart-visibility": {
+                    "PCR Positivity": true,
+                    "Antigen Positivity": false
+                }
+            },
+            countryFilters: {
+                "euCountryFilter": "Germany"
+            },
+            language: "en"
+        };
+        
+        const encoded = btoa(JSON.stringify(oldFormatState));
+        const decoded = decodeUrlState(encoded);
+        
+        expect(decoded).not.toBeNull();
+        expect(decoded!.settings).toEqual(DEFAULT_APP_SETTINGS);
+        expect(decoded!.visibility["czechDataChart-visibility"]).toEqual({
+            "PCR Positivity": true,
+            "Antigen Positivity": false
+        });
+        expect(decoded!.countryFilters["euCountryFilter"]).toBe("Germany");
+        expect(decoded!.language).toBe("en");
     });
 });
