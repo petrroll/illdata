@@ -34,6 +34,7 @@ interface AppSettings {
     showExtremes: boolean;
     showShifted: boolean;
     showTestNumbers: boolean;
+    showShiftedTestNumbers: boolean;
     // Shift value: either days for manual shift or wave count for automatic alignment
     // When alignByExtreme is 'days': shift by this many days
     // When alignByExtreme is 'maxima' or 'minima': shift by this many waves back to align to the last wave
@@ -49,6 +50,7 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
     showExtremes: false,
     showShifted: true,
     showTestNumbers: true,
+    showShiftedTestNumbers: false,
     shiftOverride: 1, // Default to 1 wave for maxima/minima alignment
     alignByExtreme: 'maxima'
 };
@@ -340,6 +342,7 @@ function renderPage(rootDiv: HTMLElement | null) {
                     appSettings.showExtremes,
                     appSettings.showShifted,
                     appSettings.showTestNumbers,
+                    appSettings.showShiftedTestNumbers,
                     appSettings.shiftOverride,
                     appSettings.alignByExtreme,
                     countryFilter
@@ -404,6 +407,16 @@ function renderPage(rootDiv: HTMLElement | null) {
         label: 'Show Test Numbers',
         container: rootDiv,
         settingKey: 'showTestNumbers',
+        settings: appSettings,
+        onChange: onSettingsChange
+    });
+
+    createUnifiedSettingsControl({
+        type: 'checkbox',
+        id: 'showShiftedTestNumbersCheckbox',
+        label: 'Show Shifted Test Numbers',
+        container: rootDiv,
+        settingKey: 'showShiftedTestNumbers',
         settings: appSettings,
         onChange: onSettingsChange
     });
@@ -559,7 +572,7 @@ function getSortedSeriesWithIndices(series: DataSeries[]): { series: DataSeries,
     return seriesWithIndices;
 }
 
-function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima', countryFilter?: string) {
+function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima', countryFilter?: string) {
     // Destroy existing chart if it exists
     if (cfg.chartHolder.chart) {
         cfg.chartHolder.chart.destroy();
@@ -679,6 +692,19 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         barDatasets = barDatasets.filter(ds => !ds.label.toLowerCase().includes(TEST_NUMBERS_IDENTIFIER));
     }
 
+    // Filter shifted test number series based on showShiftedTestNumbers setting
+    // Only apply if the general filters haven't already removed them
+    if (!showShiftedTestNumbers) {
+        barDatasets = barDatasets.filter(ds => {
+            const label = ds.label.toLowerCase();
+            // Filter out datasets that are both test numbers AND shifted
+            const isTestNumber = label.includes(TEST_NUMBERS_IDENTIFIER);
+            const isShifted = label.includes(SHIFTED_SERIES_IDENTIFIER);
+            // Keep if not both test number and shifted
+            return !(isTestNumber && isShifted);
+        });
+    }
+
     const localExtremeDatasets = [
         ...generateLocalExtremeDataset([filteredMaximaSeries], data, cutoffDateString, "red", includeFuture, cfg), 
         ...generateLocalExtremeDataset([filteredMinimaSeries], data, cutoffDateString, "blue", includeFuture, cfg)
@@ -709,7 +735,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                 cfg.datasetVisibility[seriesName] = cfg.datasetVisibility[previousVisibility];
             } else {
                 // No previous state, use default
-                cfg.datasetVisibility[seriesName] = getVisibilityDefault(seriesName, showShifted, showTestNumbers);
+                cfg.datasetVisibility[seriesName] = getVisibilityDefault(seriesName, showShifted, showTestNumbers, showShiftedTestNumbers);
             }
         }
     });
@@ -1375,7 +1401,7 @@ function getBaseSeriesName(label: string): string {
         .trim();
 }
 
-function getVisibilityDefault(label: string, showShifted: boolean = true, showTestNumbers: boolean = true): boolean {
+function getVisibilityDefault(label: string, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false): boolean {
     const lowerLabel = label.toLowerCase();
     
     // Hide min/max datasets by default
@@ -1383,19 +1409,21 @@ function getVisibilityDefault(label: string, showShifted: boolean = true, showTe
         return false;
     }
     
-    // Hide shifted test numbers by default (they contain both "shifted" and "tests")
-    // This takes precedence over the individual settings
-    if (lowerLabel.includes(SHIFTED_SERIES_IDENTIFIER) && lowerLabel.includes(TEST_NUMBERS_IDENTIFIER)) {
+    const isShifted = lowerLabel.includes(SHIFTED_SERIES_IDENTIFIER);
+    const isTestNumber = lowerLabel.includes(TEST_NUMBERS_IDENTIFIER);
+    
+    // Hide shifted test numbers if the setting is false
+    if (isShifted && isTestNumber && !showShiftedTestNumbers) {
         return false;
     }
     
     // Show/hide shifted datasets based on setting (default: shown)
-    if (lowerLabel.includes(SHIFTED_SERIES_IDENTIFIER)) {
+    if (isShifted) {
         return showShifted;
     }
 
     // Show/hide test number bar charts based on setting (default: shown)
-    if (lowerLabel.includes(TEST_NUMBERS_IDENTIFIER)) {
+    if (isTestNumber) {
         return showTestNumbers;
     }
 
