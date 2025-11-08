@@ -35,8 +35,8 @@ export default defineConfig({
       name: 'chromium',
       use: { 
         ...devices['Desktop Chrome'],
-        // Start each test with a fresh browser context
-        storageState: undefined,
+        // Start each test with completely fresh storage (no cookies, no localStorage)
+        storageState: { cookies: [], origins: [] },
       },
     },
   ],
