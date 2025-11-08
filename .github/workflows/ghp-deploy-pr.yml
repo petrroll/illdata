@@ -101,10 +101,33 @@ jobs:
             
             > **Note:** It may take a few minutes for GitHub Pages to serve the updated content.`;
             
-            // Always create a new comment
-            await github.rest.issues.createComment({
+            // Find existing preview comment from this bot
+            const comments = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
-              body: commentBody
             });
+            
+            const botComment = comments.data.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('🚀 **Preview deployment ready!**') &&
+              comment.body.includes(`ℹ️ This is an automated preview deployment for PR #${prNumber}`)
+            );
+            
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: commentBody
+              });
+            } else {
+              // Create new comment if none exists
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: commentBody
+              });
+            }
