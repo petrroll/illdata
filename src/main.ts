@@ -214,13 +214,16 @@ function updateAllUITexts() {
 }
 
 // Initialize UI texts
-updateAllUITexts();
+// (moved after language initialization)
 
 const container = document.getElementById("root");
 
 // Initialize language system
 let currentLanguage = getLanguage();
 let translations = getTranslations(currentLanguage);
+
+// Now we can safely call updateAllUITexts
+updateAllUITexts();
 
 // Set up language switcher
 const languageSelect = document.getElementById("languageSelect") as HTMLSelectElement;
