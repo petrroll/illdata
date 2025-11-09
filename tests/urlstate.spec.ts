@@ -2,7 +2,15 @@ import { test, expect } from '@playwright/test';
 
 // Helper function to change language reliably
 async function changeLanguage(page: any, lang: 'en' | 'cs') {
-  await page.selectOption('#languageSelect', lang);
+  // Use evaluate to set the value and dispatch change event manually
+  // page.selectOption() doesn't reliably trigger change events in CI
+  await page.evaluate((targetLang) => {
+    const select = document.querySelector('#languageSelect') as HTMLSelectElement;
+    if (select) {
+      select.value = targetLang;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }, lang);
   await page.waitForTimeout(500); // Wait for language change to complete
 }
 
