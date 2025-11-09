@@ -484,10 +484,14 @@ export function getLanguage(): Language {
 }
 
 export function setLanguage(lang: Language): void {
+    console.log(`[APP/locales] setLanguage called with: ${lang}`);
     try {
         localStorage.setItem(LANGUAGE_KEY, lang);
+        console.log(`[APP/locales] localStorage.setItem('${LANGUAGE_KEY}', '${lang}') completed`);
+        const stored = localStorage.getItem(LANGUAGE_KEY);
+        console.log(`[APP/locales] Verification - localStorage now contains: ${stored}`);
     } catch (error) {
-        console.error('Error saving language:', error);
+        console.error('[APP/locales] Error saving language:', error);
     }
 }
 
