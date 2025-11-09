@@ -2,31 +2,11 @@ import { test, expect } from '@playwright/test';
 
 // Helper function to change language reliably
 async function changeLanguage(page: any, lang: 'en' | 'cs') {
-  console.log(`[TEST] changeLanguage: Attempting to change language to ${lang}`);
-  
-  // Use evaluate to set the value and dispatch change event manually
-  // page.selectOption() doesn't reliably trigger change events in CI
-  await page.evaluate((targetLang) => {
-    console.log(`[BROWSER] changeLanguage evaluate: Starting language change to ${targetLang}`);
-    const select = document.querySelector('#languageSelect') as HTMLSelectElement;
-    if (select) {
-      console.log(`[BROWSER] Current select value before change: ${select.value}`);
-      select.value = targetLang;
-      console.log(`[BROWSER] Select value after assignment: ${select.value}`);
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-      console.log(`[BROWSER] Change event dispatched`);
-    } else {
-      console.error('[BROWSER] Language select not found!');
-    }
-  }, lang);
-  
-  await page.waitForTimeout(500); // Wait for language change to complete
-  
-  const actualValue = await page.evaluate(() => {
-    const select = document.querySelector('#languageSelect') as HTMLSelectElement;
-    return select ? select.value : 'NOT FOUND';
-  });
-  console.log(`[TEST] After changeLanguage: select value is ${actualValue}`);
+  const select = page.locator('#languageSelect');
+  await select.selectOption(lang);
+  // Use Playwright's native dispatchEvent
+  await select.dispatchEvent('change');
+  await page.waitForTimeout(500);
   
   const localStorageValue = await page.evaluate(() => {
     return localStorage.getItem('illmeter-language');
