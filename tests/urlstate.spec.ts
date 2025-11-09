@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
 
+// Helper function to change language reliably
+async function changeLanguage(page: any, lang: 'en' | 'cs') {
+  await page.selectOption('#languageSelect', lang);
+  await page.waitForTimeout(500); // Wait for language change to complete
+}
+
 test.describe('URL State Management', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
@@ -31,9 +37,7 @@ test.describe('URL State Management', () => {
     const languageSelect = page.locator('#languageSelect');
     
     // Switch to Czech
-    await languageSelect.click();
-    await languageSelect.selectOption('cs');
-    await page.waitForTimeout(500);
+    await changeLanguage(page, 'cs');
     
     // Get the link by clicking Share Link
     const shareLinkButton = page.locator('#getLinkButton');

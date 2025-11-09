@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
 
+// Helper function to change language reliably
+async function changeLanguage(page: any, lang: 'en' | 'cs') {
+  await page.selectOption('#languageSelect', lang);
+  await page.waitForTimeout(500); // Wait for language change to complete
+}
+
 test.describe('Language Switching', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
@@ -21,12 +27,8 @@ test.describe('Language Switching', () => {
   test('should switch to Czech and update UI', async ({ page }) => {
     const languageSelect = page.locator('#languageSelect');
     
-    // Switch to Czech using click() to ensure element is focused and interactive
-    await languageSelect.click();
-    await languageSelect.selectOption('cs');
-    
-    // Wait for language change to complete 
-    await page.waitForTimeout(500);
+    // Switch to Czech
+    await changeLanguage(page, 'cs');
     
     // Verify language selector updated
     await expect(languageSelect).toHaveValue('cs');
@@ -48,15 +50,11 @@ test.describe('Language Switching', () => {
     const languageSelect = page.locator('#languageSelect');
     
     // Switch to Czech first
-    await languageSelect.click();
-    await languageSelect.selectOption('cs');
-    await page.waitForTimeout(500);
+    await changeLanguage(page, 'cs');
     await expect(page.locator('#footerAboutLink')).toHaveText('O aplikaci');
     
     // Switch back to English
-    await languageSelect.click();
-    await languageSelect.selectOption('en');
-    await page.waitForTimeout(500);
+    await changeLanguage(page, 'en');
     await expect(languageSelect).toHaveValue('en');
     
     // Verify English UI is restored
@@ -76,8 +74,8 @@ test.describe('Language Switching', () => {
     const languageSelect = page.locator('#languageSelect');
     
     // Switch to Czech
-    await languageSelect.click();
-    await languageSelect.selectOption('cs');
+    await changeLanguage(page, 'cs');
+    await expect(languageSelect).toHaveValue('cs');
     await page.waitForTimeout(500);
     await expect(languageSelect).toHaveValue('cs');
     
@@ -102,10 +100,7 @@ test.describe('Language Switching', () => {
     await expect(page.locator('#trendsTableTitle')).toHaveText('Current Trends');
     
     // Switch to Czech
-    await languageSelect.selectOption('cs');
-    
-    // Wait for language change to complete
-    await page.waitForTimeout(500);
+    await changeLanguage(page, 'cs');
     
     // Check Czech UI translations
     await expect(page.locator('#getLinkButton')).toHaveText('Sdílet odkaz');
@@ -120,8 +115,9 @@ test.describe('Language Switching', () => {
     await expect(czechLegend).toBeVisible();
     
     // Switch to Czech
-    await languageSelect.selectOption('cs');
-    await page.waitForTimeout(500);
+    await changeLanguage(page, 'cs');
+    // Switch to Czech
+    await changeLanguage(page, 'cs');
     
     // The legend should still exist and have translated series names
     await expect(czechLegend).toBeVisible();
