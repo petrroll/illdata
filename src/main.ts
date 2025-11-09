@@ -366,17 +366,10 @@ const languageSelect = document.getElementById("languageSelect") as HTMLSelectEl
 if (languageSelect) {
     languageSelect.value = currentLanguage;
     languageSelect.addEventListener('change', () => {
-        console.log(`[APP/main] Language select change event fired! New value: ${languageSelect.value}`);
         const newLang = languageSelect.value as Language;
         setLanguage(newLang);
-        console.log(`[APP/main] setLanguage called with: ${newLang}`);
         currentLanguage = newLang;
         translations = getTranslations(newLang);
-        console.log(`[APP/main] currentLanguage and translations updated`);
-        updateAllUITexts();
-        console.log(`[APP/main] updateAllUITexts called`);
-        updateAllCharts();
-        console.log(`[APP/main] updateAllCharts called`);
         
         // Update all UI texts
         updateAllUITexts();
