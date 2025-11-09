@@ -28,13 +28,22 @@ test.describe('URL State Management', () => {
   });
 
   test('should encode language in shareable link', async ({ page }) => {
+    const languageSelect = page.locator('#languageSelect');
+    
+    // Wait for select to be ready
+    await languageSelect.waitFor({ state: 'attached' });
+    await page.waitForFunction(() => {
+      const select = document.getElementById('languageSelect') as HTMLSelectElement;
+      return select && select.options.length > 0;
+    });
+    
     // Switch to Czech - use evaluate to ensure change event fires
     await page.evaluate(() => {
       const select = document.getElementById('languageSelect') as HTMLSelectElement;
       select.value = 'cs';
       select.dispatchEvent(new Event('change', { bubbles: true }));
     });
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(500);
     
     // Get the link by clicking Share Link
     const shareLinkButton = page.locator('#getLinkButton');

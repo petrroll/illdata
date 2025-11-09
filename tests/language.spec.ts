@@ -21,6 +21,13 @@ test.describe('Language Switching', () => {
   test('should switch to Czech and update UI', async ({ page }) => {
     const languageSelect = page.locator('#languageSelect');
     
+    // Wait for select to be ready with options
+    await languageSelect.waitFor({ state: 'attached' });
+    await page.waitForFunction(() => {
+      const select = document.getElementById('languageSelect') as HTMLSelectElement;
+      return select && select.options.length > 0;
+    });
+    
     // Switch to Czech - use evaluate to ensure change event fires
     await page.evaluate(() => {
       const select = document.getElementById('languageSelect') as HTMLSelectElement;
@@ -29,7 +36,7 @@ test.describe('Language Switching', () => {
     });
     
     // Wait for language change to fully complete (charts re-render)
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(1000);
     
     // Verify language selector updated
     await expect(languageSelect).toHaveValue('cs');
@@ -50,13 +57,20 @@ test.describe('Language Switching', () => {
   test('should switch from Czech back to English', async ({ page }) => {
     const languageSelect = page.locator('#languageSelect');
     
+    // Wait for select to be ready
+    await languageSelect.waitFor({ state: 'attached' });
+    await page.waitForFunction(() => {
+      const select = document.getElementById('languageSelect') as HTMLSelectElement;
+      return select && select.options.length > 0;
+    });
+    
     // Switch to Czech first - use evaluate to ensure change event fires
     await page.evaluate(() => {
       const select = document.getElementById('languageSelect') as HTMLSelectElement;
       select.value = 'cs';
       select.dispatchEvent(new Event('change', { bubbles: true }));
     });
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(500);
     await expect(page.locator('#footerAboutLink')).toHaveText('O aplikaci');
     
     // Switch back to English - use evaluate to ensure change event fires
@@ -65,7 +79,7 @@ test.describe('Language Switching', () => {
       select.value = 'en';
       select.dispatchEvent(new Event('change', { bubbles: true }));
     });
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(500);
     await expect(languageSelect).toHaveValue('en');
     
     // Verify English UI is restored
@@ -84,13 +98,20 @@ test.describe('Language Switching', () => {
   test('should persist language selection in localStorage', async ({ page }) => {
     const languageSelect = page.locator('#languageSelect');
     
+    // Wait for select to be ready
+    await languageSelect.waitFor({ state: 'attached' });
+    await page.waitForFunction(() => {
+      const select = document.getElementById('languageSelect') as HTMLSelectElement;
+      return select && select.options.length > 0;
+    });
+    
     // Switch to Czech - use evaluate to ensure change event fires
     await page.evaluate(() => {
       const select = document.getElementById('languageSelect') as HTMLSelectElement;
       select.value = 'cs';
       select.dispatchEvent(new Event('change', { bubbles: true }));
     });
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(500);
     await expect(languageSelect).toHaveValue('cs');
     
     // Verify stored in localStorage
