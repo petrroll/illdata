@@ -544,6 +544,16 @@ function renderPage(rootDiv: HTMLElement | null) {
         const applied = applyUrlState(urlState, chartConfigs);
         appSettings = applied.appSettings;
         countryFilters = applied.countryFilters;
+        
+        // Update language select element if language was restored from URL
+        if (urlState.language) {
+            const newLang = getLanguage();  // Get the language that was just set
+            if (languageSelect) {
+                languageSelect.value = newLang;
+            }
+            currentLanguage = newLang;
+            translations = getTranslations(newLang);
+        }
     } else {
         // Load from localStorage
         appSettings = loadAppSettings();
