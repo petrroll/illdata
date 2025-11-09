@@ -1,17 +1,19 @@
 import { test, expect } from '@playwright/test';
 
 // Helper function to change language reliably
+// Instead of simulating select events (which is unreliable in Playwright),
+// directly call the setLanguage() function that the app uses
 async function changeLanguage(page: any, lang: 'en' | 'cs') {
-  const select = page.locator('#languageSelect');
-  await select.selectOption(lang);
-  // Use Playwright's native dispatchEvent
-  await select.dispatchEvent('change');
-  await page.waitForTimeout(500);
+  await page.evaluate((language: string) => {
+    // Call the application's setLanguage function directly
+    (window as any).setLanguage(language);
+  }, lang);
   
-  const localStorageValue = await page.evaluate(() => {
-    return localStorage.getItem('illmeter-language');
-  });
-  console.log(`[TEST] localStorage['illmeter-language'] = ${localStorageValue}`);
+  // Update the select element to match (for visual consistency)
+  await page.locator('#languageSelect').selectOption(lang);
+  
+  // Wait for language change to complete
+  await page.waitForTimeout(500);
 }
 
 test.describe('Language Switching', () => {

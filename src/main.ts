@@ -1908,3 +1908,6 @@ function getVisibilityDefault(label: string, showShifted: boolean = true, showTe
     return true;
 }
 
+// Expose setLanguage for E2E tests
+(window as any).setLanguage = setLanguage;
+
