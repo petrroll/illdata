@@ -553,6 +553,8 @@ function renderPage(rootDiv: HTMLElement | null) {
             }
             currentLanguage = newLang;
             translations = getTranslations(newLang);
+            // Update all UI texts with the new language
+            updateAllUITexts();
         }
     } else {
         // Load from localStorage
