@@ -363,21 +363,30 @@ updateAllUITexts();
 
 // Set up language switcher
 const languageSelect = document.getElementById("languageSelect") as HTMLSelectElement;
+
+// Helper function to change language (exposed for E2E tests)
+function changeLanguageAndUpdate(newLang: Language) {
+    setLanguage(newLang);
+    currentLanguage = newLang;
+    translations = getTranslations(newLang);
+    
+    // Update select element
+    if (languageSelect) {
+        languageSelect.value = newLang;
+    }
+    
+    // Update all UI texts
+    updateAllUITexts();
+    
+    // Update chart titles and re-render charts with translated labels
+    renderPage(container);
+}
+
 if (languageSelect) {
     languageSelect.value = currentLanguage;
     languageSelect.addEventListener('change', () => {
         const newLang = languageSelect.value as Language;
-        setLanguage(newLang);
-        currentLanguage = newLang;
-        translations = getTranslations(newLang);
-        
-        // Update all UI texts
-        updateAllUITexts();
-        
-        // Update chart titles and re-render charts with translated labels
-        // Note: We call renderPage to regenerate charts with translated series names
-        // This does reset visibility, which is a known limitation when switching languages
-        renderPage(container);
+        changeLanguageAndUpdate(newLang);
     });
 }
 
@@ -1908,6 +1917,6 @@ function getVisibilityDefault(label: string, showShifted: boolean = true, showTe
     return true;
 }
 
-// Expose setLanguage for E2E tests
-(window as any).setLanguage = setLanguage;
+// Expose changeLanguageAndUpdate for E2E tests
+(window as any).changeLanguageAndUpdate = changeLanguageAndUpdate;
 

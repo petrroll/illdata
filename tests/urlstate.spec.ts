@@ -1,19 +1,14 @@
 import { test, expect } from '@playwright/test';
 
 // Helper function to change language reliably
-// Instead of simulating select events (which is unreliable in Playwright),
-// directly call the setLanguage() function that the app uses
 async function changeLanguage(page: any, lang: 'en' | 'cs') {
   await page.evaluate((language: string) => {
-    // Call the application's setLanguage function directly
-    (window as any).setLanguage(language);
+    // Call the application's changeLanguageAndUpdate function directly
+    (window as any).changeLanguageAndUpdate(language);
   }, lang);
   
-  // Update the select element to match (for visual consistency)
-  await page.locator('#languageSelect').selectOption(lang);
-  
-  // Wait for language change to complete
-  await page.waitForTimeout(500);
+  // Wait for language change and re-render to complete
+  await page.waitForTimeout(1000);
 }
 
 test.describe('URL State Management', () => {
