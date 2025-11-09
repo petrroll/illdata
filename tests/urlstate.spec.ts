@@ -30,10 +30,8 @@ test.describe('URL State Management', () => {
   test('should encode language in shareable link', async ({ page }) => {
     const languageSelect = page.locator('#languageSelect');
     
-    // Ensure select is fully interactive
-    await languageSelect.waitFor({ state: 'visible' });
-    
     // Switch to Czech
+    await languageSelect.click();
     await languageSelect.selectOption('cs');
     await page.waitForTimeout(500);
     

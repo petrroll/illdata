@@ -21,10 +21,8 @@ test.describe('Language Switching', () => {
   test('should switch to Czech and update UI', async ({ page }) => {
     const languageSelect = page.locator('#languageSelect');
     
-    // Ensure select is fully interactive
-    await languageSelect.waitFor({ state: 'visible' });
-    
-    // Use Playwright's selectOption which handles events properly
+    // Switch to Czech using click() to ensure element is focused and interactive
+    await languageSelect.click();
     await languageSelect.selectOption('cs');
     
     // Wait for language change to complete 
@@ -49,15 +47,14 @@ test.describe('Language Switching', () => {
   test('should switch from Czech back to English', async ({ page }) => {
     const languageSelect = page.locator('#languageSelect');
     
-    // Ensure select is fully interactive
-    await languageSelect.waitFor({ state: 'visible' });
-    
     // Switch to Czech first
+    await languageSelect.click();
     await languageSelect.selectOption('cs');
     await page.waitForTimeout(500);
     await expect(page.locator('#footerAboutLink')).toHaveText('O aplikaci');
     
     // Switch back to English
+    await languageSelect.click();
     await languageSelect.selectOption('en');
     await page.waitForTimeout(500);
     await expect(languageSelect).toHaveValue('en');
@@ -78,10 +75,8 @@ test.describe('Language Switching', () => {
   test('should persist language selection in localStorage', async ({ page }) => {
     const languageSelect = page.locator('#languageSelect');
     
-    // Ensure select is fully interactive
-    await languageSelect.waitFor({ state: 'visible' });
-    
     // Switch to Czech
+    await languageSelect.click();
     await languageSelect.selectOption('cs');
     await page.waitForTimeout(500);
     await expect(languageSelect).toHaveValue('cs');
