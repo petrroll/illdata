@@ -32,6 +32,10 @@ jobs:
       - name: Test bun install
         run: bun install
 
+      # Install playwright deps 
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+
       # Download data (must be done in prepare step due to network filtering) & also tests just works
       - name: Test just commands
         run: |
