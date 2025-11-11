@@ -913,6 +913,181 @@ function extractShiftFromLabel(label: string): number | null {
     return null;
 }
 
+/**
+ * Detects if the device is likely a mobile/touch device.
+ * Uses multiple heuristics for better detection.
+ */
+function isMobileDevice(): boolean {
+    // Check for touch support
+    const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    
+    // Check viewport width (mobile typically < 768px)
+    const isMobileWidth = window.innerWidth < 768;
+    
+    // Combined heuristic: touch support OR small screen
+    return hasTouch || isMobileWidth;
+}
+
+/**
+ * Custom external tooltip handler for Chart.js.
+ * On mobile devices, shows a dismissible tooltip with a close button.
+ * On desktop, uses standard Chart.js tooltip behavior.
+ */
+function createExternalTooltipHandler(chartId: string) {
+    return function(context: any) {
+        // Tooltip Element
+        const {chart, tooltip} = context;
+        let tooltipEl = document.getElementById(`${chartId}-tooltip`);
+
+        // Create tooltip element if it doesn't exist
+        if (!tooltipEl) {
+            tooltipEl = document.createElement('div');
+            tooltipEl.id = `${chartId}-tooltip`;
+            tooltipEl.className = 'chart-tooltip';
+            
+            // Add close button
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'chart-tooltip-close';
+            closeBtn.innerHTML = '×';
+            closeBtn.setAttribute('aria-label', 'Close tooltip');
+            closeBtn.onclick = () => {
+                if (tooltipEl) {
+                    tooltipEl.style.opacity = '0';
+                    tooltipEl.style.pointerEvents = 'none';
+                }
+            };
+            tooltipEl.appendChild(closeBtn);
+            
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'chart-tooltip-title';
+            tooltipEl.appendChild(titleDiv);
+            
+            const bodyDiv = document.createElement('div');
+            bodyDiv.className = 'chart-tooltip-body';
+            tooltipEl.appendChild(bodyDiv);
+            
+            document.body.appendChild(tooltipEl);
+        }
+
+        // Hide if tooltip is not visible
+        if (tooltip.opacity === 0) {
+            tooltipEl.style.opacity = '0';
+            tooltipEl.style.pointerEvents = 'none';
+            return;
+        }
+
+        // Detect mobile device
+        const isMobile = isMobileDevice();
+        if (isMobile) {
+            tooltipEl.classList.add('mobile');
+        } else {
+            tooltipEl.classList.remove('mobile');
+        }
+
+        // Set title
+        const titleDiv = tooltipEl.querySelector('.chart-tooltip-title') as HTMLElement;
+        if (titleDiv && tooltip.title && tooltip.title.length > 0) {
+            titleDiv.innerHTML = tooltip.title.join('<br>');
+        }
+
+        // Set body
+        const bodyDiv = tooltipEl.querySelector('.chart-tooltip-body') as HTMLElement;
+        if (bodyDiv && tooltip.body && tooltip.body.length > 0) {
+            const bodyLines = tooltip.body.map((b: any) => b.lines).flat();
+            
+            bodyDiv.innerHTML = '';
+            
+            bodyLines.forEach((line: string, i: number) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'chart-tooltip-item';
+                
+                // Add color indicator
+                const colors = tooltip.labelColors[i];
+                if (colors) {
+                    const colorDiv = document.createElement('div');
+                    colorDiv.className = 'chart-tooltip-color';
+                    colorDiv.style.backgroundColor = colors.backgroundColor || colors.borderColor;
+                    itemDiv.appendChild(colorDiv);
+                }
+                
+                // Parse line to separate label and value
+                const parts = line.split(':');
+                if (parts.length >= 2) {
+                    const label = parts[0].trim();
+                    const value = parts.slice(1).join(':').trim();
+                    
+                    const labelSpan = document.createElement('span');
+                    labelSpan.className = 'chart-tooltip-label';
+                    labelSpan.textContent = label;
+                    
+                    const valueSpan = document.createElement('span');
+                    valueSpan.className = 'chart-tooltip-value';
+                    valueSpan.textContent = value;
+                    
+                    itemDiv.appendChild(labelSpan);
+                    itemDiv.appendChild(valueSpan);
+                } else {
+                    const labelSpan = document.createElement('span');
+                    labelSpan.className = 'chart-tooltip-label';
+                    labelSpan.textContent = line;
+                    itemDiv.appendChild(labelSpan);
+                }
+                
+                bodyDiv.appendChild(itemDiv);
+            });
+        }
+
+        // Position the tooltip
+        const {offsetLeft: positionX, offsetTop: positionY} = chart.canvas;
+        
+        // Show tooltip
+        tooltipEl.style.opacity = '1';
+        if (isMobile) {
+            // On mobile, make it interactive so close button works
+            tooltipEl.style.pointerEvents = 'auto';
+        } else {
+            // On desktop, keep it non-interactive
+            tooltipEl.style.pointerEvents = 'none';
+        }
+        
+        // Position tooltip near the cursor but avoid going off screen
+        const tooltipX = positionX + tooltip.caretX;
+        const tooltipY = positionY + tooltip.caretY;
+        
+        // Basic positioning - offset slightly from cursor
+        let finalX = tooltipX + 10;
+        let finalY = tooltipY - 10;
+        
+        // Get tooltip dimensions
+        tooltipEl.style.left = finalX + 'px';
+        tooltipEl.style.top = finalY + 'px';
+        
+        // Check if tooltip goes off right edge of screen
+        const tooltipRect = tooltipEl.getBoundingClientRect();
+        if (tooltipRect.right > window.innerWidth - 10) {
+            finalX = tooltipX - tooltipRect.width - 10;
+        }
+        
+        // Check if tooltip goes off bottom of screen
+        if (tooltipRect.bottom > window.innerHeight - 10) {
+            finalY = tooltipY - tooltipRect.height - 10;
+        }
+        
+        // Check if tooltip goes off top of screen
+        if (finalY < 10) {
+            finalY = 10;
+        }
+        
+        // Check if tooltip goes off left edge
+        if (finalX < 10) {
+            finalX = 10;
+        }
+        
+        tooltipEl.style.left = finalX + 'px';
+        tooltipEl.style.top = finalY + 'px';
+    };
+}
+
 function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima', countryFilter?: string) {
     // Destroy existing chart if it exists
     if (cfg.chartHolder.chart) {
@@ -1168,9 +1343,11 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     display: false // We'll create a custom HTML legend instead
                 },
                 tooltip: {
+                    enabled: false, // Disable default tooltip
                     mode: 'index', // Snap tooltip to vertical line
                     intersect: false,
                     axis: 'x',
+                    external: createExternalTooltipHandler(cfg.canvasId),
                     callbacks: {
                         title: function(context) {
                             if (context.length === 0) return '';
