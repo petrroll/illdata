@@ -1466,7 +1466,11 @@ function createSplitTestPill(
     
     // Add click handler for prefix (toggles both)
     prefixButton.addEventListener('click', () => {
-        const newVisibility = !bothVisible;
+        // Read current visibility state from cfg (not captured variables)
+        const currentPositiveVisible = cfg.datasetVisibility[positiveLabel] !== false;
+        const currentNegativeVisible = cfg.datasetVisibility[negativeLabel] !== false;
+        const currentBothVisible = currentPositiveVisible && currentNegativeVisible;
+        const newVisibility = !currentBothVisible;
         
         // Update visibility for both datasets
         cfg.datasetVisibility[positiveLabel] = newVisibility;
@@ -1481,7 +1485,7 @@ function createSplitTestPill(
         positiveDataset.hidden = !newVisibility;
         negativeDataset.hidden = !newVisibility;
         
-        // Update UI
+        // Update UI - only cross through the sections that are hidden
         chart.update();
         pillWrapper.style.opacity = newVisibility ? '1' : '0.5';
         prefixButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
@@ -1508,7 +1512,9 @@ function createSplitTestPill(
     
     // Add click handler for positive tests only
     positiveButton.addEventListener('click', () => {
-        const newVisibility = !positiveVisible;
+        // Read current visibility state from cfg (not captured variables)
+        const currentPositiveVisible = cfg.datasetVisibility[positiveLabel] !== false;
+        const newVisibility = !currentPositiveVisible;
         
         cfg.datasetVisibility[positiveLabel] = newVisibility;
         localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
@@ -1520,8 +1526,9 @@ function createSplitTestPill(
         chart.update();
         positiveButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
         
-        // Update wrapper opacity based on both states
-        const newBothVisible = newVisibility && negativeVisible;
+        // Update wrapper opacity and prefix based on both states
+        const currentNegativeVisible = cfg.datasetVisibility[negativeLabel] !== false;
+        const newBothVisible = newVisibility && currentNegativeVisible;
         pillWrapper.style.opacity = newBothVisible ? '1' : '0.5';
         prefixButton.style.textDecoration = newBothVisible ? 'none' : 'line-through';
         
@@ -1544,7 +1551,9 @@ function createSplitTestPill(
     
     // Add click handler for negative tests only
     negativeButton.addEventListener('click', () => {
-        const newVisibility = !negativeVisible;
+        // Read current visibility state from cfg (not captured variables)
+        const currentNegativeVisible = cfg.datasetVisibility[negativeLabel] !== false;
+        const newVisibility = !currentNegativeVisible;
         
         cfg.datasetVisibility[negativeLabel] = newVisibility;
         localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
@@ -1556,8 +1565,9 @@ function createSplitTestPill(
         chart.update();
         negativeButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
         
-        // Update wrapper opacity based on both states
-        const newBothVisible = positiveVisible && newVisibility;
+        // Update wrapper opacity and prefix based on both states
+        const currentPositiveVisible = cfg.datasetVisibility[positiveLabel] !== false;
+        const newBothVisible = currentPositiveVisible && newVisibility;
         pillWrapper.style.opacity = newBothVisible ? '1' : '0.5';
         prefixButton.style.textDecoration = newBothVisible ? 'none' : 'line-through';
         
