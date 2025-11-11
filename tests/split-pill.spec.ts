@@ -3,60 +3,69 @@ import { test, expect } from '@playwright/test';
 test.describe('Split Pill Legend Buttons', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#languageSelect');
-    await page.waitForSelector('canvas');
+    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('#languageSelect', { timeout: 10000 });
+    await page.waitForSelector('canvas', { timeout: 10000 });
     // Wait for legend to be created
-    await page.waitForSelector('#czechDataContainer-legend');
+    await page.waitForSelector('#czechDataContainer-legend', { timeout: 10000 });
     
-    // Enable test numbers to see split pills
+    // Ensure test numbers are enabled
     const showTestNumbersCheckbox = page.locator('#showTestNumbers');
+    await showTestNumbersCheckbox.waitFor({ state: 'visible', timeout: 5000 });
     const isChecked = await showTestNumbersCheckbox.isChecked();
     if (!isChecked) {
       await showTestNumbersCheckbox.check();
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(1000); // Wait for UI to update
     }
   });
 
   test('should display split pills for positive/negative test pairs', async ({ page }) => {
     const czechLegend = page.locator('#czechDataContainer-legend');
     
+    // Wait a bit for legend to be fully rendered
+    await page.waitForTimeout(500);
+    
     // Look for text that indicates split pills exist
-    const positiveTestsText = czechLegend.getByText('Positive Tests');
-    const negativeTestsText = czechLegend.getByText('Negative Tests');
+    const positiveTestsText = czechLegend.locator('span', { hasText: 'Positive Tests' });
+    const negativeTestsText = czechLegend.locator('span', { hasText: 'Negative Tests' });
     
     // Should have at least one occurrence of each
-    await expect(positiveTestsText.first()).toBeVisible();
-    await expect(negativeTestsText.first()).toBeVisible();
+    await expect(positiveTestsText.first()).toBeVisible({ timeout: 5000 });
+    await expect(negativeTestsText.first()).toBeVisible({ timeout: 5000 });
   });
 
   test('should toggle both tests when clicking prefix button', async ({ page }) => {
     const czechLegend = page.locator('#czechDataContainer-legend');
     
-    // Find "Antigen Positivity" or "PCR Positivity" text (these are the prefix buttons)
-    // They should be in gray background spans
-    const antigenPrefix = czechLegend.getByText('Antigen Positivity', { exact: true });
+    // Wait for legend to be fully rendered
+    await page.waitForTimeout(500);
     
-    // Check if it exists, if not skip test
-    if (await antigenPrefix.count() === 0) {
+    // Find "Antigen Positivity" or "PCR Positivity" text (these are the prefix buttons)
+    const antigenPrefix = czechLegend.locator('span', { hasText: /^Antigen Positivity$/ });
+    
+    // Check if it exists
+    const count = await antigenPrefix.count();
+    if (count === 0) {
       test.skip();
       return;
     }
     
     const firstPrefix = antigenPrefix.first();
+    await firstPrefix.waitFor({ state: 'visible', timeout: 5000 });
     
     // Click the prefix to hide both
     await firstPrefix.click();
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(500);
     
-    // Find the positive and negative test buttons for this series
-    // After hiding, they should have strikethrough
-    const positiveButton = czechLegend.getByText('Positive Tests').first();
+    // Find the positive test button and check for strikethrough
+    const positiveButton = czechLegend.locator('span', { hasText: 'Positive Tests' }).first();
+    await positiveButton.waitFor({ state: 'visible', timeout: 5000 });
     const textDecoration = await positiveButton.evaluate(el => window.getComputedStyle(el).textDecoration);
     expect(textDecoration).toContain('line-through');
     
     // Click prefix again to show both
     await firstPrefix.click();
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(500);
     
     // Now should not have strikethrough
     const textDecorationVisible = await positiveButton.evaluate(el => window.getComputedStyle(el).textDecoration);
@@ -66,12 +75,16 @@ test.describe('Split Pill Legend Buttons', () => {
   test('should toggle individual test when clicking positive/negative button', async ({ page }) => {
     const czechLegend = page.locator('#czechDataContainer-legend');
     
+    // Wait for legend rendering
+    await page.waitForTimeout(500);
+    
     // Find the first "Positive Tests" button
-    const positiveButton = czechLegend.getByText('Positive Tests').first();
+    const positiveButton = czechLegend.locator('span', { hasText: 'Positive Tests' }).first();
+    await positiveButton.waitFor({ state: 'visible', timeout: 5000 });
     
     // Click to hide positive tests
     await positiveButton.click();
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(500);
     
     // Check that it has strikethrough
     const textDecoration = await positiveButton.evaluate(el => window.getComputedStyle(el).textDecoration);
@@ -79,7 +92,7 @@ test.describe('Split Pill Legend Buttons', () => {
     
     // Click again to re-enable
     await positiveButton.click();
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(500);
     
     // Check that strikethrough is removed
     const textDecorationVisible = await positiveButton.evaluate(el => window.getComputedStyle(el).textDecoration);
@@ -89,8 +102,14 @@ test.describe('Split Pill Legend Buttons', () => {
   test('should show reduced opacity only when both tests are hidden', async ({ page }) => {
     const czechLegend = page.locator('#czechDataContainer-legend');
     
-    const positiveButton = czechLegend.getByText('Positive Tests').first();
-    const negativeButton = czechLegend.getByText('Negative Tests').first();
+    // Wait for legend rendering
+    await page.waitForTimeout(500);
+    
+    const positiveButton = czechLegend.locator('span', { hasText: 'Positive Tests' }).first();
+    const negativeButton = czechLegend.locator('span', { hasText: 'Negative Tests' }).first();
+    
+    await positiveButton.waitFor({ state: 'visible', timeout: 5000 });
+    await negativeButton.waitFor({ state: 'visible', timeout: 5000 });
     
     // Get parent element (the pill wrapper) by going up the DOM
     const pillWrapper = positiveButton.locator('xpath=../..');
@@ -101,7 +120,7 @@ test.describe('Split Pill Legend Buttons', () => {
     
     // Hide positive tests
     await positiveButton.click();
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(500);
     
     // Opacity should still be 1 (negative still visible)
     opacity = await pillWrapper.evaluate(el => window.getComputedStyle(el).opacity);
@@ -109,7 +128,7 @@ test.describe('Split Pill Legend Buttons', () => {
     
     // Now hide negative tests too
     await negativeButton.click();
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(500);
     
     // Now opacity should be 0.5 (both hidden)
     opacity = await pillWrapper.evaluate(el => window.getComputedStyle(el).opacity);
@@ -117,7 +136,7 @@ test.describe('Split Pill Legend Buttons', () => {
     
     // Re-enable positive
     await positiveButton.click();
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(500);
     
     // Opacity should go back to 1
     opacity = await pillWrapper.evaluate(el => window.getComputedStyle(el).opacity);
@@ -127,10 +146,14 @@ test.describe('Split Pill Legend Buttons', () => {
   test('should persist split pill visibility state in localStorage', async ({ page }) => {
     const czechLegend = page.locator('#czechDataContainer-legend');
     
+    // Wait for rendering
+    await page.waitForTimeout(500);
+    
     // Click a positive tests button
-    const positiveButton = czechLegend.getByText('Positive Tests').first();
+    const positiveButton = czechLegend.locator('span', { hasText: 'Positive Tests' }).first();
+    await positiveButton.waitFor({ state: 'visible', timeout: 5000 });
     await positiveButton.click();
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(500);
     
     // Verify it has strikethrough
     let textDecoration = await positiveButton.evaluate(el => window.getComputedStyle(el).textDecoration);
@@ -138,20 +161,23 @@ test.describe('Split Pill Legend Buttons', () => {
     
     // Reload page
     await page.reload();
-    await page.waitForSelector('#czechDataContainer-legend');
-    await page.waitForTimeout(500);
+    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('#czechDataContainer-legend', { timeout: 10000 });
+    await page.waitForTimeout(1000);
     
     // Re-enable test numbers if needed
     const showTestNumbersCheckbox = page.locator('#showTestNumbers');
+    await showTestNumbersCheckbox.waitFor({ state: 'visible', timeout: 5000 });
     const isChecked = await showTestNumbersCheckbox.isChecked();
     if (!isChecked) {
       await showTestNumbersCheckbox.check();
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(1000);
     }
     
     // Find the same button again
     const reloadedLegend = page.locator('#czechDataContainer-legend');
-    const reloadedPositiveButton = reloadedLegend.getByText('Positive Tests').first();
+    const reloadedPositiveButton = reloadedLegend.locator('span', { hasText: 'Positive Tests' }).first();
+    await reloadedPositiveButton.waitFor({ state: 'visible', timeout: 5000 });
     
     // Should still have strikethrough
     textDecoration = await reloadedPositiveButton.evaluate(el => window.getComputedStyle(el).textDecoration);
@@ -161,23 +187,24 @@ test.describe('Split Pill Legend Buttons', () => {
   test('should work in Czech language', async ({ page }) => {
     // Switch to Czech
     const languageSelect = page.locator('#languageSelect');
+    await languageSelect.waitFor({ state: 'visible', timeout: 5000 });
     await languageSelect.selectOption('cs');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
     
     const czechLegend = page.locator('#czechDataContainer-legend');
     
     // Look for Czech test labels - should contain "pozitivní" or "negativní"
-    const positiveButtons = czechLegend.locator('span').filter({ hasText: /pozitivní/i });
-    const negativeButtons = czechLegend.locator('span').filter({ hasText: /negativní/i });
+    const positiveButtons = czechLegend.locator('span', { hasText: /pozitivní/i });
+    const negativeButtons = czechLegend.locator('span', { hasText: /negativní/i });
     
     // Should find at least one of each
-    expect(await positiveButtons.count()).toBeGreaterThan(0);
-    expect(await negativeButtons.count()).toBeGreaterThan(0);
+    await expect(positiveButtons.first()).toBeVisible({ timeout: 5000 });
+    await expect(negativeButtons.first()).toBeVisible({ timeout: 5000 });
     
     // Test clicking
     const firstPositiveButton = positiveButtons.first();
     await firstPositiveButton.click();
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(500);
     
     // Should have strikethrough
     const textDecoration = await firstPositiveButton.evaluate(el => window.getComputedStyle(el).textDecoration);
