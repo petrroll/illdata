@@ -1445,7 +1445,7 @@ function createSplitTestPill(
         border-radius: 4px;
         overflow: hidden;
         font-family: Arial, sans-serif;
-        opacity: ${bothVisible ? '1' : '0.5'};
+        opacity: ${neitherVisible ? '0.5' : '1'};
         text-decoration: ${neitherVisible ? 'line-through' : 'none'};
     `;
     
@@ -1487,10 +1487,10 @@ function createSplitTestPill(
         positiveDataset.hidden = !newVisibility;
         negativeDataset.hidden = !newVisibility;
         
-        // Update UI - cross through entire pill only if both are hidden
+        // Update UI - opacity and strikethrough only if both are hidden
         chart.update();
         const anyVisible = newVisibility; // both will have same visibility after this click
-        pillWrapper.style.opacity = newVisibility ? '1' : '0.5';
+        pillWrapper.style.opacity = anyVisible ? '1' : '0.5';
         pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
         prefixButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
         positiveButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
@@ -1534,7 +1534,7 @@ function createSplitTestPill(
         const currentNegativeVisible = cfg.datasetVisibility[negativeLabel] !== false;
         const newBothVisible = newVisibility && currentNegativeVisible;
         const anyVisible = newVisibility || currentNegativeVisible;
-        pillWrapper.style.opacity = newBothVisible ? '1' : '0.5';
+        pillWrapper.style.opacity = anyVisible ? '1' : '0.5';
         pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
         prefixButton.style.textDecoration = newBothVisible ? 'none' : 'line-through';
         
@@ -1575,7 +1575,7 @@ function createSplitTestPill(
         const currentPositiveVisible = cfg.datasetVisibility[positiveLabel] !== false;
         const newBothVisible = currentPositiveVisible && newVisibility;
         const anyVisible = currentPositiveVisible || newVisibility;
-        pillWrapper.style.opacity = newBothVisible ? '1' : '0.5';
+        pillWrapper.style.opacity = anyVisible ? '1' : '0.5';
         pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
         prefixButton.style.textDecoration = newBothVisible ? 'none' : 'line-through';
         
