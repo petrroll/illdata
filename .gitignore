@@ -179,3 +179,7 @@ dist
 
 data
 data_processed
+# Playwright test results
+test-results/
+playwright-report/
+playwright/.cache/

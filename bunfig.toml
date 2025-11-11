@@ -1,0 +1,7 @@
+[test]
+# Exclude Playwright test files from Bun test runner
+# Playwright tests should be run with: bunx playwright test
+
+# Only run test files in src directory, not in tests directory
+# This prevents Playwright tests from being picked up by bun test
+root = "./src"

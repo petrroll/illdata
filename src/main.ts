@@ -363,21 +363,30 @@ updateAllUITexts();
 
 // Set up language switcher
 const languageSelect = document.getElementById("languageSelect") as HTMLSelectElement;
+
+// Helper function to change language (exposed for E2E tests)
+function changeLanguageAndUpdate(newLang: Language) {
+    setLanguage(newLang);
+    currentLanguage = newLang;
+    translations = getTranslations(newLang);
+    
+    // Update select element
+    if (languageSelect) {
+        languageSelect.value = newLang;
+    }
+    
+    // Update all UI texts
+    updateAllUITexts();
+    
+    // Update chart titles and re-render charts with translated labels
+    renderPage(container);
+}
+
 if (languageSelect) {
     languageSelect.value = currentLanguage;
     languageSelect.addEventListener('change', () => {
         const newLang = languageSelect.value as Language;
-        setLanguage(newLang);
-        currentLanguage = newLang;
-        translations = getTranslations(newLang);
-        
-        // Update all UI texts
-        updateAllUITexts();
-        
-        // Update chart titles and re-render charts with translated labels
-        // Note: We call renderPage to regenerate charts with translated series names
-        // This does reset visibility, which is a known limitation when switching languages
-        renderPage(container);
+        changeLanguageAndUpdate(newLang);
     });
 }
 
@@ -544,6 +553,18 @@ function renderPage(rootDiv: HTMLElement | null) {
         const applied = applyUrlState(urlState, chartConfigs);
         appSettings = applied.appSettings;
         countryFilters = applied.countryFilters;
+        
+        // Update language select element if language was restored from URL
+        if (urlState.language) {
+            const newLang = getLanguage();  // Get the language that was just set
+            if (languageSelect) {
+                languageSelect.value = newLang;
+            }
+            currentLanguage = newLang;
+            translations = getTranslations(newLang);
+            // Update all UI texts with the new language
+            updateAllUITexts();
+        }
     } else {
         // Load from localStorage
         appSettings = loadAppSettings();
@@ -1895,4 +1916,7 @@ function getVisibilityDefault(label: string, showShifted: boolean = true, showTe
     // Show all other datasets by default
     return true;
 }
+
+// Expose changeLanguageAndUpdate for E2E tests
+(window as any).changeLanguageAndUpdate = changeLanguageAndUpdate;
 
