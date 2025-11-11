@@ -69,12 +69,13 @@ test.describe('Series Visibility', () => {
     await page.waitForTimeout(200);
     
     // Check all legend items in all charts are hidden
+    // Use direct children (> span) to avoid nested spans in split pills
     const allLegends = page.locator('[id$="-legend"]');
     const count = await allLegends.count();
     
     for (let i = 0; i < count; i++) {
       const legend = allLegends.nth(i);
-      const items = legend.locator('span');
+      const items = legend.locator('> span');
       const itemCount = await items.count();
       
       for (let j = 0; j < itemCount; j++) {
