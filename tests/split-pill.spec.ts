@@ -10,7 +10,7 @@ test.describe('Split Pill Legend Buttons', () => {
     await page.waitForSelector('#czechDataContainer-legend', { timeout: 10000 });
     
     // Ensure test numbers are enabled
-    const showTestNumbersCheckbox = page.locator('#showTestNumbers');
+    const showTestNumbersCheckbox = page.locator('#showTestNumbersCheckbox');
     await showTestNumbersCheckbox.waitFor({ state: 'visible', timeout: 5000 });
     const isChecked = await showTestNumbersCheckbox.isChecked();
     if (!isChecked) {
@@ -166,7 +166,7 @@ test.describe('Split Pill Legend Buttons', () => {
     await page.waitForTimeout(1000);
     
     // Re-enable test numbers if needed
-    const showTestNumbersCheckbox = page.locator('#showTestNumbers');
+    const showTestNumbersCheckbox = page.locator('#showTestNumbersCheckbox');
     await showTestNumbersCheckbox.waitFor({ state: 'visible', timeout: 5000 });
     const isChecked = await showTestNumbersCheckbox.isChecked();
     if (!isChecked) {
