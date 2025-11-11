@@ -364,7 +364,7 @@ updateAllUITexts();
 // Set up language switcher
 const languageSelect = document.getElementById("languageSelect") as HTMLSelectElement;
 
-// Helper function to change language (exposed for E2E tests)
+// Helper function to change language and update UI
 function changeLanguageAndUpdate(newLang: Language) {
     setLanguage(newLang);
     currentLanguage = newLang;
@@ -1916,7 +1916,4 @@ function getVisibilityDefault(label: string, showShifted: boolean = true, showTe
     // Show all other datasets by default
     return true;
 }
-
-// Expose changeLanguageAndUpdate for E2E tests
-(window as any).changeLanguageAndUpdate = changeLanguageAndUpdate;
 

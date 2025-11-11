@@ -1,11 +1,9 @@
 import { test, expect } from '@playwright/test';
 
-// Helper function to change language reliably
+// Helper function to change language via DOM interaction
 async function changeLanguage(page: any, lang: 'en' | 'cs') {
-  await page.evaluate((language: string) => {
-    // Call the application's changeLanguageAndUpdate function directly
-    (window as any).changeLanguageAndUpdate(language);
-  }, lang);
+  const languageSelect = page.locator('#languageSelect');
+  await languageSelect.selectOption(lang);
   
   // Wait for language change and re-render to complete
   await page.waitForTimeout(1000);
@@ -56,7 +54,7 @@ test.describe('URL State Management', () => {
     
     // The link should contain a state parameter
     // We'll verify by checking localStorage state instead
-    const languageSetting = await page.evaluate(() => localStorage.getItem('language'));
+    const languageSetting = await page.evaluate(() => localStorage.getItem('illmeter-language'));
     expect(languageSetting).toBe('cs');
   });
 

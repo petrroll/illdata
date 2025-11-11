@@ -1,11 +1,9 @@
 import { test, expect } from '@playwright/test';
 
-// Helper function to change language reliably
+// Helper function to change language via DOM interaction
 async function changeLanguage(page: any, lang: 'en' | 'cs') {
-  await page.evaluate((language: string) => {
-    // Call the application's changeLanguageAndUpdate function directly
-    (window as any).changeLanguageAndUpdate(language);
-  }, lang);
+  const languageSelect = page.locator('#languageSelect');
+  await languageSelect.selectOption(lang);
   
   // Wait for language change and re-render to complete
   await page.waitForTimeout(1000);
@@ -47,7 +45,7 @@ test.describe('Language Switching', () => {
     await expect(aboutLink).toHaveAttribute('href', 'about-cs.html');
     
     // Verify language persisted to localStorage
-    const storedLanguage = await page.evaluate(() => localStorage.getItem('language'));
+    const storedLanguage = await page.evaluate(() => localStorage.getItem('illmeter-language'));
     expect(storedLanguage).toBe('cs');
   });
 
@@ -71,7 +69,7 @@ test.describe('Language Switching', () => {
     await expect(aboutLink).toHaveAttribute('href', 'about.html');
     
     // Verify language persisted to localStorage
-    const storedLanguage = await page.evaluate(() => localStorage.getItem('language'));
+    const storedLanguage = await page.evaluate(() => localStorage.getItem('illmeter-language'));
     expect(storedLanguage).toBe('en');
   });
 
@@ -85,7 +83,7 @@ test.describe('Language Switching', () => {
     await expect(languageSelect).toHaveValue('cs');
     
     // Verify stored in localStorage
-    const storedLanguage = await page.evaluate(() => localStorage.getItem('language'));
+    const storedLanguage = await page.evaluate(() => localStorage.getItem('illmeter-language'));
     expect(storedLanguage).toBe('cs');
     
     // Reload the page
