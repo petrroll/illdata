@@ -1460,7 +1460,7 @@ function createSplitTestPill(
         cursor: pointer;
         user-select: none;
         border-right: 1px solid rgba(255, 255, 255, 0.3);
-        text-decoration: ${bothVisible ? 'none' : 'line-through'};
+        text-decoration: ${neitherVisible ? 'line-through' : 'none'};
     `;
     // Extract just the series name without the test suffix for display
     const displayName = translateSeriesName(baseSeriesName);
@@ -1536,7 +1536,7 @@ function createSplitTestPill(
         const anyVisible = newVisibility || currentNegativeVisible;
         pillWrapper.style.opacity = anyVisible ? '1' : '0.5';
         pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
-        prefixButton.style.textDecoration = newBothVisible ? 'none' : 'line-through';
+        prefixButton.style.textDecoration = anyVisible ? 'none' : 'line-through';
         
         updateRatioTable();
     });
@@ -1577,7 +1577,7 @@ function createSplitTestPill(
         const anyVisible = currentPositiveVisible || newVisibility;
         pillWrapper.style.opacity = anyVisible ? '1' : '0.5';
         pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
-        prefixButton.style.textDecoration = newBothVisible ? 'none' : 'line-through';
+        prefixButton.style.textDecoration = anyVisible ? 'none' : 'line-through';
         
         updateRatioTable();
     });
