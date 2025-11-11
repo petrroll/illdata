@@ -1439,12 +1439,14 @@ function createSplitTestPill(
     
     // Create wrapper for the split pill
     const pillWrapper = document.createElement('span');
+    const neitherVisible = !positiveVisible && !negativeVisible;
     pillWrapper.style.cssText = `
         display: inline-flex;
         border-radius: 4px;
         overflow: hidden;
         font-family: Arial, sans-serif;
         opacity: ${bothVisible ? '1' : '0.5'};
+        text-decoration: ${neitherVisible ? 'line-through' : 'none'};
     `;
     
     // Create common prefix button (toggles both)
@@ -1485,9 +1487,11 @@ function createSplitTestPill(
         positiveDataset.hidden = !newVisibility;
         negativeDataset.hidden = !newVisibility;
         
-        // Update UI - only cross through the sections that are hidden
+        // Update UI - cross through entire pill only if both are hidden
         chart.update();
+        const anyVisible = newVisibility; // both will have same visibility after this click
         pillWrapper.style.opacity = newVisibility ? '1' : '0.5';
+        pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
         prefixButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
         positiveButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
         negativeButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
@@ -1526,10 +1530,12 @@ function createSplitTestPill(
         chart.update();
         positiveButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
         
-        // Update wrapper opacity and prefix based on both states
+        // Update wrapper opacity, strikethrough, and prefix based on both states
         const currentNegativeVisible = cfg.datasetVisibility[negativeLabel] !== false;
         const newBothVisible = newVisibility && currentNegativeVisible;
+        const anyVisible = newVisibility || currentNegativeVisible;
         pillWrapper.style.opacity = newBothVisible ? '1' : '0.5';
+        pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
         prefixButton.style.textDecoration = newBothVisible ? 'none' : 'line-through';
         
         updateRatioTable();
@@ -1565,10 +1571,12 @@ function createSplitTestPill(
         chart.update();
         negativeButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
         
-        // Update wrapper opacity and prefix based on both states
+        // Update wrapper opacity, strikethrough, and prefix based on both states
         const currentPositiveVisible = cfg.datasetVisibility[positiveLabel] !== false;
         const newBothVisible = currentPositiveVisible && newVisibility;
+        const anyVisible = currentPositiveVisible || newVisibility;
         pillWrapper.style.opacity = newBothVisible ? '1' : '0.5';
+        pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
         prefixButton.style.textDecoration = newBothVisible ? 'none' : 'line-through';
         
         updateRatioTable();
