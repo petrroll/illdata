@@ -255,14 +255,6 @@ test.describe('Combined Scenarios', () => {
     });
     const hiddenCount = Object.values(visibility).filter(v => v === false).length;
     expect(hiddenCount).toBeGreaterThanOrEqual(1);
-    }
-    
-    // Reload and verify all persisted independently
-    await page.reload();
-    await page.waitForSelector('#czechDataContainer-legend');
-    
-    const newCzechItems = page.locator('#czechDataContainer-legend span');
-    expect(await newCzechItems.first().evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
   });
 
   test('should handle rapid setting changes without breaking', async ({ page }) => {

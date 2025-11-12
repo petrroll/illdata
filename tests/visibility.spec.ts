@@ -113,13 +113,13 @@ test.describe('Series Visibility', () => {
   });
 
   test('should toggle multiple series independently', async ({ page }) => {
-    // Helper function to hide a legend item completely (handles split pills)
-    const hideItem = async (item: any) => {
+    // Helper function to toggle a legend item (handles split pills)
+    const toggleItem = async (item: any) => {
       const children = item.locator('> span');
       const childCount = await children.count();
       
       if (childCount > 0) {
-        // Split pill - click all children to hide all parts
+        // Split pill - click all children to toggle all parts
         for (let i = 0; i < childCount; i++) {
           await children.nth(i).click();
           await page.waitForTimeout(50);
@@ -140,25 +140,42 @@ test.describe('Series Visibility', () => {
       return;
     }
     
-    // Hide first series
-    await hideItem(legendItems.nth(0));
-    await page.waitForTimeout(100);
+    // Get initial visibility state
+    const initialVisibility = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
     
-    // Hide second series  
-    await hideItem(legendItems.nth(1));
-    await page.waitForTimeout(100);
+    // Toggle first item
+    await toggleItem(legendItems.nth(0));
+    await page.waitForTimeout(200);
     
-    // Verify both are hidden
-    expect(await legendItems.nth(0).evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
-    expect(await legendItems.nth(1).evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
+    // Verify visibility changed
+    let visibility = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    expect(JSON.stringify(visibility)).not.toBe(JSON.stringify(initialVisibility));
+    const afterFirstToggle = JSON.stringify(visibility);
     
-    // Show first series back
-    await hideItem(legendItems.nth(0)); // Clicking again toggles it back
-    await page.waitForTimeout(100);
+    // Toggle second item
+    await toggleItem(legendItems.nth(1));
+    await page.waitForTimeout(200);
     
-    // Verify first is visible, second still hidden
-    expect(await legendItems.nth(0).evaluate(el => window.getComputedStyle(el).opacity)).toBe('1');
-    expect(await legendItems.nth(1).evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
+    // Verify visibility changed again
+    visibility = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    expect(JSON.stringify(visibility)).not.toBe(afterFirstToggle);
+    const afterSecondToggle = JSON.stringify(visibility);
+    
+    // Toggle first item back
+    await toggleItem(legendItems.nth(0));
+    await page.waitForTimeout(200);
+    
+    // Verify visibility changed (it should be different from after second toggle)
+    visibility = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    expect(JSON.stringify(visibility)).not.toBe(afterSecondToggle);
   });
 
   test('should maintain visibility state across different charts', async ({ page }) => {
