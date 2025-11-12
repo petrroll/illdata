@@ -1410,9 +1410,75 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
                 processedIndices.add(index);
             }
         } else {
-            // Regular dataset (not part of a test pair)
-            createRegularLegendButton(legendContainer, chart, cfg, dataset, index);
-            processedIndices.add(index);
+            // Check if this is a shifted series that has a corresponding base series
+            const isShifted = normalizedLabel.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER);
+            
+            if (isShifted) {
+                // Extract base series name (without shift suffix)
+                const baseNameWithoutShift = getBaseSeriesNameWithoutShift(normalizedLabel);
+                
+                // Find the corresponding base series dataset
+                const baseDataset = datasetsWithIndices.find(d => {
+                    const label = normalizeSeriesName(d.dataset.label || '');
+                    const labelLower = label.toLowerCase();
+                    // Match if it's the same base series but not shifted
+                    return label === baseNameWithoutShift && !labelLower.includes(SHIFTED_SERIES_IDENTIFIER);
+                });
+                
+                if (baseDataset) {
+                    // Create a split pill for base and shifted series
+                    createSplitShiftedPill(
+                        legendContainer,
+                        chart,
+                        cfg,
+                        baseDataset.dataset,
+                        baseDataset.index,
+                        dataset,
+                        index,
+                        baseNameWithoutShift
+                    );
+                    
+                    processedIndices.add(baseDataset.index);
+                    processedIndices.add(index);
+                } else {
+                    // No base series found, create regular button
+                    createRegularLegendButton(legendContainer, chart, cfg, dataset, index);
+                    processedIndices.add(index);
+                }
+            } else {
+                // Check if this base series has a corresponding shifted variant
+                const shiftedLabel = datasetsWithIndices.find(d => {
+                    const label = normalizeSeriesName(d.dataset.label || '');
+                    const labelLower = label.toLowerCase();
+                    // Match if it's shifted and has the same base name
+                    if (!labelLower.includes(SHIFTED_SERIES_IDENTIFIER)) {
+                        return false;
+                    }
+                    const shiftedBaseName = getBaseSeriesNameWithoutShift(label);
+                    return shiftedBaseName === normalizedLabel;
+                });
+                
+                if (shiftedLabel) {
+                    // Create a split pill for base and shifted series
+                    createSplitShiftedPill(
+                        legendContainer,
+                        chart,
+                        cfg,
+                        dataset,
+                        index,
+                        shiftedLabel.dataset,
+                        shiftedLabel.index,
+                        normalizedLabel
+                    );
+                    
+                    processedIndices.add(index);
+                    processedIndices.add(shiftedLabel.index);
+                } else {
+                    // No shifted variant found, create regular button
+                    createRegularLegendButton(legendContainer, chart, cfg, dataset, index);
+                    processedIndices.add(index);
+                }
+            }
         }
     });
 }
@@ -1586,6 +1652,177 @@ function createSplitTestPill(
     pillWrapper.appendChild(prefixButton);
     pillWrapper.appendChild(positiveButton);
     pillWrapper.appendChild(negativeButton);
+    
+    container.appendChild(pillWrapper);
+}
+
+// Helper function to create a split pill for base/shifted series pairs
+function createSplitShiftedPill(
+    container: HTMLElement,
+    chart: Chart,
+    cfg: ChartConfig,
+    baseDataset: any,
+    baseIndex: number,
+    shiftedDataset: any,
+    shiftedIndex: number,
+    baseSeriesName: string
+) {
+    // Get visibility states
+    const baseLabel = normalizeSeriesName(baseDataset.label || '');
+    const shiftedLabel = normalizeSeriesName(shiftedDataset.label || '');
+    const baseVisible = cfg.datasetVisibility[baseLabel] !== false;
+    const shiftedVisible = cfg.datasetVisibility[shiftedLabel] !== false;
+    const bothVisible = baseVisible && shiftedVisible;
+    
+    // Create wrapper for the split pill
+    const pillWrapper = document.createElement('span');
+    const neitherVisible = !baseVisible && !shiftedVisible;
+    pillWrapper.style.cssText = `
+        display: inline-flex;
+        border-radius: 4px;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+        opacity: ${neitherVisible ? '0.5' : '1'};
+        text-decoration: ${neitherVisible ? 'line-through' : 'none'};
+    `;
+    
+    // Create common prefix button (toggles both)
+    const prefixButton = document.createElement('span');
+    prefixButton.style.cssText = `
+        display: inline-block;
+        padding: 4px 8px;
+        background-color: #666;
+        color: white;
+        font-size: 12px;
+        cursor: pointer;
+        user-select: none;
+        border-right: 1px solid rgba(255, 255, 255, 0.3);
+        text-decoration: ${neitherVisible ? 'line-through' : 'none'};
+    `;
+    // Use the base series name for display
+    const displayName = translateSeriesName(baseSeriesName);
+    prefixButton.textContent = displayName;
+    
+    // Add click handler for prefix (toggles both)
+    prefixButton.addEventListener('click', () => {
+        // Read current visibility state from cfg (not captured variables)
+        const currentBaseVisible = cfg.datasetVisibility[baseLabel] !== false;
+        const currentShiftedVisible = cfg.datasetVisibility[shiftedLabel] !== false;
+        const currentBothVisible = currentBaseVisible && currentShiftedVisible;
+        const newVisibility = !currentBothVisible;
+        
+        // Update visibility for both datasets
+        cfg.datasetVisibility[baseLabel] = newVisibility;
+        cfg.datasetVisibility[shiftedLabel] = newVisibility;
+        localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
+        
+        // Update chart metadata for both
+        const baseMeta = chart.getDatasetMeta(baseIndex);
+        const shiftedMeta = chart.getDatasetMeta(shiftedIndex);
+        baseMeta.hidden = !newVisibility;
+        shiftedMeta.hidden = !newVisibility;
+        baseDataset.hidden = !newVisibility;
+        shiftedDataset.hidden = !newVisibility;
+        
+        // Update UI - opacity and strikethrough only if both are hidden
+        chart.update();
+        const anyVisible = newVisibility; // both will have same visibility after this click
+        pillWrapper.style.opacity = anyVisible ? '1' : '0.5';
+        pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
+        prefixButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
+        baseButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
+        shiftedButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
+        
+        updateRatioTable();
+    });
+    
+    // Create base series button (original series without shift)
+    const baseButton = document.createElement('span');
+    baseButton.style.cssText = `
+        display: inline-block;
+        padding: 4px 8px;
+        background-color: ${baseDataset.borderColor || baseDataset.backgroundColor || '#666'};
+        color: white;
+        font-size: 12px;
+        cursor: pointer;
+        user-select: none;
+        border-right: 1px solid rgba(255, 255, 255, 0.3);
+        text-decoration: ${baseVisible ? 'none' : 'line-through'};
+    `;
+    baseButton.textContent = 'base';
+    
+    // Add click handler for base series only
+    baseButton.addEventListener('click', () => {
+        // Read current visibility state from cfg (not captured variables)
+        const currentBaseVisible = cfg.datasetVisibility[baseLabel] !== false;
+        const newVisibility = !currentBaseVisible;
+        
+        cfg.datasetVisibility[baseLabel] = newVisibility;
+        localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
+        
+        const baseMeta = chart.getDatasetMeta(baseIndex);
+        baseMeta.hidden = !newVisibility;
+        baseDataset.hidden = !newVisibility;
+        
+        chart.update();
+        baseButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
+        
+        // Update wrapper opacity, strikethrough, and prefix based on both states
+        const currentShiftedVisible = cfg.datasetVisibility[shiftedLabel] !== false;
+        const anyVisible = newVisibility || currentShiftedVisible;
+        pillWrapper.style.opacity = anyVisible ? '1' : '0.5';
+        pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
+        prefixButton.style.textDecoration = anyVisible ? 'none' : 'line-through';
+        
+        updateRatioTable();
+    });
+    
+    // Create shifted series button
+    const shiftedButton = document.createElement('span');
+    shiftedButton.style.cssText = `
+        display: inline-block;
+        padding: 4px 8px;
+        background-color: ${shiftedDataset.borderColor || shiftedDataset.backgroundColor || '#666'};
+        color: white;
+        font-size: 12px;
+        cursor: pointer;
+        user-select: none;
+        text-decoration: ${shiftedVisible ? 'none' : 'line-through'};
+    `;
+    // Extract and show just the shift suffix (e.g., "1w -347d")
+    const shiftSuffix = extractShiftSuffix(shiftedDataset.label || '');
+    shiftedButton.textContent = shiftSuffix || 'shifted';
+    
+    // Add click handler for shifted series only
+    shiftedButton.addEventListener('click', () => {
+        // Read current visibility state from cfg (not captured variables)
+        const currentShiftedVisible = cfg.datasetVisibility[shiftedLabel] !== false;
+        const newVisibility = !currentShiftedVisible;
+        
+        cfg.datasetVisibility[shiftedLabel] = newVisibility;
+        localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
+        
+        const shiftedMeta = chart.getDatasetMeta(shiftedIndex);
+        shiftedMeta.hidden = !newVisibility;
+        shiftedDataset.hidden = !newVisibility;
+        
+        chart.update();
+        shiftedButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
+        
+        // Update wrapper opacity, strikethrough, and prefix based on both states
+        const currentBaseVisible = cfg.datasetVisibility[baseLabel] !== false;
+        const anyVisible = currentBaseVisible || newVisibility;
+        pillWrapper.style.opacity = anyVisible ? '1' : '0.5';
+        pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
+        prefixButton.style.textDecoration = anyVisible ? 'none' : 'line-through';
+        
+        updateRatioTable();
+    });
+    
+    // Assemble the split pill
+    pillWrapper.appendChild(prefixButton);
+    pillWrapper.appendChild(baseButton);
+    pillWrapper.appendChild(shiftedButton);
     
     container.appendChild(pillWrapper);
 }
@@ -2098,6 +2335,65 @@ function updateRatioTable() {
         
         ratioTableBody.appendChild(row);
     });
+}
+
+/**
+ * Extracts a shortened shift suffix from a series label for display in a pill.
+ * 
+ * Examples:
+ * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "1w -347d"
+ * - "PCR Positivity (28d avg) shifted by 2 waves -289d" -> "2w -289d"
+ * - "PCR Positivity (28d avg) shifted by -300d" -> "-300d"
+ * - "Influenza Positivity" -> "" (no shift info)
+ */
+function extractShiftSuffix(label: string): string {
+    // Normalize to English first for consistent matching
+    const normalizedLabel = normalizeSeriesName(label);
+    
+    // Pattern 1: Wave-based shift: "shifted by X wave(s) -347d" or "shifted by X wave(s) 347d"
+    const wavePattern = /shifted by (\d+) waves? (-?\d+)d/;
+    const waveMatch = normalizedLabel.match(wavePattern);
+    if (waveMatch) {
+        const waveCount = waveMatch[1];
+        const days = waveMatch[2];
+        return `${waveCount}w ${days}d`;
+    }
+    
+    // Pattern 2: Custom day shift: "shifted by -180d" or "shifted by 180d"
+    const dayPattern = /shifted by (-?\d+)d/;
+    const dayMatch = normalizedLabel.match(dayPattern);
+    if (dayMatch) {
+        return dayMatch[1] + 'd';
+    }
+    
+    return '';
+}
+
+/**
+ * Extracts the base series name without ANY shift information.
+ * Completely removes the shift suffix to get the original series name.
+ * 
+ * Examples:
+ * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "PCR Positivity (28d avg)"
+ * - "PCR Positivity (28d avg) shifted by -300d" -> "PCR Positivity (28d avg)"
+ * - "Influenza Positivity" -> "Influenza Positivity" (unchanged, no shift info)
+ */
+function getBaseSeriesNameWithoutShift(label: string): string {
+    // Normalize to English first for consistent identifier matching across languages
+    const normalizedLabel = normalizeSeriesName(label);
+    
+    // Only process if the label contains the shifted series identifier
+    if (!normalizedLabel.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER)) {
+        return label;
+    }
+    
+    // Remove shift suffix completely to get the base series name
+    return label
+        .replace(/ shifted by \d+ waves? -?\d+d/, '')
+        .replace(/ shifted by -?\d+d/, '')
+        .replace(/ maxima over \d+d/, '')
+        .replace(/ minima over \d+d/, '')
+        .trim();
 }
 
 /**
