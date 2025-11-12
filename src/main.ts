@@ -1686,56 +1686,6 @@ function createSplitShiftedPill(
         text-decoration: ${neitherVisible ? 'line-through' : 'none'};
     `;
     
-    // Create common prefix button (toggles both)
-    const prefixButton = document.createElement('span');
-    prefixButton.style.cssText = `
-        display: inline-block;
-        padding: 4px 8px;
-        background-color: #666;
-        color: white;
-        font-size: 12px;
-        cursor: pointer;
-        user-select: none;
-        border-right: 1px solid rgba(255, 255, 255, 0.3);
-        text-decoration: ${neitherVisible ? 'line-through' : 'none'};
-    `;
-    // Use the base series name for display
-    const displayName = translateSeriesName(baseSeriesName);
-    prefixButton.textContent = displayName;
-    
-    // Add click handler for prefix (toggles both)
-    prefixButton.addEventListener('click', () => {
-        // Read current visibility state from cfg (not captured variables)
-        const currentBaseVisible = cfg.datasetVisibility[baseLabel] !== false;
-        const currentShiftedVisible = cfg.datasetVisibility[shiftedLabel] !== false;
-        const currentBothVisible = currentBaseVisible && currentShiftedVisible;
-        const newVisibility = !currentBothVisible;
-        
-        // Update visibility for both datasets
-        cfg.datasetVisibility[baseLabel] = newVisibility;
-        cfg.datasetVisibility[shiftedLabel] = newVisibility;
-        localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
-        
-        // Update chart metadata for both
-        const baseMeta = chart.getDatasetMeta(baseIndex);
-        const shiftedMeta = chart.getDatasetMeta(shiftedIndex);
-        baseMeta.hidden = !newVisibility;
-        shiftedMeta.hidden = !newVisibility;
-        baseDataset.hidden = !newVisibility;
-        shiftedDataset.hidden = !newVisibility;
-        
-        // Update UI - opacity and strikethrough only if both are hidden
-        chart.update();
-        const anyVisible = newVisibility; // both will have same visibility after this click
-        pillWrapper.style.opacity = anyVisible ? '1' : '0.5';
-        pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
-        prefixButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
-        baseButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
-        shiftedButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
-        
-        updateRatioTable();
-    });
-    
     // Create base series button (original series without shift)
     const baseButton = document.createElement('span');
     baseButton.style.cssText = `
@@ -1749,7 +1699,9 @@ function createSplitShiftedPill(
         border-right: 1px solid rgba(255, 255, 255, 0.3);
         text-decoration: ${baseVisible ? 'none' : 'line-through'};
     `;
-    baseButton.textContent = 'base';
+    // Use the base series name for display
+    const displayName = translateSeriesName(baseSeriesName);
+    baseButton.textContent = displayName;
     
     // Add click handler for base series only
     baseButton.addEventListener('click', () => {
@@ -1767,12 +1719,11 @@ function createSplitShiftedPill(
         chart.update();
         baseButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
         
-        // Update wrapper opacity, strikethrough, and prefix based on both states
+        // Update wrapper opacity and strikethrough based on both states
         const currentShiftedVisible = cfg.datasetVisibility[shiftedLabel] !== false;
         const anyVisible = newVisibility || currentShiftedVisible;
         pillWrapper.style.opacity = anyVisible ? '1' : '0.5';
         pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
-        prefixButton.style.textDecoration = anyVisible ? 'none' : 'line-through';
         
         updateRatioTable();
     });
@@ -1789,7 +1740,7 @@ function createSplitShiftedPill(
         user-select: none;
         text-decoration: ${shiftedVisible ? 'none' : 'line-through'};
     `;
-    // Extract and show just the shift suffix (e.g., "1w -347d")
+    // Extract and show just the shift suffix
     const shiftSuffix = extractShiftSuffix(shiftedDataset.label || '');
     shiftedButton.textContent = shiftSuffix || 'shifted';
     
@@ -1809,18 +1760,16 @@ function createSplitShiftedPill(
         chart.update();
         shiftedButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
         
-        // Update wrapper opacity, strikethrough, and prefix based on both states
+        // Update wrapper opacity and strikethrough based on both states
         const currentBaseVisible = cfg.datasetVisibility[baseLabel] !== false;
         const anyVisible = currentBaseVisible || newVisibility;
         pillWrapper.style.opacity = anyVisible ? '1' : '0.5';
         pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
-        prefixButton.style.textDecoration = anyVisible ? 'none' : 'line-through';
         
         updateRatioTable();
     });
     
-    // Assemble the split pill
-    pillWrapper.appendChild(prefixButton);
+    // Assemble the split pill (2 parts: base + shifted)
     pillWrapper.appendChild(baseButton);
     pillWrapper.appendChild(shiftedButton);
     
