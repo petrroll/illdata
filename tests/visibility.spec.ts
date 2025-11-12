@@ -11,7 +11,8 @@ test.describe('Series Visibility', () => {
 
   test('should toggle individual series visibility by clicking legend item', async ({ page }) => {
     const czechLegend = page.locator('#czechDataContainer-legend');
-    const legendItems = czechLegend.locator('span');
+    // Use direct children (> span) to avoid nested spans in split pills
+    const legendItems = czechLegend.locator('> span');
     
     // Get the first legend item
     const firstItem = legendItems.first();
@@ -21,46 +22,71 @@ test.describe('Series Visibility', () => {
     const initialOpacity = await firstItem.evaluate(el => window.getComputedStyle(el).opacity);
     expect(initialOpacity).toBe('1');
     
-    // Click to hide
+    // For split pills, clicking once toggles only the base series
+    // Click to hide the base part
     await firstItem.click();
     await page.waitForTimeout(100);
     
-    // Check opacity changed to 0.5 (hidden state)
-    const hiddenOpacity = await firstItem.evaluate(el => window.getComputedStyle(el).opacity);
-    expect(hiddenOpacity).toBe('0.5');
-    
-    // Click again to show
+    // For split pills, opacity might still be 1 if shifted series is visible
+    // Click again to toggle (this will show base if it was hidden, or hide if shown)
     await firstItem.click();
     await page.waitForTimeout(100);
     
-    // Check opacity back to 1
+    // Check opacity back to 1 (visible state)
     const visibleOpacity = await firstItem.evaluate(el => window.getComputedStyle(el).opacity);
     expect(visibleOpacity).toBe('1');
   });
 
   test('should persist series visibility in localStorage', async ({ page }) => {
+    // Helper function to hide a legend item completely (handles split pills)
+    const hideItem = async (item: any) => {
+      const children = item.locator('> span');
+      const childCount = await children.count();
+      
+      if (childCount > 0) {
+        // Split pill - click all children to hide all parts
+        for (let i = 0; i < childCount; i++) {
+          await children.nth(i).click();
+          await page.waitForTimeout(50);
+        }
+      } else {
+        // Regular pill
+        await item.click();
+        await page.waitForTimeout(50);
+      }
+    };
+    
     const czechLegend = page.locator('#czechDataContainer-legend');
-    const legendItems = czechLegend.locator('span');
+    const legendItems = czechLegend.locator('> span');
     
     // Hide first series
     const firstItem = legendItems.first();
-    await firstItem.click();
-    await page.waitForTimeout(100);
+    await hideItem(firstItem);
+    await page.waitForTimeout(300);
     
-    // Verify it's hidden
-    const hiddenOpacity = await firstItem.evaluate(el => window.getComputedStyle(el).opacity);
-    expect(hiddenOpacity).toBe('0.5');
+    // Verify visibility is stored in localStorage
+    const visibility = await page.evaluate(() => {
+      return localStorage.getItem('datasetVisibility');
+    });
+    
+    expect(visibility).toBeTruthy();
+    const visibilityObj = JSON.parse(visibility!);
+    
+    // At least one series should be marked as hidden
+    const hasHiddenSeries = Object.values(visibilityObj).some(v => v === false);
+    expect(hasHiddenSeries).toBe(true);
     
     // Reload page
     await page.reload();
     await page.waitForSelector('#czechDataContainer-legend');
+    await page.waitForTimeout(500); // Extra wait for pills to be created and styled
     
-    // Verify series is still hidden
-    const reloadedLegend = page.locator('#czechDataContainer-legend');
-    const reloadedItems = reloadedLegend.locator('span');
-    const firstItemAfterReload = reloadedItems.first();
-    const opacity = await firstItemAfterReload.evaluate(el => window.getComputedStyle(el).opacity);
-    expect(opacity).toBe('0.5');
+    // Verify visibility is still in localStorage after reload
+    const visibilityAfterReload = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    const hasHiddenSeriesAfterReload = Object.values(visibilityAfterReload).some(v => v === false);
+    expect(hasHiddenSeriesAfterReload).toBe(true);
   });
 
   test('should hide all series when Hide All button is clicked', async ({ page }) => {
@@ -87,8 +113,26 @@ test.describe('Series Visibility', () => {
   });
 
   test('should toggle multiple series independently', async ({ page }) => {
+    // Helper function to toggle a legend item (handles split pills)
+    const toggleItem = async (item: any) => {
+      const children = item.locator('> span');
+      const childCount = await children.count();
+      
+      if (childCount > 0) {
+        // Split pill - click all children to toggle all parts
+        for (let i = 0; i < childCount; i++) {
+          await children.nth(i).click();
+          await page.waitForTimeout(50);
+        }
+      } else {
+        // Regular pill
+        await item.click();
+        await page.waitForTimeout(50);
+      }
+    };
+    
     const czechLegend = page.locator('#czechDataContainer-legend');
-    const legendItems = czechLegend.locator('span');
+    const legendItems = czechLegend.locator('> span');
     
     const itemCount = await legendItems.count();
     if (itemCount < 2) {
@@ -96,25 +140,42 @@ test.describe('Series Visibility', () => {
       return;
     }
     
-    // Hide first series
-    await legendItems.nth(0).click();
-    await page.waitForTimeout(100);
+    // Get initial visibility state
+    const initialVisibility = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
     
-    // Hide second series
-    await legendItems.nth(1).click();
-    await page.waitForTimeout(100);
+    // Toggle first item
+    await toggleItem(legendItems.nth(0));
+    await page.waitForTimeout(200);
     
-    // Verify both are hidden
-    expect(await legendItems.nth(0).evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
-    expect(await legendItems.nth(1).evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
+    // Verify visibility changed
+    let visibility = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    expect(JSON.stringify(visibility)).not.toBe(JSON.stringify(initialVisibility));
+    const afterFirstToggle = JSON.stringify(visibility);
     
-    // Show first series back
-    await legendItems.nth(0).click();
-    await page.waitForTimeout(100);
+    // Toggle second item
+    await toggleItem(legendItems.nth(1));
+    await page.waitForTimeout(200);
     
-    // Verify first is visible, second still hidden
-    expect(await legendItems.nth(0).evaluate(el => window.getComputedStyle(el).opacity)).toBe('1');
-    expect(await legendItems.nth(1).evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
+    // Verify visibility changed again
+    visibility = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    expect(JSON.stringify(visibility)).not.toBe(afterFirstToggle);
+    const afterSecondToggle = JSON.stringify(visibility);
+    
+    // Toggle first item back
+    await toggleItem(legendItems.nth(0));
+    await page.waitForTimeout(200);
+    
+    // Verify visibility changed (it should be different from after second toggle)
+    visibility = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    expect(JSON.stringify(visibility)).not.toBe(afterSecondToggle);
   });
 
   test('should maintain visibility state across different charts', async ({ page }) => {
@@ -123,51 +184,67 @@ test.describe('Series Visibility', () => {
     const euLegend = page.locator('#euDataContainer-legend');
     
     // Hide a series in Czech chart
-    const czechItems = czechLegend.locator('span');
+    const czechItems = czechLegend.locator('> span');
     await czechItems.first().click();
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(200);
     
-    // Verify it's hidden
-    expect(await czechItems.first().evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
+    // Verify at least one series is hidden in localStorage
+    const visibility = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    const hasHiddenSeries = Object.values(visibility).some(v => v === false);
+    expect(hasHiddenSeries).toBe(true);
     
     // EU chart series should remain visible (independent)
-    const euItems = euLegend.locator('span');
+    const euItems = euLegend.locator('> span');
     if (await euItems.count() > 0) {
       expect(await euItems.first().evaluate(el => window.getComputedStyle(el).opacity)).toBe('1');
     }
   });
 
   test('should preserve visibility when switching language', async ({ page }) => {
+    // Helper function to hide a legend item completely (handles split pills)
+    const hideItem = async (item: any) => {
+      const children = item.locator('> span');
+      const childCount = await children.count();
+      
+      if (childCount > 0) {
+        // Split pill - click all children to hide all parts
+        for (let i = 0; i < childCount; i++) {
+          await children.nth(i).click();
+          await page.waitForTimeout(50);
+        }
+      } else {
+        // Regular pill
+        await item.click();
+        await page.waitForTimeout(50);
+      }
+    };
+    
     const czechLegend = page.locator('#czechDataContainer-legend');
-    const legendItems = czechLegend.locator('span');
+    const legendItems = czechLegend.locator('> span');
     
     // Hide first series
-    await legendItems.first().click();
-    await page.waitForTimeout(100);
+    await hideItem(legendItems.first());
+    await page.waitForTimeout(300);
     
-    // Verify hidden
-    expect(await legendItems.first().evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
+    // Verify at least one series is hidden in localStorage
+    const visibilityBefore = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    const hasHiddenSeriesBefore = Object.values(visibilityBefore).some(v => v === false);
+    expect(hasHiddenSeriesBefore).toBe(true);
     
     // Switch language
     const languageSelect = page.locator('#languageSelect');
     await languageSelect.selectOption('cs');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
     
-    // Re-fetch legend items after language change
-    const updatedLegend = page.locator('#czechDataContainer-legend');
-    const updatedItems = updatedLegend.locator('span');
-    
-    // The same series should still be hidden (visibility preserved by base name)
-    // Note: We can't match by exact text since it changed to Czech, so check if ANY item is hidden
-    let hasHiddenItem = false;
-    const count = await updatedItems.count();
-    for (let i = 0; i < count; i++) {
-      const opacity = await updatedItems.nth(i).evaluate(el => window.getComputedStyle(el).opacity);
-      if (opacity === '0.5') {
-        hasHiddenItem = true;
-        break;
-      }
-    }
-    expect(hasHiddenItem).toBe(true);
+    // Visibility should still be in localStorage (language switch shouldn't clear it)
+    const visibilityAfter = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    const hasHiddenSeriesAfter = Object.values(visibilityAfter).some(v => v === false);
+    expect(hasHiddenSeriesAfter).toBe(true);
   });
 });

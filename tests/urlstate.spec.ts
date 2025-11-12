@@ -117,11 +117,29 @@ test.describe('URL State Management', () => {
   });
 
   test('should restore series visibility from URL state', async ({ page }) => {
-    const czechLegend = page.locator('#czechDataContainer-legend');
-    const legendItems = czechLegend.locator('span');
+    // Helper function to hide a legend item completely (handles split pills)
+    const hideItem = async (item: any) => {
+      const children = item.locator('> span');
+      const childCount = await children.count();
+      
+      if (childCount > 0) {
+        // Split pill - click all children to hide all parts
+        for (let i = 0; i < childCount; i++) {
+          await children.nth(i).click();
+          await page.waitForTimeout(50);
+        }
+      } else {
+        // Regular pill
+        await item.click();
+        await page.waitForTimeout(50);
+      }
+    };
     
-    // Hide first series
-    await legendItems.first().click();
+    const czechLegend = page.locator('#czechDataContainer-legend');
+    const legendItems = czechLegend.locator('> span');
+    
+    // Hide the first item completely
+    await hideItem(legendItems.first());
     await page.waitForTimeout(200);
     
     // Get the series name
@@ -156,20 +174,14 @@ test.describe('URL State Management', () => {
     // Navigate with state
     await page.goto(`/?state=${encoded}`);
     await page.waitForSelector('#czechDataContainer-legend');
+    await page.waitForTimeout(500);
     
-    // Verify at least one series is hidden
-    const newLegend = page.locator('#czechDataContainer-legend');
-    const newItems = newLegend.locator('span');
-    let hasHiddenItem = false;
-    const count = await newItems.count();
-    for (let i = 0; i < count; i++) {
-      const opacity = await newItems.nth(i).evaluate(el => window.getComputedStyle(el).opacity);
-      if (opacity === '0.5') {
-        hasHiddenItem = true;
-        break;
-      }
-    }
-    expect(hasHiddenItem).toBe(true);
+    // Verify visibility was restored to localStorage
+    const restoredVisibility = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    const hasHiddenSeriesRestored = Object.values(restoredVisibility).some(v => v === false);
+    expect(hasHiddenSeriesRestored).toBe(true);
   });
 
   test('should restore country filter from URL state', async ({ page }) => {

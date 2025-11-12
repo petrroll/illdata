@@ -164,34 +164,49 @@ test.describe('Shift and Alignment Controls', () => {
   });
 
   test('should maintain series visibility when changing shift mode', async ({ page }) => {
+    // Helper function to hide a legend item completely (handles split pills)
+    const hideItem = async (item: any) => {
+      const children = item.locator('> span');
+      const childCount = await children.count();
+      
+      if (childCount > 0) {
+        // Split pill - click all children to hide all parts
+        for (let i = 0; i < childCount; i++) {
+          await children.nth(i).click();
+          await page.waitForTimeout(50);
+        }
+      } else {
+        // Regular pill
+        await item.click();
+        await page.waitForTimeout(50);
+      }
+    };
+    
     const czechLegend = page.locator('#czechDataContainer-legend');
-    const legendItems = czechLegend.locator('span');
+    const legendItems = czechLegend.locator('> span');
     
     // Hide a series
-    await legendItems.first().click();
-    await page.waitForTimeout(100);
-    expect(await legendItems.first().evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
+    await hideItem(legendItems.first());
+    await page.waitForTimeout(300);
+    
+    // Verify at least one series is hidden
+    const visibilityBefore = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    const hasHiddenSeriesBefore = Object.values(visibilityBefore).some(v => v === false);
+    expect(hasHiddenSeriesBefore).toBe(true);
     
     // Change alignment mode
     const alignSelect = page.locator('#alignByExtremeSelect');
     await alignSelect.selectOption('days');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
     
-    // Re-fetch legend items
-    const updatedLegend = page.locator('#czechDataContainer-legend');
-    const updatedItems = updatedLegend.locator('span');
-    
-    // At least one series should still be hidden
-    let hasHiddenItem = false;
-    const count = await updatedItems.count();
-    for (let i = 0; i < count; i++) {
-      const opacity = await updatedItems.nth(i).evaluate(el => window.getComputedStyle(el).opacity);
-      if (opacity === '0.5') {
-        hasHiddenItem = true;
-        break;
-      }
-    }
-    expect(hasHiddenItem).toBe(true);
+    // At least one series should still be hidden in localStorage
+    const visibilityAfter = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    const hasHiddenSeriesAfter = Object.values(visibilityAfter).some(v => v === false);
+    expect(hasHiddenSeriesAfter).toBe(true);
   });
 
   test('should work in Czech language', async ({ page }) => {

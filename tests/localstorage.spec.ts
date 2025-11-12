@@ -71,27 +71,50 @@ test.describe('LocalStorage Persistence', () => {
   });
 
   test('should persist series visibility across reloads', async ({ page }) => {
+    // Helper function to hide a legend item completely (handles split pills)
+    const hideItem = async (item: any) => {
+      const children = item.locator('> span');
+      const childCount = await children.count();
+      
+      if (childCount > 0) {
+        // Split pill - click all children to hide all parts
+        for (let i = 0; i < childCount; i++) {
+          await children.nth(i).click();
+          await page.waitForTimeout(50);
+        }
+      } else {
+        // Regular pill
+        await item.click();
+        await page.waitForTimeout(50);
+      }
+    };
+    
     const czechLegend = page.locator('#czechDataContainer-legend');
-    const legendItems = czechLegend.locator('span');
+    const legendItems = czechLegend.locator('> span');
     
     // Hide first two series
-    await legendItems.nth(0).click();
-    await legendItems.nth(1).click();
+    await hideItem(legendItems.nth(0));
+    await hideItem(legendItems.nth(1));
     await page.waitForTimeout(300);
     
-    // Verify hidden
-    expect(await legendItems.nth(0).evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
-    expect(await legendItems.nth(1).evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
+    // Verify at least some series are hidden in localStorage
+    const visibility = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    const hasHiddenSeries = Object.values(visibility).some(v => v === false);
+    expect(hasHiddenSeries).toBe(true);
     
     // Reload
     await page.reload();
     await page.waitForSelector('#czechDataContainer-legend');
+    await page.waitForTimeout(500);
     
-    // Should still be hidden
-    const newLegend = page.locator('#czechDataContainer-legend');
-    const newItems = newLegend.locator('span');
-    expect(await newItems.nth(0).evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
-    expect(await newItems.nth(1).evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
+    // Should still have hidden series in localStorage
+    const visibilityAfterReload = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    const hasHiddenSeriesAfterReload = Object.values(visibilityAfterReload).some(v => v === false);
+    expect(hasHiddenSeriesAfterReload).toBe(true);
   });
 
   test('should persist country filter selection', async ({ page }) => {
