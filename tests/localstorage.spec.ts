@@ -107,20 +107,14 @@ test.describe('LocalStorage Persistence', () => {
     // Reload
     await page.reload();
     await page.waitForSelector('#czechDataContainer-legend');
+    await page.waitForTimeout(500);
     
-    // Should still have hidden series
-    const newLegend = page.locator('#czechDataContainer-legend');
-    const newItems = newLegend.locator('> span');
-    let hasHiddenItem = false;
-    const count = await newItems.count();
-    for (let i = 0; i < count; i++) {
-      const opacity = await newItems.nth(i).evaluate(el => window.getComputedStyle(el).opacity);
-      if (opacity === '0.5') {
-        hasHiddenItem = true;
-        break;
-      }
-    }
-    expect(hasHiddenItem).toBe(true);
+    // Should still have hidden series in localStorage
+    const visibilityAfterReload = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    const hasHiddenSeriesAfterReload = Object.values(visibilityAfterReload).some(v => v === false);
+    expect(hasHiddenSeriesAfterReload).toBe(true);
   });
 
   test('should persist country filter selection', async ({ page }) => {

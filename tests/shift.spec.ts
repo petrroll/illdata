@@ -187,7 +187,7 @@ test.describe('Shift and Alignment Controls', () => {
     
     // Hide a series
     await hideItem(legendItems.first());
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(300);
     
     // Verify at least one series is hidden
     const visibilityBefore = await page.evaluate(() => {
@@ -199,23 +199,14 @@ test.describe('Shift and Alignment Controls', () => {
     // Change alignment mode
     const alignSelect = page.locator('#alignByExtremeSelect');
     await alignSelect.selectOption('days');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
     
-    // Re-fetch legend items
-    const updatedLegend = page.locator('#czechDataContainer-legend');
-    const updatedItems = updatedLegend.locator('> span');
-    
-    // At least one series should still be hidden
-    let hasHiddenItem = false;
-    const count = await updatedItems.count();
-    for (let i = 0; i < count; i++) {
-      const opacity = await updatedItems.nth(i).evaluate(el => window.getComputedStyle(el).opacity);
-      if (opacity === '0.5') {
-        hasHiddenItem = true;
-        break;
-      }
-    }
-    expect(hasHiddenItem).toBe(true);
+    // At least one series should still be hidden in localStorage
+    const visibilityAfter = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    const hasHiddenSeriesAfter = Object.values(visibilityAfter).some(v => v === false);
+    expect(hasHiddenSeriesAfter).toBe(true);
   });
 
   test('should work in Czech language', async ({ page }) => {

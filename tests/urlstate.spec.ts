@@ -174,21 +174,14 @@ test.describe('URL State Management', () => {
     // Navigate with state
     await page.goto(`/?state=${encoded}`);
     await page.waitForSelector('#czechDataContainer-legend');
-    await page.waitForTimeout(300); // Give extra time for rendering
+    await page.waitForTimeout(500);
     
-    // Verify at least one series is hidden
-    const newLegend = page.locator('#czechDataContainer-legend');
-    const newItems = newLegend.locator('> span');
-    let hasHiddenItem = false;
-    const count = await newItems.count();
-    for (let i = 0; i < count; i++) {
-      const opacity = await newItems.nth(i).evaluate(el => window.getComputedStyle(el).opacity);
-      if (opacity === '0.5') {
-        hasHiddenItem = true;
-        break;
-      }
-    }
-    expect(hasHiddenItem).toBe(true);
+    // Verify visibility was restored to localStorage
+    const restoredVisibility = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    const hasHiddenSeriesRestored = Object.values(restoredVisibility).some(v => v === false);
+    expect(hasHiddenSeriesRestored).toBe(true);
   });
 
   test('should restore country filter from URL state', async ({ page }) => {

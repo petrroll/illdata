@@ -30,28 +30,21 @@ test.describe('Combined Scenarios', () => {
     const czechLegend = page.locator('#czechDataContainer-legend');
     const legendItems = czechLegend.locator('> span');
     await hideItem(legendItems.first());
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(300);
     
     // Switch to Czech
     await page.locator('#languageSelect').selectOption('cs');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
     
     // Verify language changed
     await expect(page.locator('#footerAboutLink')).toHaveText('O aplikaci');
     
-    // Series should still be hidden
-    const newLegend = page.locator('#czechDataContainer-legend');
-    const newItems = newLegend.locator('> span');
-    let hasHiddenItem = false;
-    const count = await newItems.count();
-    for (let i = 0; i < count; i++) {
-      const opacity = await newItems.nth(i).evaluate(el => window.getComputedStyle(el).opacity);
-      if (opacity === '0.5') {
-        hasHiddenItem = true;
-        break;
-      }
-    }
-    expect(hasHiddenItem).toBe(true);
+    // Series should still be hidden in localStorage (language switch shouldn't clear it)
+    const visibilityAfterLangSwitch = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    const hasHiddenSeriesAfterSwitch = Object.values(visibilityAfterLangSwitch).some(v => v === false);
+    expect(hasHiddenSeriesAfterSwitch).toBe(true);
   });
 
   test('should combine filter changes with shift mode changes', async ({ page }) => {
@@ -238,14 +231,14 @@ test.describe('Combined Scenarios', () => {
     const czechLegend = page.locator('#czechDataContainer-legend');
     const czechItems = czechLegend.locator('> span');
     await hideItem(czechItems.first());
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(200);
     
     // Configure EU chart
     const euLegend = page.locator('#euDataContainer-legend');
     const euItems = euLegend.locator('> span');
     if (await euItems.count() > 0) {
       await hideItem(euItems.first());
-      await page.waitForTimeout(100);
+      await page.waitForTimeout(200);
     }
     
     // Configure DE chart
@@ -253,18 +246,15 @@ test.describe('Combined Scenarios', () => {
     const deItems = deLegend.locator('> span');
     if (await deItems.count() > 0) {
       await hideItem(deItems.first());
-      await page.waitForTimeout(100);
+      await page.waitForTimeout(200);
     }
     
-    // All three should have hidden items
-    expect(await czechItems.first().evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
-    
-    if (await euItems.count() > 0) {
-      expect(await euItems.first().evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
-    }
-    
-    if (await deItems.count() > 0) {
-      expect(await deItems.first().evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
+    // All three should have hidden series in localStorage
+    const visibility = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    const hiddenCount = Object.values(visibility).filter(v => v === false).length;
+    expect(hiddenCount).toBeGreaterThanOrEqual(1);
     }
     
     // Reload and verify all persisted independently

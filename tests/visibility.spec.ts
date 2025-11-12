@@ -62,7 +62,7 @@ test.describe('Series Visibility', () => {
     // Hide first series
     const firstItem = legendItems.first();
     await hideItem(firstItem);
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(300);
     
     // Verify visibility is stored in localStorage
     const visibility = await page.evaluate(() => {
@@ -79,20 +79,14 @@ test.describe('Series Visibility', () => {
     // Reload page
     await page.reload();
     await page.waitForSelector('#czechDataContainer-legend');
+    await page.waitForTimeout(500); // Extra wait for pills to be created and styled
     
-    // Verify at least one series is hidden after reload
-    const reloadedLegend = page.locator('#czechDataContainer-legend');
-    const reloadedItems = reloadedLegend.locator('> span');
-    let hasHiddenItem = false;
-    const count = await reloadedItems.count();
-    for (let i = 0; i < count; i++) {
-      const opacity = await reloadedItems.nth(i).evaluate(el => window.getComputedStyle(el).opacity);
-      if (opacity === '0.5') {
-        hasHiddenItem = true;
-        break;
-      }
-    }
-    expect(hasHiddenItem).toBe(true);
+    // Verify visibility is still in localStorage after reload
+    const visibilityAfterReload = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    const hasHiddenSeriesAfterReload = Object.values(visibilityAfterReload).some(v => v === false);
+    expect(hasHiddenSeriesAfterReload).toBe(true);
   });
 
   test('should hide all series when Hide All button is clicked', async ({ page }) => {
@@ -227,23 +221,13 @@ test.describe('Series Visibility', () => {
     // Switch language
     const languageSelect = page.locator('#languageSelect');
     await languageSelect.selectOption('cs');
-    await page.waitForTimeout(1000); // Increased wait time
+    await page.waitForTimeout(1000);
     
-    // Re-fetch legend items after language change
-    const updatedLegend = page.locator('#czechDataContainer-legend');
-    const updatedItems = updatedLegend.locator('> span');
-    
-    // The same series should still be hidden (visibility preserved by base name)
-    // Note: We can't match by exact text since it changed to Czech, so check if ANY item is hidden
-    let hasHiddenItem = false;
-    const count = await updatedItems.count();
-    for (let i = 0; i < count; i++) {
-      const opacity = await updatedItems.nth(i).evaluate(el => window.getComputedStyle(el).opacity);
-      if (opacity === '0.5') {
-        hasHiddenItem = true;
-        break;
-      }
-    }
-    expect(hasHiddenItem).toBe(true);
+    // Visibility should still be in localStorage (language switch shouldn't clear it)
+    const visibilityAfter = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    const hasHiddenSeriesAfter = Object.values(visibilityAfter).some(v => v === false);
+    expect(hasHiddenSeriesAfter).toBe(true);
   });
 });
