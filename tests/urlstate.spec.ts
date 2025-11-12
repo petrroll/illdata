@@ -117,15 +117,29 @@ test.describe('URL State Management', () => {
   });
 
   test('should restore series visibility from URL state', async ({ page }) => {
+    // Helper function to hide a legend item completely (handles split pills)
+    const hideItem = async (item: any) => {
+      const children = item.locator('> span');
+      const childCount = await children.count();
+      
+      if (childCount > 0) {
+        // Split pill - click all children to hide all parts
+        for (let i = 0; i < childCount; i++) {
+          await children.nth(i).click();
+          await page.waitForTimeout(50);
+        }
+      } else {
+        // Regular pill
+        await item.click();
+        await page.waitForTimeout(50);
+      }
+    };
+    
     const czechLegend = page.locator('#czechDataContainer-legend');
-    // Use direct children (> span) to avoid nested spans in split pills
     const legendItems = czechLegend.locator('> span');
     
-    // Click twice on the first pill to ensure both base and shifted are hidden
-    // (First click toggles both, second click ensures they stay hidden)
-    await legendItems.first().click();
-    await page.waitForTimeout(100);
-    await legendItems.first().click();
+    // Hide the first item completely
+    await hideItem(legendItems.first());
     await page.waitForTimeout(200);
     
     // Get the series name

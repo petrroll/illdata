@@ -164,12 +164,29 @@ test.describe('Shift and Alignment Controls', () => {
   });
 
   test('should maintain series visibility when changing shift mode', async ({ page }) => {
+    // Helper function to hide a legend item completely (handles split pills)
+    const hideItem = async (item: any) => {
+      const children = item.locator('> span');
+      const childCount = await children.count();
+      
+      if (childCount > 0) {
+        // Split pill - click all children to hide all parts
+        for (let i = 0; i < childCount; i++) {
+          await children.nth(i).click();
+          await page.waitForTimeout(50);
+        }
+      } else {
+        // Regular pill
+        await item.click();
+        await page.waitForTimeout(50);
+      }
+    };
+    
     const czechLegend = page.locator('#czechDataContainer-legend');
-    // Use direct children (> span) to avoid nested spans in split pills
     const legendItems = czechLegend.locator('> span');
     
     // Hide a series
-    await legendItems.first().click();
+    await hideItem(legendItems.first());
     await page.waitForTimeout(200);
     
     // Verify at least one series is hidden

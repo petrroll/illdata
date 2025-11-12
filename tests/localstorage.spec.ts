@@ -71,13 +71,30 @@ test.describe('LocalStorage Persistence', () => {
   });
 
   test('should persist series visibility across reloads', async ({ page }) => {
+    // Helper function to hide a legend item completely (handles split pills)
+    const hideItem = async (item: any) => {
+      const children = item.locator('> span');
+      const childCount = await children.count();
+      
+      if (childCount > 0) {
+        // Split pill - click all children to hide all parts
+        for (let i = 0; i < childCount; i++) {
+          await children.nth(i).click();
+          await page.waitForTimeout(50);
+        }
+      } else {
+        // Regular pill
+        await item.click();
+        await page.waitForTimeout(50);
+      }
+    };
+    
     const czechLegend = page.locator('#czechDataContainer-legend');
-    // Use direct children (> span) to avoid nested spans in split pills
     const legendItems = czechLegend.locator('> span');
     
     // Hide first two series
-    await legendItems.nth(0).click();
-    await legendItems.nth(1).click();
+    await hideItem(legendItems.nth(0));
+    await hideItem(legendItems.nth(1));
     await page.waitForTimeout(300);
     
     // Verify at least some series are hidden in localStorage

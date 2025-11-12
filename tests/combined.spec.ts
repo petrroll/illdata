@@ -9,12 +9,27 @@ test.describe('Combined Scenarios', () => {
   });
 
   test('should combine language switch with visibility changes', async ({ page }) => {
-    const czechLegend = page.locator('#czechDataContainer-legend');
+    // Helper function to hide a legend item completely (handles split pills)
+    const hideItem = async (item: any) => {
+      const children = item.locator('> span');
+      const childCount = await children.count();
+      
+      if (childCount > 0) {
+        // Split pill - click all children to hide all parts
+        for (let i = 0; i < childCount; i++) {
+          await children.nth(i).click();
+          await page.waitForTimeout(50);
+        }
+      } else {
+        // Regular pill
+        await item.click();
+        await page.waitForTimeout(50);
+      }
+    };
     
-    // Hide a series in English
-    // Use direct children (> span) to avoid nested spans in split pills
+    const czechLegend = page.locator('#czechDataContainer-legend');
     const legendItems = czechLegend.locator('> span');
-    await legendItems.first().click();
+    await hideItem(legendItems.first());
     await page.waitForTimeout(200);
     
     // Switch to Czech
@@ -200,23 +215,36 @@ test.describe('Combined Scenarios', () => {
   });
 
   test('should handle switching between multiple charts with different settings', async ({ page }) => {
+    // Helper function to hide a legend item completely (handles split pills)
+    const hideItem = async (item: any) => {
+      // Get all clickable parts (for split pills, this gets both base and shifted buttons)
+      const children = item.locator('> span');
+      const childCount = await children.count();
+      
+      if (childCount > 0) {
+        // Click all children to hide all parts of a split pill
+        for (let i = 0; i < childCount; i++) {
+          await children.nth(i).click();
+          await page.waitForTimeout(50);
+        }
+      } else {
+        // Regular pill - just click it
+        await item.click();
+        await page.waitForTimeout(50);
+      }
+    };
+    
     // Configure Czech chart
     const czechLegend = page.locator('#czechDataContainer-legend');
-    // Use direct children (> span) to avoid nested spans in split pills
     const czechItems = czechLegend.locator('> span');
-    // Click twice to ensure hidden (first toggles all in pill, second confirms hide)
-    await czechItems.first().click();
-    await page.waitForTimeout(50);
-    await czechItems.first().click();
+    await hideItem(czechItems.first());
     await page.waitForTimeout(100);
     
     // Configure EU chart
     const euLegend = page.locator('#euDataContainer-legend');
     const euItems = euLegend.locator('> span');
     if (await euItems.count() > 0) {
-      await euItems.first().click();
-      await page.waitForTimeout(50);
-      await euItems.first().click();
+      await hideItem(euItems.first());
       await page.waitForTimeout(100);
     }
     
@@ -224,9 +252,7 @@ test.describe('Combined Scenarios', () => {
     const deLegend = page.locator('#deWastewaterContainer-legend');
     const deItems = deLegend.locator('> span');
     if (await deItems.count() > 0) {
-      await deItems.first().click();
-      await page.waitForTimeout(50);
-      await deItems.first().click();
+      await hideItem(deItems.first());
       await page.waitForTimeout(100);
     }
     
