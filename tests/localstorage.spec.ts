@@ -72,7 +72,8 @@ test.describe('LocalStorage Persistence', () => {
 
   test('should persist series visibility across reloads', async ({ page }) => {
     const czechLegend = page.locator('#czechDataContainer-legend');
-    const legendItems = czechLegend.locator('span');
+    // Use direct children (> span) to avoid nested spans in split pills
+    const legendItems = czechLegend.locator('> span');
     
     // Hide first two series
     await legendItems.nth(0).click();
@@ -89,7 +90,7 @@ test.describe('LocalStorage Persistence', () => {
     
     // Should still be hidden
     const newLegend = page.locator('#czechDataContainer-legend');
-    const newItems = newLegend.locator('span');
+    const newItems = newLegend.locator('> span');
     expect(await newItems.nth(0).evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
     expect(await newItems.nth(1).evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
   });

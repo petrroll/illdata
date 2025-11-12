@@ -191,13 +191,14 @@ test.describe('Combined Scenarios', () => {
   test('should handle switching between multiple charts with different settings', async ({ page }) => {
     // Configure Czech chart
     const czechLegend = page.locator('#czechDataContainer-legend');
-    const czechItems = czechLegend.locator('span');
+    // Use direct children (> span) to avoid nested spans in split pills
+    const czechItems = czechLegend.locator('> span');
     await czechItems.first().click();
     await page.waitForTimeout(100);
     
     // Configure EU chart
     const euLegend = page.locator('#euDataContainer-legend');
-    const euItems = euLegend.locator('span');
+    const euItems = euLegend.locator('> span');
     if (await euItems.count() > 0) {
       await euItems.first().click();
       await page.waitForTimeout(100);
@@ -205,7 +206,7 @@ test.describe('Combined Scenarios', () => {
     
     // Configure DE chart
     const deLegend = page.locator('#deWastewaterContainer-legend');
-    const deItems = deLegend.locator('span');
+    const deItems = deLegend.locator('> span');
     if (await deItems.count() > 0) {
       await deItems.first().click();
       await page.waitForTimeout(100);

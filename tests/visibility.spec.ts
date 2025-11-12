@@ -88,7 +88,8 @@ test.describe('Series Visibility', () => {
 
   test('should toggle multiple series independently', async ({ page }) => {
     const czechLegend = page.locator('#czechDataContainer-legend');
-    const legendItems = czechLegend.locator('span');
+    // Use direct children (> span) to avoid nested spans in split pills
+    const legendItems = czechLegend.locator('> span');
     
     const itemCount = await legendItems.count();
     if (itemCount < 2) {

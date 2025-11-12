@@ -118,7 +118,8 @@ test.describe('URL State Management', () => {
 
   test('should restore series visibility from URL state', async ({ page }) => {
     const czechLegend = page.locator('#czechDataContainer-legend');
-    const legendItems = czechLegend.locator('span');
+    // Use direct children (> span) to avoid nested spans in split pills
+    const legendItems = czechLegend.locator('> span');
     
     // Hide first series
     await legendItems.first().click();
@@ -159,7 +160,7 @@ test.describe('URL State Management', () => {
     
     // Verify at least one series is hidden
     const newLegend = page.locator('#czechDataContainer-legend');
-    const newItems = newLegend.locator('span');
+    const newItems = newLegend.locator('> span');
     let hasHiddenItem = false;
     const count = await newItems.count();
     for (let i = 0; i < count; i++) {
