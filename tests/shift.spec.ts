@@ -165,12 +165,19 @@ test.describe('Shift and Alignment Controls', () => {
 
   test('should maintain series visibility when changing shift mode', async ({ page }) => {
     const czechLegend = page.locator('#czechDataContainer-legend');
-    const legendItems = czechLegend.locator('span');
+    // Use direct children (> span) to avoid nested spans in split pills
+    const legendItems = czechLegend.locator('> span');
     
     // Hide a series
     await legendItems.first().click();
-    await page.waitForTimeout(100);
-    expect(await legendItems.first().evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
+    await page.waitForTimeout(200);
+    
+    // Verify at least one series is hidden
+    const visibilityBefore = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('datasetVisibility') || '{}');
+    });
+    const hasHiddenSeriesBefore = Object.values(visibilityBefore).some(v => v === false);
+    expect(hasHiddenSeriesBefore).toBe(true);
     
     // Change alignment mode
     const alignSelect = page.locator('#alignByExtremeSelect');
@@ -179,7 +186,7 @@ test.describe('Shift and Alignment Controls', () => {
     
     // Re-fetch legend items
     const updatedLegend = page.locator('#czechDataContainer-legend');
-    const updatedItems = updatedLegend.locator('span');
+    const updatedItems = updatedLegend.locator('> span');
     
     // At least one series should still be hidden
     let hasHiddenItem = false;

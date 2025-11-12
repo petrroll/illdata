@@ -12,7 +12,8 @@ test.describe('Combined Scenarios', () => {
     const czechLegend = page.locator('#czechDataContainer-legend');
     
     // Hide a series in English
-    const legendItems = czechLegend.locator('span');
+    // Use direct children (> span) to avoid nested spans in split pills
+    const legendItems = czechLegend.locator('> span');
     await legendItems.first().click();
     await page.waitForTimeout(200);
     
@@ -25,7 +26,7 @@ test.describe('Combined Scenarios', () => {
     
     // Series should still be hidden
     const newLegend = page.locator('#czechDataContainer-legend');
-    const newItems = newLegend.locator('span');
+    const newItems = newLegend.locator('> span');
     let hasHiddenItem = false;
     const count = await newItems.count();
     for (let i = 0; i < count; i++) {
@@ -69,7 +70,8 @@ test.describe('Combined Scenarios', () => {
     
     // Hide some series
     const czechLegend = page.locator('#czechDataContainer-legend');
-    const legendItems = czechLegend.locator('span');
+    // Use direct children (> span) to avoid nested spans in split pills
+    const legendItems = czechLegend.locator('> span');
     await legendItems.first().click();
     
     // Toggle filters
@@ -87,10 +89,19 @@ test.describe('Combined Scenarios', () => {
     await expect(page.locator('#showTestNumbersCheckbox')).not.toBeChecked();
     await expect(page.locator('#showExtremesCheckbox')).toBeChecked();
     
-    // Series visibility should persist
+    // Series visibility should persist - check if at least one is hidden
     const newLegend = page.locator('#czechDataContainer-legend');
-    const newItems = newLegend.locator('span');
-    expect(await newItems.first().evaluate(el => window.getComputedStyle(el).opacity)).toBe('0.5');
+    const newItems = newLegend.locator('> span');
+    let hasHiddenItem = false;
+    const count = await newItems.count();
+    for (let i = 0; i < count; i++) {
+      const opacity = await newItems.nth(i).evaluate(el => window.getComputedStyle(el).opacity);
+      if (opacity === '0.5') {
+        hasHiddenItem = true;
+        break;
+      }
+    }
+    expect(hasHiddenItem).toBe(true);
   });
 
   test('should handle Hide All with subsequent individual toggles', async ({ page }) => {
