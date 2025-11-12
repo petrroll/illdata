@@ -2341,29 +2341,30 @@ function updateRatioTable() {
  * Extracts a shortened shift suffix from a series label for display in a pill.
  * 
  * Examples:
- * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "1w -347d"
- * - "PCR Positivity (28d avg) shifted by 2 waves -289d" -> "2w -289d"
- * - "PCR Positivity (28d avg) shifted by -300d" -> "-300d"
+ * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "shifted by 1 wave (-347 days)"
+ * - "PCR Positivity (28d avg) shifted by 2 waves -289d" -> "shifted by 2 waves (-289 days)"
+ * - "PCR Positivity (28d avg) shifted by -300d" -> "shifted by -300 days"
  * - "Influenza Positivity" -> "" (no shift info)
  */
 function extractShiftSuffix(label: string): string {
     // Normalize to English first for consistent matching
     const normalizedLabel = normalizeSeriesName(label);
     
-    // Pattern 1: Wave-based shift: "shifted by X wave(s) -347d" or "shifted by X wave(s) 347d"
-    const wavePattern = /shifted by (\d+) waves? (-?\d+)d/;
+    // Pattern 1: Wave-based shift: "shifted by X wave(s) -347d" or "shifted by X wave(s) 347d" or "shifted by X wave(s) NaNd"
+    const wavePattern = /shifted by (\d+) (waves?) ((?:-?\d+|NaN))d/;
     const waveMatch = normalizedLabel.match(wavePattern);
     if (waveMatch) {
         const waveCount = waveMatch[1];
-        const days = waveMatch[2];
-        return `${waveCount}w ${days}d`;
+        const waveWord = waveMatch[2]; // "wave" or "waves"
+        const days = waveMatch[3];
+        return `shifted by ${waveCount} ${waveWord} (${days} days)`;
     }
     
     // Pattern 2: Custom day shift: "shifted by -180d" or "shifted by 180d"
     const dayPattern = /shifted by (-?\d+)d/;
     const dayMatch = normalizedLabel.match(dayPattern);
     if (dayMatch) {
-        return dayMatch[1] + 'd';
+        return `shifted by ${dayMatch[1]} days`;
     }
     
     return '';
@@ -2376,6 +2377,7 @@ function extractShiftSuffix(label: string): string {
  * Examples:
  * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "PCR Positivity (28d avg)"
  * - "PCR Positivity (28d avg) shifted by -300d" -> "PCR Positivity (28d avg)"
+ * - "RSV Wastewater shifted by 1 wave NaNd" -> "RSV Wastewater"
  * - "Influenza Positivity" -> "Influenza Positivity" (unchanged, no shift info)
  */
 function getBaseSeriesNameWithoutShift(label: string): string {
@@ -2388,8 +2390,9 @@ function getBaseSeriesNameWithoutShift(label: string): string {
     }
     
     // Remove shift suffix completely to get the base series name
+    // Updated patterns to handle NaN days as well as numeric days
     return label
-        .replace(/ shifted by \d+ waves? -?\d+d/, '')
+        .replace(/ shifted by \d+ waves? (?:-?\d+|NaN)d/, '')
         .replace(/ shifted by -?\d+d/, '')
         .replace(/ maxima over \d+d/, '')
         .replace(/ minima over \d+d/, '')
