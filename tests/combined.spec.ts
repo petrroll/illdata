@@ -98,9 +98,9 @@ test.describe('Combined Scenarios', () => {
     await page.locator('#hideAllButton').click();
     await page.waitForTimeout(200);
     
-    // All should be hidden
+    // All should be hidden - use direct children to avoid nested spans in split pills
     const czechLegend = page.locator('#czechDataContainer-legend');
-    const legendItems = czechLegend.locator('span');
+    const legendItems = czechLegend.locator('> span');
     const count = await legendItems.count();
     
     for (let i = 0; i < count; i++) {

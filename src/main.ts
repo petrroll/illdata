@@ -1329,52 +1329,318 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
         return compareLabels(labelA, labelB);
     });
     
+    // Group datasets by base name for test pairs
+    // Track which datasets have been processed to avoid duplicates
+    const processedIndices = new Set<number>();
+    
     // Create legend items for each dataset in sorted order
     datasetsWithIndices.forEach(({ dataset, index }) => {
-        const legendItem = document.createElement('span');
-        legendItem.style.cssText = `
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            background-color: ${dataset.borderColor || dataset.backgroundColor || '#666'};
-            color: white;
-            font-size: 12px;
-            cursor: pointer;
-            user-select: none;
-            opacity: ${dataset.hidden ? '0.5' : '1'};
-            text-decoration: ${dataset.hidden ? 'line-through' : 'none'};
-            font-family: Arial, sans-serif;
-        `;
-        legendItem.textContent = dataset.label || `Dataset ${index}`;
+        if (processedIndices.has(index)) {
+            return; // Skip already processed datasets
+        }
         
-        // Add click handler for toggling visibility
-        legendItem.addEventListener('click', () => {
-            const datasetLabel = dataset.label || `Dataset ${index}`;
-            // Normalize to English for storage
-            const normalizedLabel = normalizeSeriesName(datasetLabel);
-            const currentlyHidden = !cfg.datasetVisibility[normalizedLabel];
-            const newVisibility = currentlyHidden;
-            
-            // Update visibility state first (store with normalized name)
-            cfg.datasetVisibility[normalizedLabel] = newVisibility;
-            localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
-            
-            // Update chart metadata and dataset
-            const meta = chart.getDatasetMeta(index);
-            meta.hidden = !newVisibility;
-            dataset.hidden = !newVisibility;
-            
-            // Update chart and legend item opacity
-            chart.update();
-            legendItem.style.opacity = newVisibility ? '1' : '0.5';
-            legendItem.style.textDecoration = newVisibility ? 'none' : 'line-through';
-            
-            // Update ratio table
-            updateRatioTable();
-        });
+        const datasetLabel = dataset.label || `Dataset ${index}`;
         
-        legendContainer.appendChild(legendItem);
+        // Check if this is a test dataset (positive or negative)
+        const normalizedLabel = normalizeSeriesName(datasetLabel);
+        const isPositiveTest = normalizedLabel.includes('- Positive Tests');
+        const isNegativeTest = normalizedLabel.includes('- Negative Tests');
+        
+        if (isPositiveTest) {
+            // Find the corresponding negative test dataset
+            const baseSeriesName = normalizedLabel.replace(' - Positive Tests', '');
+            const negativeLabel = `${baseSeriesName} - Negative Tests`;
+            
+            // Find the negative test dataset
+            const negativeDataset = datasetsWithIndices.find(d => {
+                const label = normalizeSeriesName(d.dataset.label || '');
+                return label === negativeLabel;
+            });
+            
+            if (negativeDataset) {
+                // Create a split pill for both positive and negative tests
+                createSplitTestPill(
+                    legendContainer,
+                    chart,
+                    cfg,
+                    dataset,
+                    index,
+                    negativeDataset.dataset,
+                    negativeDataset.index,
+                    baseSeriesName
+                );
+                
+                processedIndices.add(index);
+                processedIndices.add(negativeDataset.index);
+            } else {
+                // If no negative pair found, create regular button
+                createRegularLegendButton(legendContainer, chart, cfg, dataset, index);
+                processedIndices.add(index);
+            }
+        } else if (isNegativeTest) {
+            // Check if this negative test has a corresponding positive test
+            const baseSeriesName = normalizedLabel.replace(' - Negative Tests', '');
+            const positiveLabel = `${baseSeriesName} - Positive Tests`;
+            
+            // Find the positive test dataset
+            const positiveDataset = datasetsWithIndices.find(d => {
+                const label = normalizeSeriesName(d.dataset.label || '');
+                return label === positiveLabel;
+            });
+            
+            if (positiveDataset) {
+                // Create a split pill for both positive and negative tests
+                // (positive is first in the pill)
+                createSplitTestPill(
+                    legendContainer,
+                    chart,
+                    cfg,
+                    positiveDataset.dataset,
+                    positiveDataset.index,
+                    dataset,
+                    index,
+                    baseSeriesName
+                );
+                
+                processedIndices.add(positiveDataset.index);
+                processedIndices.add(index);
+            } else {
+                // If no positive pair found, create regular button
+                createRegularLegendButton(legendContainer, chart, cfg, dataset, index);
+                processedIndices.add(index);
+            }
+        } else {
+            // Regular dataset (not part of a test pair)
+            createRegularLegendButton(legendContainer, chart, cfg, dataset, index);
+            processedIndices.add(index);
+        }
     });
+}
+
+// Helper function to create a split pill for positive/negative test pairs
+function createSplitTestPill(
+    container: HTMLElement,
+    chart: Chart,
+    cfg: ChartConfig,
+    positiveDataset: any,
+    positiveIndex: number,
+    negativeDataset: any,
+    negativeIndex: number,
+    baseSeriesName: string
+) {
+    const t = getTranslations();
+    
+    // Get visibility states
+    const positiveLabel = normalizeSeriesName(positiveDataset.label || '');
+    const negativeLabel = normalizeSeriesName(negativeDataset.label || '');
+    const positiveVisible = cfg.datasetVisibility[positiveLabel] !== false;
+    const negativeVisible = cfg.datasetVisibility[negativeLabel] !== false;
+    const bothVisible = positiveVisible && negativeVisible;
+    
+    // Create wrapper for the split pill
+    const pillWrapper = document.createElement('span');
+    const neitherVisible = !positiveVisible && !negativeVisible;
+    pillWrapper.style.cssText = `
+        display: inline-flex;
+        border-radius: 4px;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+        opacity: ${neitherVisible ? '0.5' : '1'};
+        text-decoration: ${neitherVisible ? 'line-through' : 'none'};
+    `;
+    
+    // Create common prefix button (toggles both)
+    const prefixButton = document.createElement('span');
+    prefixButton.style.cssText = `
+        display: inline-block;
+        padding: 4px 8px;
+        background-color: #666;
+        color: white;
+        font-size: 12px;
+        cursor: pointer;
+        user-select: none;
+        border-right: 1px solid rgba(255, 255, 255, 0.3);
+        text-decoration: ${neitherVisible ? 'line-through' : 'none'};
+    `;
+    // Extract just the series name without the test suffix for display
+    const displayName = translateSeriesName(baseSeriesName);
+    prefixButton.textContent = displayName;
+    
+    // Add click handler for prefix (toggles both)
+    prefixButton.addEventListener('click', () => {
+        // Read current visibility state from cfg (not captured variables)
+        const currentPositiveVisible = cfg.datasetVisibility[positiveLabel] !== false;
+        const currentNegativeVisible = cfg.datasetVisibility[negativeLabel] !== false;
+        const currentBothVisible = currentPositiveVisible && currentNegativeVisible;
+        const newVisibility = !currentBothVisible;
+        
+        // Update visibility for both datasets
+        cfg.datasetVisibility[positiveLabel] = newVisibility;
+        cfg.datasetVisibility[negativeLabel] = newVisibility;
+        localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
+        
+        // Update chart metadata for both
+        const positiveMeta = chart.getDatasetMeta(positiveIndex);
+        const negativeMeta = chart.getDatasetMeta(negativeIndex);
+        positiveMeta.hidden = !newVisibility;
+        negativeMeta.hidden = !newVisibility;
+        positiveDataset.hidden = !newVisibility;
+        negativeDataset.hidden = !newVisibility;
+        
+        // Update UI - opacity and strikethrough only if both are hidden
+        chart.update();
+        const anyVisible = newVisibility; // both will have same visibility after this click
+        pillWrapper.style.opacity = anyVisible ? '1' : '0.5';
+        pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
+        prefixButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
+        positiveButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
+        negativeButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
+        
+        updateRatioTable();
+    });
+    
+    // Create positive tests button
+    const positiveButton = document.createElement('span');
+    positiveButton.style.cssText = `
+        display: inline-block;
+        padding: 4px 8px;
+        background-color: ${positiveDataset.borderColor || positiveDataset.backgroundColor || '#666'};
+        color: white;
+        font-size: 12px;
+        cursor: pointer;
+        user-select: none;
+        border-right: 1px solid rgba(255, 255, 255, 0.3);
+        text-decoration: ${positiveVisible ? 'none' : 'line-through'};
+    `;
+    positiveButton.textContent = t.seriesPositiveTests;
+    
+    // Add click handler for positive tests only
+    positiveButton.addEventListener('click', () => {
+        // Read current visibility state from cfg (not captured variables)
+        const currentPositiveVisible = cfg.datasetVisibility[positiveLabel] !== false;
+        const newVisibility = !currentPositiveVisible;
+        
+        cfg.datasetVisibility[positiveLabel] = newVisibility;
+        localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
+        
+        const positiveMeta = chart.getDatasetMeta(positiveIndex);
+        positiveMeta.hidden = !newVisibility;
+        positiveDataset.hidden = !newVisibility;
+        
+        chart.update();
+        positiveButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
+        
+        // Update wrapper opacity, strikethrough, and prefix based on both states
+        const currentNegativeVisible = cfg.datasetVisibility[negativeLabel] !== false;
+        const newBothVisible = newVisibility && currentNegativeVisible;
+        const anyVisible = newVisibility || currentNegativeVisible;
+        pillWrapper.style.opacity = anyVisible ? '1' : '0.5';
+        pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
+        prefixButton.style.textDecoration = anyVisible ? 'none' : 'line-through';
+        
+        updateRatioTable();
+    });
+    
+    // Create negative tests button
+    const negativeButton = document.createElement('span');
+    negativeButton.style.cssText = `
+        display: inline-block;
+        padding: 4px 8px;
+        background-color: ${negativeDataset.borderColor || negativeDataset.backgroundColor || '#666'};
+        color: white;
+        font-size: 12px;
+        cursor: pointer;
+        user-select: none;
+        text-decoration: ${negativeVisible ? 'none' : 'line-through'};
+    `;
+    negativeButton.textContent = t.seriesNegativeTests;
+    
+    // Add click handler for negative tests only
+    negativeButton.addEventListener('click', () => {
+        // Read current visibility state from cfg (not captured variables)
+        const currentNegativeVisible = cfg.datasetVisibility[negativeLabel] !== false;
+        const newVisibility = !currentNegativeVisible;
+        
+        cfg.datasetVisibility[negativeLabel] = newVisibility;
+        localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
+        
+        const negativeMeta = chart.getDatasetMeta(negativeIndex);
+        negativeMeta.hidden = !newVisibility;
+        negativeDataset.hidden = !newVisibility;
+        
+        chart.update();
+        negativeButton.style.textDecoration = newVisibility ? 'none' : 'line-through';
+        
+        // Update wrapper opacity, strikethrough, and prefix based on both states
+        const currentPositiveVisible = cfg.datasetVisibility[positiveLabel] !== false;
+        const newBothVisible = currentPositiveVisible && newVisibility;
+        const anyVisible = currentPositiveVisible || newVisibility;
+        pillWrapper.style.opacity = anyVisible ? '1' : '0.5';
+        pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
+        prefixButton.style.textDecoration = anyVisible ? 'none' : 'line-through';
+        
+        updateRatioTable();
+    });
+    
+    // Assemble the split pill
+    pillWrapper.appendChild(prefixButton);
+    pillWrapper.appendChild(positiveButton);
+    pillWrapper.appendChild(negativeButton);
+    
+    container.appendChild(pillWrapper);
+}
+
+// Helper function to create a regular legend button (non-test datasets)
+function createRegularLegendButton(
+    container: HTMLElement,
+    chart: Chart,
+    cfg: ChartConfig,
+    dataset: any,
+    index: number
+) {
+    const legendItem = document.createElement('span');
+    legendItem.style.cssText = `
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        background-color: ${dataset.borderColor || dataset.backgroundColor || '#666'};
+        color: white;
+        font-size: 12px;
+        cursor: pointer;
+        user-select: none;
+        opacity: ${dataset.hidden ? '0.5' : '1'};
+        text-decoration: ${dataset.hidden ? 'line-through' : 'none'};
+        font-family: Arial, sans-serif;
+    `;
+    legendItem.textContent = dataset.label || `Dataset ${index}`;
+    
+    // Add click handler for toggling visibility
+    legendItem.addEventListener('click', () => {
+        const datasetLabel = dataset.label || `Dataset ${index}`;
+        // Normalize to English for storage
+        const normalizedLabel = normalizeSeriesName(datasetLabel);
+        const currentlyHidden = !cfg.datasetVisibility[normalizedLabel];
+        const newVisibility = currentlyHidden;
+        
+        // Update visibility state first (store with normalized name)
+        cfg.datasetVisibility[normalizedLabel] = newVisibility;
+        localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
+        
+        // Update chart metadata and dataset
+        const meta = chart.getDatasetMeta(index);
+        meta.hidden = !newVisibility;
+        dataset.hidden = !newVisibility;
+        
+        // Update chart and legend item opacity
+        chart.update();
+        legendItem.style.opacity = newVisibility ? '1' : '0.5';
+        legendItem.style.textDecoration = newVisibility ? 'none' : 'line-through';
+        
+        // Update ratio table
+        updateRatioTable();
+    });
+    
+    container.appendChild(legendItem);
 }
 
 /**
