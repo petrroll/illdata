@@ -392,6 +392,29 @@ if (languageSelect) {
 
 renderPage(container);
 
+// Expose chartConfigs to window for E2E testing
+(window as any).__chartConfigs = chartConfigs;
+
+// Global click handler to dismiss tooltips when clicking outside charts
+document.addEventListener('click', (event) => {
+    // Check if the click target is inside any canvas element
+    const target = event.target as HTMLElement;
+    const clickedCanvas = target.closest('canvas');
+    
+    if (!clickedCanvas) {
+        // Click was outside any canvas, hide all tooltips
+        chartConfigs.forEach(cfg => {
+            const chart = cfg.chartHolder.chart;
+            if (chart) {
+                // Clear active elements to hide tooltip
+                chart.setActiveElements([]);
+                chart.tooltip?.setActiveElements([], { x: 0, y: 0 });
+                chart.update('none'); // 'none' mode prevents animation for instant update
+            }
+        });
+    }
+});
+
 // Unified settings control creation function
 function createUnifiedSettingsControl<K extends keyof AppSettings>(options: {
     type: 'select' | 'checkbox',
