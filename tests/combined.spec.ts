@@ -193,6 +193,9 @@ test.describe('Combined Scenarios', () => {
     const czechLegend = page.locator('#czechDataContainer-legend');
     // Use direct children (> span) to avoid nested spans in split pills
     const czechItems = czechLegend.locator('> span');
+    // Click twice to ensure hidden (first toggles all in pill, second confirms hide)
+    await czechItems.first().click();
+    await page.waitForTimeout(50);
     await czechItems.first().click();
     await page.waitForTimeout(100);
     
@@ -201,6 +204,8 @@ test.describe('Combined Scenarios', () => {
     const euItems = euLegend.locator('> span');
     if (await euItems.count() > 0) {
       await euItems.first().click();
+      await page.waitForTimeout(50);
+      await euItems.first().click();
       await page.waitForTimeout(100);
     }
     
@@ -208,6 +213,8 @@ test.describe('Combined Scenarios', () => {
     const deLegend = page.locator('#deWastewaterContainer-legend');
     const deItems = deLegend.locator('> span');
     if (await deItems.count() > 0) {
+      await deItems.first().click();
+      await page.waitForTimeout(50);
       await deItems.first().click();
       await page.waitForTimeout(100);
     }

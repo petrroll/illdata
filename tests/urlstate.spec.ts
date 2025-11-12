@@ -121,7 +121,10 @@ test.describe('URL State Management', () => {
     // Use direct children (> span) to avoid nested spans in split pills
     const legendItems = czechLegend.locator('> span');
     
-    // Hide first series
+    // Click twice on the first pill to ensure both base and shifted are hidden
+    // (First click toggles both, second click ensures they stay hidden)
+    await legendItems.first().click();
+    await page.waitForTimeout(100);
     await legendItems.first().click();
     await page.waitForTimeout(200);
     
@@ -157,6 +160,7 @@ test.describe('URL State Management', () => {
     // Navigate with state
     await page.goto(`/?state=${encoded}`);
     await page.waitForSelector('#czechDataContainer-legend');
+    await page.waitForTimeout(300); // Give extra time for rendering
     
     // Verify at least one series is hidden
     const newLegend = page.locator('#czechDataContainer-legend');
