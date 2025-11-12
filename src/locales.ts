@@ -534,20 +534,24 @@ export function translateSeriesName(seriesName: string, lang?: Language): string
     
     // 2. Extract and translate shift information
     let shiftSuffix = '';
-    const shiftPatternWave = / shifted by (\d+) (wave|waves) (-?\d+)d/;
-    const shiftPatternDays = / shifted by (-?\d+)d/;
+    const shiftPatternWave = / shifted by (\d+) (wave|waves) \((-?\d+|NaN) days\)/;
+    const shiftPatternDays = / shifted by (-?\d+) days/;
     
     const waveMatch = translated.match(shiftPatternWave);
     if (waveMatch) {
         const [full, count, waveWord, days] = waveMatch;
         const translatedWave = count === '1' ? t.seriesWave : t.seriesWaves;
-        shiftSuffix = ` ${t.seriesShiftedBy} ${count} ${translatedWave} ${days}d`;
+        // In Czech, use format: "posunuto o X vlna (Y dnů)" or "posunuto o X vlny (Y dnů)"
+        const daysWord = currentLang === 'cs' ? 'dnů' : 'days';
+        shiftSuffix = ` ${t.seriesShiftedBy} ${count} ${translatedWave} (${days} ${daysWord})`;
         translated = translated.replace(full, '');
     } else {
         const daysMatch = translated.match(shiftPatternDays);
         if (daysMatch) {
             const [full, days] = daysMatch;
-            shiftSuffix = ` ${t.seriesShiftedBy} ${days}d`;
+            // In Czech, use format: "posunuto o Y dnů"
+            const daysWord = currentLang === 'cs' ? 'dnů' : 'days';
+            shiftSuffix = ` ${t.seriesShiftedBy} ${days} ${daysWord}`;
             translated = translated.replace(full, '');
         }
     }
@@ -606,8 +610,10 @@ export function normalizeSeriesName(seriesName: string): string {
         .replace(/ - negativní testy/g, ' - Negative Tests');
     
     // 2. Reverse shift information
+    // Handle new format with parentheses: "posunuto o X vlna (Y dnů)" or "shifted by X wave (Y days)"
     normalized = normalized
-        .replace(/ posunuto o (\d+) (vlna|vlny) (-?\d+)d/g, ' shifted by $1 wave $3d');
+        .replace(/ posunuto o (\d+) (vlna|vlny|vln) \((-?\d+|NaN) dnů\)/g, ' shifted by $1 wave ($3 days)')
+        .replace(/ posunuto o (-?\d+) dnů/g, ' shifted by $1 days');
     
     // 3. Reverse averaging suffix
     normalized = normalized.replace(/ \((\d+)d prům\.\)/g, ' ($1d avg)');

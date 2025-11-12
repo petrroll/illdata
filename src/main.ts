@@ -1740,9 +1740,10 @@ function createSplitShiftedPill(
         user-select: none;
         text-decoration: ${shiftedVisible ? 'none' : 'line-through'};
     `;
-    // Extract and show just the shift suffix
+    // Extract and translate the shift suffix
     const shiftSuffix = extractShiftSuffix(shiftedDataset.label || '');
-    shiftedButton.textContent = shiftSuffix || 'shifted';
+    const translatedShiftSuffix = translateShiftSuffix(shiftSuffix);
+    shiftedButton.textContent = translatedShiftSuffix || 'shifted';
     
     // Add click handler for shifted series only
     shiftedButton.addEventListener('click', () => {
@@ -2317,6 +2318,45 @@ function extractShiftSuffix(label: string): string {
     }
     
     return '';
+}
+
+/**
+ * Translates a shift suffix text to the current language.
+ * 
+ * @param shiftSuffix - The shift suffix in English (e.g., "shifted by 1 wave (-347 days)")
+ * @param lang - Target language (optional, uses current language if not specified)
+ * @returns Translated shift suffix
+ */
+function translateShiftSuffix(shiftSuffix: string, lang?: Language): string {
+    const currentLang = lang || getLanguage();
+    
+    // If English or empty, return as is
+    if (currentLang === 'en' || !shiftSuffix) {
+        return shiftSuffix;
+    }
+    
+    const t = getTranslations(currentLang);
+    
+    // Pattern 1: Wave-based shift: "shifted by X wave(s) (Y days)"
+    const wavePattern = /shifted by (\d+) (wave|waves) \((-?\d+|NaN) days\)/;
+    const waveMatch = shiftSuffix.match(wavePattern);
+    if (waveMatch) {
+        const [, count, waveWord, days] = waveMatch;
+        const translatedWave = count === '1' ? t.seriesWave : t.seriesWaves;
+        const daysWord = 'dnů'; // Czech for "days"
+        return `${t.seriesShiftedBy} ${count} ${translatedWave} (${days} ${daysWord})`;
+    }
+    
+    // Pattern 2: Day-based shift: "shifted by X days"
+    const dayPattern = /shifted by (-?\d+) days/;
+    const dayMatch = shiftSuffix.match(dayPattern);
+    if (dayMatch) {
+        const [, days] = dayMatch;
+        const daysWord = 'dnů'; // Czech for "days"
+        return `${t.seriesShiftedBy} ${days} ${daysWord}`;
+    }
+    
+    return shiftSuffix;
 }
 
 /**
