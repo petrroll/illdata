@@ -3,7 +3,7 @@
 
 import { Chart } from 'chart.js/auto';
 import { createStyledButton, createPillWrapper, updatePillVisibility } from './ui-utils';
-import { getTranslations, normalizeSeriesName, translateSeriesName } from './locales';
+import { getLanguage, getTranslations, normalizeSeriesName, translateSeriesName } from './locales';
 import { SHIFTED_SERIES_IDENTIFIER, extractShiftSuffix } from './series-utils';
 
 // Re-export for use in main.ts
@@ -209,7 +209,7 @@ export function createSplitTestPill(
  */
 function translateShiftSuffix(shiftSuffix: string): string {
     const t = getTranslations();
-    const currentLang = t.seriesShiftedBy === 'posunuto o' ? 'cs' : 'en';
+    const currentLang = getLanguage();
     
     if (currentLang === 'en' || !shiftSuffix) {
         return shiftSuffix;
