@@ -781,6 +781,10 @@ function renderPage(rootDiv: HTMLElement | null) {
     
     // Create and attach "Get Link" functionality
     createGetLinkButton(appSettings, chartConfigs, countryFilters);
+    
+    // Setup global click handler to close tooltips when clicking outside charts
+    // This is especially important for Safari/iOS where tooltips can get stuck
+    setupTooltipDismissHandler(chartConfigs);
 }
 
 function createGetLinkButton(appSettings: AppSettings, chartConfigs: ChartConfig[], countryFilters: Map<string, string>) {
@@ -816,6 +820,40 @@ function createGetLinkButton(appSettings: AppSettings, chartConfigs: ChartConfig
             alert('Copy this link:\n\n' + url.toString());
         });
     });
+}
+
+/**
+ * Sets up a global event handler to dismiss chart tooltips when clicking outside chart areas.
+ * This is particularly important for Safari/iOS where tooltips can remain visible after tapping.
+ * 
+ * @param chartConfigs - Array of chart configurations containing the chart instances
+ */
+function setupTooltipDismissHandler(chartConfigs: ChartConfig[]): void {
+    // Handler function to close tooltips when clicking outside charts
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+        // Get the target element
+        const target = event.target as HTMLElement;
+        
+        // Check if click was on a canvas element (a chart)
+        const isCanvasClick = target.tagName === 'CANVAS';
+        
+        // If the click was not on a canvas, hide all tooltips
+        if (!isCanvasClick) {
+            chartConfigs.forEach(cfg => {
+                const chart = cfg.chartHolder.chart;
+                if (chart) {
+                    // Set tooltip to inactive by clearing active elements
+                    chart.setActiveElements([]);
+                    chart.update('none'); // Update without animation for immediate response
+                }
+            });
+        }
+    };
+    
+    // Add listeners for both click and touchend events
+    // touchend is important for iOS/Safari to handle tap gestures
+    document.addEventListener('click', handleClickOutside);
+    document.addEventListener('touchend', handleClickOutside);
 }
 
 function createChartContainerAndCanvas(containerId: string, canvasId: string): HTMLCanvasElement | null {
