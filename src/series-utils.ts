@@ -97,3 +97,38 @@ export function isShiftedTestNumberSeries(label: string): boolean {
     
     return shifted && (testNumber || positivity);
 }
+
+/**
+ * Extracts a shortened shift suffix from a series label for display.
+ * 
+ * Examples:
+ * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "shifted by 1 wave (-347 days)"
+ * - "PCR Positivity (28d avg) shifted by 2 waves -289d" -> "shifted by 2 waves (-289 days)"
+ * - "PCR Positivity (28d avg) shifted by -300d" -> "shifted by -300 days"
+ * - "Influenza Positivity" -> "" (no shift info)
+ * 
+ * @param label - Series label (in any language)
+ * @returns Formatted shift suffix string in English, or empty string if not shifted
+ */
+export function extractShiftSuffix(label: string): string {
+    const normalizedLabel = normalizeSeriesName(label);
+    
+    // Pattern 1: Wave-based shift: "shifted by X wave(s) -347d" or "shifted by X wave(s) 347d" or "shifted by X wave(s) NaNd"
+    const wavePattern = /shifted by (\d+) (waves?) ((?:-?\d+|NaN))d/;
+    const waveMatch = normalizedLabel.match(wavePattern);
+    if (waveMatch) {
+        const waveCount = waveMatch[1];
+        const waveWord = waveMatch[2];
+        const days = waveMatch[3];
+        return `shifted by ${waveCount} ${waveWord} (${days} days)`;
+    }
+    
+    // Pattern 2: Custom day shift: "shifted by -180d" or "shifted by 180d"
+    const dayPattern = /shifted by (-?\d+)d/;
+    const dayMatch = normalizedLabel.match(dayPattern);
+    if (dayMatch) {
+        return `shifted by ${dayMatch[1]} days`;
+    }
+    
+    return '';
+}

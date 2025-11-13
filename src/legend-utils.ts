@@ -4,7 +4,7 @@
 import { Chart } from 'chart.js/auto';
 import { createStyledButton, createPillWrapper, updatePillVisibility } from './ui-utils';
 import { getTranslations, normalizeSeriesName, translateSeriesName } from './locales';
-import { SHIFTED_SERIES_IDENTIFIER } from './series-utils';
+import { SHIFTED_SERIES_IDENTIFIER, extractShiftSuffix } from './series-utils';
 
 // Re-export for use in main.ts
 export { SHIFTED_SERIES_IDENTIFIER };
@@ -202,32 +202,6 @@ export function createSplitTestPill(
     pillWrapper.appendChild(negativeButton);
     
     container.appendChild(pillWrapper);
-}
-
-/**
- * Extracts a shortened shift suffix from a series label for display in a pill.
- */
-function extractShiftSuffix(label: string): string {
-    const normalizedLabel = normalizeSeriesName(label);
-    
-    // Pattern 1: Wave-based shift
-    const wavePattern = /shifted by (\d+) (waves?) ((?:-?\d+|NaN))d/;
-    const waveMatch = normalizedLabel.match(wavePattern);
-    if (waveMatch) {
-        const waveCount = waveMatch[1];
-        const waveWord = waveMatch[2];
-        const days = waveMatch[3];
-        return `shifted by ${waveCount} ${waveWord} (${days} days)`;
-    }
-    
-    // Pattern 2: Custom day shift
-    const dayPattern = /shifted by (-?\d+)d/;
-    const dayMatch = normalizedLabel.match(dayPattern);
-    if (dayMatch) {
-        return `shifted by ${dayMatch[1]} days`;
-    }
-    
-    return '';
 }
 
 /**
