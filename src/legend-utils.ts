@@ -4,9 +4,7 @@
 import { Chart } from 'chart.js/auto';
 import { createStyledButton, createPillWrapper, updatePillVisibility } from './ui-utils';
 import { getTranslations, normalizeSeriesName, translateSeriesName } from './locales';
-
-// Constants from main.ts
-const SHIFTED_SERIES_IDENTIFIER = 'shifted';
+import { SHIFTED_SERIES_IDENTIFIER } from './series-utils';
 
 // Re-export for use in main.ts
 export { SHIFTED_SERIES_IDENTIFIER };

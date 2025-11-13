@@ -7,6 +7,19 @@ import { Chart, Legend } from 'chart.js/auto';
 import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, datapointToPercentage, compareLabels, getColorBaseSeriesName } from "./utils";
 import { getLanguage, setLanguage, getTranslations, translateSeriesName, normalizeSeriesName, type Language } from "./locales";
 import { createRegularLegendButton, createSplitTestPill, createSplitShiftedPill, type ChartConfig as LegendChartConfig } from "./legend-utils";
+import { 
+    SHIFTED_SERIES_IDENTIFIER, 
+    TEST_NUMBERS_IDENTIFIER, 
+    MIN_MAX_IDENTIFIER,
+    isShiftedSeries,
+    isTestNumberSeries,
+    isMinMaxSeries,
+    isPositivitySeries,
+    isPositiveTestSeries,
+    isNegativeTestSeries,
+    getTestPairBaseName,
+    isShiftedTestNumberSeries
+} from "./series-utils";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -17,11 +30,6 @@ const extremeWindow = 3*28;
 const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, averagingWindows);
 const euPositivityEnhanced = computeMovingAverageTimeseries(euPositivity, averagingWindows);
 const deWastewaterEnhanced = computeMovingAverageTimeseries(deWastewater, averagingWindows);
-
-// Constants for dataset filtering
-const SHIFTED_SERIES_IDENTIFIER = 'shifted';
-const TEST_NUMBERS_IDENTIFIER = 'tests';
-const MIN_MAX_IDENTIFIER = ['min', 'max'];
 
 // Constants for chart styling
 const SHIFTED_LINE_DASH_PATTERN = [15, 1]; // Dash pattern for shifted series: [dash length, gap length] - very subtle, almost solid pattern
@@ -1027,33 +1035,20 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
 
     // Filter shifted series based on showShifted setting
     if (!showShifted) {
-        datasets = datasets.filter(ds => {
-            // Normalize to English for consistent identifier matching across languages
-            const normalizedLabel = normalizeSeriesName(ds.label).toLowerCase();
-            return !normalizedLabel.includes(SHIFTED_SERIES_IDENTIFIER);
-        });
+        datasets = datasets.filter(ds => !isShiftedSeries(ds.label));
     }
 
     // Filter test number series based on showTestNumbers setting
     if (!showTestNumbers) {
-        barDatasets = barDatasets.filter(ds => {
-            // Normalize to English for consistent identifier matching across languages
-            const normalizedLabel = normalizeSeriesName(ds.label).toLowerCase();
-            return !normalizedLabel.includes(TEST_NUMBERS_IDENTIFIER);
-        });
+        barDatasets = barDatasets.filter(ds => !isTestNumberSeries(ds.label));
     }
 
     // Filter shifted test number series based on showShiftedTestNumbers setting
     // Only apply if the general filters haven't already removed them
     if (!showShiftedTestNumbers) {
         barDatasets = barDatasets.filter(ds => {
-            // Normalize to English for consistent identifier matching across languages
-            const normalizedLabel = normalizeSeriesName(ds.label).toLowerCase();
             // Filter out datasets that are both test numbers AND shifted
-            const isTestNumber = normalizedLabel.includes(TEST_NUMBERS_IDENTIFIER);
-            const isShifted = normalizedLabel.includes(SHIFTED_SERIES_IDENTIFIER);
-            // Keep if not both test number and shifted
-            return !(isTestNumber && isShifted);
+            return !isShiftedTestNumberSeries(ds.label);
         });
     }
 
@@ -1182,11 +1177,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             // Check if any visible shifted series exist
                             const hasVisibleShiftedSeries = context.some(item => {
                                 const label = item.dataset.label || '';
-                                // Normalize to English for consistent identifier matching across languages
-                                const normalizedLabel = normalizeSeriesName(label).toLowerCase();
-                                const isShifted = normalizedLabel.includes(SHIFTED_SERIES_IDENTIFIER);
                                 const isVisible = !item.dataset.hidden;
-                                return isShifted && isVisible;
+                                return isShiftedSeries(label) && isVisible;
                             });
                             
                             if (!hasVisibleShiftedSeries) {
@@ -1199,9 +1191,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             let shiftDays: number | null = null;
                             for (const item of context) {
                                 const label = item.dataset.label || '';
-                                // Normalize to English for consistent identifier matching across languages
-                                const normalizedLabel = normalizeSeriesName(label).toLowerCase();
-                                if (normalizedLabel.includes(SHIFTED_SERIES_IDENTIFIER)) {
+                                if (isShiftedSeries(label)) {
                                     const shiftInfo = extractShiftFromLabel(label);
                                     if (shiftInfo !== null) {
                                         shiftDays = shiftInfo;
@@ -1343,13 +1333,12 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
         const datasetLabel = dataset.label || `Dataset ${index}`;
         
         // Check if this is a test dataset (positive or negative)
-        const normalizedLabel = normalizeSeriesName(datasetLabel);
-        const isPositiveTest = normalizedLabel.includes('- Positive Tests');
-        const isNegativeTest = normalizedLabel.includes('- Negative Tests');
+        const isPositiveTest = isPositiveTestSeries(datasetLabel);
+        const isNegativeTest = isNegativeTestSeries(datasetLabel);
         
         if (isPositiveTest) {
             // Find the corresponding negative test dataset
-            const baseSeriesName = normalizedLabel.replace(' - Positive Tests', '');
+            const baseSeriesName = getTestPairBaseName(datasetLabel);
             const negativeLabel = `${baseSeriesName} - Negative Tests`;
             
             // Find the negative test dataset
@@ -1381,7 +1370,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
             }
         } else if (isNegativeTest) {
             // Check if this negative test has a corresponding positive test
-            const baseSeriesName = normalizedLabel.replace(' - Negative Tests', '');
+            const baseSeriesName = getTestPairBaseName(datasetLabel);
             const positiveLabel = `${baseSeriesName} - Positive Tests`;
             
             // Find the positive test dataset
@@ -1414,18 +1403,18 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
             }
         } else {
             // Check if this is a shifted series that has a corresponding base series
-            const isShifted = normalizedLabel.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER);
+            const normalizedLabel = normalizeSeriesName(datasetLabel);
+            const shifted = isShiftedSeries(datasetLabel);
             
-            if (isShifted) {
+            if (shifted) {
                 // Extract base series name (without shift suffix)
                 const baseNameWithoutShift = getBaseSeriesNameWithoutShift(normalizedLabel);
                 
                 // Find the corresponding base series dataset
                 const baseDataset = datasetsWithIndices.find(d => {
                     const label = normalizeSeriesName(d.dataset.label || '');
-                    const labelLower = label.toLowerCase();
                     // Match if it's the same base series but not shifted
-                    return label === baseNameWithoutShift && !labelLower.includes(SHIFTED_SERIES_IDENTIFIER);
+                    return label === baseNameWithoutShift && !isShiftedSeries(d.dataset.label || '');
                 });
                 
                 if (baseDataset) {
@@ -1453,9 +1442,8 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
                 // Check if this base series has a corresponding shifted variant
                 const shiftedLabel = datasetsWithIndices.find(d => {
                     const label = normalizeSeriesName(d.dataset.label || '');
-                    const labelLower = label.toLowerCase();
                     // Match if it's shifted and has the same base name
-                    if (!labelLower.includes(SHIFTED_SERIES_IDENTIFIER)) {
+                    if (!isShiftedSeries(d.dataset.label || '')) {
                         return false;
                     }
                     const shiftedBaseName = getBaseSeriesNameWithoutShift(label);
@@ -1695,18 +1683,16 @@ function generateTestNumberBarDatasets(
     // We need to check the series name BEFORE creating test number datasets
     if (!showShifted || !showShiftedTestNumbers) {
         rawPositivitySeriesWithIndices = rawPositivitySeriesWithIndices.filter(({ series }) => {
-            // Normalize series name to English for consistent checking
-            const normalizedName = normalizeSeriesName(series.name).toLowerCase();
-            const isShifted = normalizedName.includes(SHIFTED_SERIES_IDENTIFIER);
+            const shifted = isShiftedSeries(series.name);
             
             // If shifted series are completely disabled, filter out all shifted series
-            if (!showShifted && isShifted) {
+            if (!showShifted && shifted) {
                 return false;
             }
             
             // If shifted test numbers are disabled (but regular shifted might be ok),
             // filter out shifted series since they will become test number bars
-            if (!showShiftedTestNumbers && isShifted) {
+            if (!showShiftedTestNumbers && shifted) {
                 return false;
             }
             
@@ -2019,38 +2005,24 @@ function getBaseSeriesName(label: string): string {
 }
 
 function getVisibilityDefault(label: string, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false): boolean {
-    // Normalize to English for consistent identifier matching across languages
-    const normalizedLabel = normalizeSeriesName(label);
-    const lowerLabel = normalizedLabel.toLowerCase();
-    
     // Hide min/max datasets by default
-    if (MIN_MAX_IDENTIFIER.some(id => lowerLabel.includes(id))) {
+    if (isMinMaxSeries(label)) {
         return false;
     }
     
-    const isShifted = lowerLabel.includes(SHIFTED_SERIES_IDENTIFIER);
-    const isTestNumber = lowerLabel.includes(TEST_NUMBERS_IDENTIFIER);
-    
-    // Check if this is a test positivity series (PCR/Antigen/Influenza/RSV/SARS-CoV-2 Positivity)
-    // These are conceptually test numbers even though they don't have "tests" in the name
-    const isTestPositivitySeries = lowerLabel.includes('positivity');
-    
-    // Treat shifted test positivity series as shifted test numbers for filtering
-    const isShiftedTestNumberSeries = isShifted && (isTestNumber || isTestPositivitySeries);
-    
     // Hide shifted test numbers if the setting is false
-    if (isShiftedTestNumberSeries && !showShiftedTestNumbers) {
+    if (isShiftedTestNumberSeries(label) && !showShiftedTestNumbers) {
         return false;
     }
     
     // Shifted series should be hidden by default (though the toggle remains ON)
     // This allows them to be toggled in the legend but starts them as disabled
-    if (isShifted) {
+    if (isShiftedSeries(label)) {
         return false;
     }
 
     // Show/hide test number bar charts based on setting (default: shown)
-    if (isTestNumber) {
+    if (isTestNumberSeries(label)) {
         return showTestNumbers;
     }
 
