@@ -252,6 +252,7 @@ test.describe('Series Visibility', () => {
     // This test verifies the fix for the bug where pill wrappers could have
     // a black line-through (from wrapper's text-decoration) even when a series is visible
     // This specifically tests 2-button pills (base + shifted), not 3-button test pills
+    
     const czechLegend = page.locator('#czechDataContainer-legend');
     const pillWrappers = czechLegend.locator('> span');
     
@@ -277,15 +278,24 @@ test.describe('Series Visibility', () => {
     const splitPill = pillWrappers.nth(splitPillIndex);
     const buttons = splitPill.locator('> span');
     
-    // Verify initial state has no line-through (pills start visible)
+    // Initially, base series is visible but shifted is hidden by default
+    // So wrapper should NOT have line-through (base is visible)
     let wrapperTextDecoration = await splitPill.evaluate(el => window.getComputedStyle(el).textDecoration);
+    expect(wrapperTextDecoration).not.toContain('line-through');
+    
+    // Click second button to show shifted series
+    await buttons.nth(1).click();
+    await page.waitForTimeout(100);
+    
+    // Wrapper should still not have line-through (both are now visible)
+    wrapperTextDecoration = await splitPill.evaluate(el => window.getComputedStyle(el).textDecoration);
     expect(wrapperTextDecoration).not.toContain('line-through');
     
     // Click first button to hide base series
     await buttons.first().click();
     await page.waitForTimeout(100);
     
-    // Wrapper should still not have line-through (shifted series still visible)
+    // Wrapper should still not have line-through (shifted is still visible)
     wrapperTextDecoration = await splitPill.evaluate(el => window.getComputedStyle(el).textDecoration);
     expect(wrapperTextDecoration).not.toContain('line-through');
     
@@ -302,22 +312,6 @@ test.describe('Series Visibility', () => {
     await page.waitForTimeout(100);
     
     // Wrapper should no longer have line-through (base is visible)
-    wrapperTextDecoration = await splitPill.evaluate(el => window.getComputedStyle(el).textDecoration);
-    expect(wrapperTextDecoration).not.toContain('line-through');
-    
-    // Hide base series again
-    await buttons.first().click();
-    await page.waitForTimeout(100);
-    
-    // Wrapper should have line-through again (all parts hidden)
-    wrapperTextDecoration = await splitPill.evaluate(el => window.getComputedStyle(el).textDecoration);
-    expect(wrapperTextDecoration).toContain('line-through');
-    
-    // Click second button to show shifted series
-    await buttons.nth(1).click();
-    await page.waitForTimeout(100);
-    
-    // Wrapper should no longer have line-through (shifted is visible)
     wrapperTextDecoration = await splitPill.evaluate(el => window.getComputedStyle(el).textDecoration);
     expect(wrapperTextDecoration).not.toContain('line-through');
   });
