@@ -299,6 +299,7 @@ export function createSplitShiftedPill(
         const currentShiftedVisible = cfg.datasetVisibility[shiftedLabel] !== false;
         const anyVisible = newVisibility || currentShiftedVisible;
         pillWrapper.style.opacity = anyVisible ? '1' : '0.5';
+        pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
     });
     
     // Add click handler for shifted series only
@@ -314,6 +315,7 @@ export function createSplitShiftedPill(
         const currentBaseVisible = cfg.datasetVisibility[baseLabel] !== false;
         const anyVisible = currentBaseVisible || newVisibility;
         pillWrapper.style.opacity = anyVisible ? '1' : '0.5';
+        pillWrapper.style.textDecoration = anyVisible ? 'none' : 'line-through';
     });
     
     // Assemble the split pill (2 parts: base + shifted)
