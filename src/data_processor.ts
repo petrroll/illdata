@@ -1,8 +1,13 @@
 import { loadAndParseCsv, loadAndParseTsv, saveData, saveTimeStamp } from "./data_sources/ioUtils";
 import { computeCzCovPositivityData, downloadCzCovPositivity} from "./data_sources/cr_cov_mzcr";
-import { CR_COV_MZCR_POSITIVITY, EU_ALLSENTINEL_ERVIS_POSITIVITY, DE_WASTEWATER_AMELAG, TIMESTAMP_FILE } from "./shared";
 import { computeEuEcdcData, downloadEuEcdcData } from "./data_sources/eu_all_ervis";
 import { computeDeWastewaterData, downloadDeWastewaterData } from "./data_sources/de_wastewater_amelag";
+
+// Output file paths for processed data
+const CR_COV_MZCR_POSITIVITY = "./data_processed/cr_cov_mzcr/positivity_data.json";
+const EU_ALLSENTINEL_ERVIS_POSITIVITY = "./data_processed/eu_sentinel_ervis/positivity_data.json";
+const DE_WASTEWATER_AMELAG = "./data_processed/de_wastewater_amelag/wastewater_data.json";
+const TIMESTAMP_FILE = "./data_processed/timestamp.json";
 
 await downloadCzCovPositivity("testy-pcr-antigenni.csv")
 let data = await loadAndParseCsv("testy-pcr-antigenni.csv");

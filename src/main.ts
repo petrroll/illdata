@@ -6,7 +6,7 @@ import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: 
 import { Chart, Legend } from 'chart.js/auto';
 import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, datapointToPercentage, compareLabels, getColorBaseSeriesName } from "./utils";
 import { getLanguage, setLanguage, getTranslations, translateSeriesName, normalizeSeriesName, type Language } from "./locales";
-import { createRegularLegendButton, createSplitTestPill, createSplitShiftedPill, type ChartConfig as LegendChartConfig } from "./legend-utils";
+import { createRegularLegendButton, createSplitTestPill, createSplitShiftedPill, type ChartConfig as LegendChartConfig } from "./ui/legend-utils";
 import { 
     SHIFTED_SERIES_IDENTIFIER, 
     TEST_NUMBERS_IDENTIFIER, 
