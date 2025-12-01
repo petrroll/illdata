@@ -537,9 +537,11 @@ export function translateSeriesName(seriesName: string, lang?: Language): string
     
     // 2. Extract and translate shift information
     let shiftSuffix = '';
-    // Pattern 1: Wave-based shift: "shifted by X wave(s) Yd" (e.g., "shifted by 1 wave -347d")
+    // Pattern 1: Wave-based shift format: " shifted by X wave(s) Yd" where Y is days (with sign)
+    // Example: " shifted by 1 wave -347d" or " shifted by 2 waves 100d"
     const shiftPatternWave = / shifted by (\d+) (wave|waves) (-?\d+|NaN)d/;
-    // Pattern 2: Custom day shift: "shifted by Xd" (e.g., "shifted by 370d")
+    // Pattern 2: Custom day shift format: " shifted by Xd" where X is days (with sign)
+    // Example: " shifted by 370d" or " shifted by -180d"
     const shiftPatternDays = / shifted by (-?\d+)d/;
     
     const waveMatch = translated.match(shiftPatternWave);
