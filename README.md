@@ -2,6 +2,8 @@
 
 This project explores illness positivity rates across Europe—with a primary focus on Czechia—and delivers a single pane of glass dashboard for data visualization.
 
+> The project has been mostly written by copilot swe agent. The goal of this is to be a data dashboard first (and mostly (so far) just for me). While I initially tried to maintain some level of quality of the code, a lot of things slipped since (some of it was generated pre-claude 4.5 😅). Please don't take this as example of the quality of work I'd do in professional setting; different cost-benefit balance there.
+
 ## Installing Dependencies and Running the Project
 
 The project uses [just](https://github.com/casey/just) as its command runner. Here are the available commands:
