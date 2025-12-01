@@ -537,8 +537,10 @@ export function translateSeriesName(seriesName: string, lang?: Language): string
     
     // 2. Extract and translate shift information
     let shiftSuffix = '';
-    const shiftPatternWave = / shifted by (\d+) (wave|waves) \((-?\d+|NaN) days\)/;
-    const shiftPatternDays = / shifted by (-?\d+) days/;
+    // Pattern 1: Wave-based shift: "shifted by X wave(s) Yd" (e.g., "shifted by 1 wave -347d")
+    const shiftPatternWave = / shifted by (\d+) (wave|waves) (-?\d+|NaN)d/;
+    // Pattern 2: Custom day shift: "shifted by Xd" (e.g., "shifted by 370d")
+    const shiftPatternDays = / shifted by (-?\d+)d/;
     
     const waveMatch = translated.match(shiftPatternWave);
     if (waveMatch) {
@@ -609,10 +611,11 @@ export function normalizeSeriesName(seriesName: string): string {
         .replace(/ - negativní testy/g, ' - Negative Tests');
     
     // 2. Reverse shift information
-    // Handle new format with parentheses: "posunuto o X vlna (Y dnů)" or "shifted by X wave (Y days)"
+    // Handle Czech format with parentheses: "posunuto o X vlna (Y dnů)" → "shifted by X wave Yd"
+    // Handle Czech format without parentheses: "posunuto o X dnů" → "shifted by Xd"
     normalized = normalized
-        .replace(/ posunuto o (\d+) (vlna|vlny|vln) \((-?\d+|NaN) dnů\)/g, ' shifted by $1 wave ($3 days)')
-        .replace(/ posunuto o (-?\d+) dnů/g, ' shifted by $1 days');
+        .replace(/ posunuto o (\d+) (vlna|vlny|vln) \((-?\d+|NaN) dnů\)/g, ' shifted by $1 wave $3d')
+        .replace(/ posunuto o (-?\d+) dnů/g, ' shifted by $1d');
     
     // 3. Reverse averaging suffix
     normalized = normalized.replace(/ \((\d+)d prům\.\)/g, ' ($1d avg)');
