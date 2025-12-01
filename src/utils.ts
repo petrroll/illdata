@@ -49,6 +49,8 @@ export type Series = DataSeries | ExtremeSeries;
 /**
  * Type guard to check if a DataSeries is a ScalarSeries.
  * Replaces the repeated pattern `'dataType' in series && series.dataType === 'scalar'`
+ * @param series - The data series to check
+ * @returns True if the series is a scalar series, false otherwise
  */
 export function isScalarSeries(series: DataSeries): series is ScalarSeries {
     return series.dataType === 'scalar';
