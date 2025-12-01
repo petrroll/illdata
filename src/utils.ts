@@ -46,6 +46,14 @@ export interface ExtremeSeries {
 
 export type Series = DataSeries | ExtremeSeries;
 
+/**
+ * Type guard to check if a DataSeries is a ScalarSeries.
+ * Replaces the repeated pattern `'dataType' in series && series.dataType === 'scalar'`
+ */
+export function isScalarSeries(series: DataSeries): series is ScalarSeries {
+    return series.dataType === 'scalar';
+}
+
 interface ShiftedSeriesOptions {
     name: string;
     shiftByIndexes: number;
@@ -75,10 +83,9 @@ function createShiftedSeries(series: DataSeries, options: ShiftedSeriesOptions):
         ...(includeCountry && series.country ? { country: series.country } : {})
     } as const;
 
-    if ('dataType' in series && series.dataType === 'scalar') {
-        const scalarSeries = series as ScalarSeries;
+    if (isScalarSeries(series)) {
         const shiftedValues = buildShiftedValues<ScalarDatapoint>(
-            scalarSeries.values,
+            series.values,
             length,
             shiftByIndexes,
             SCALAR_PLACEHOLDER
@@ -90,9 +97,8 @@ function createShiftedSeries(series: DataSeries, options: ShiftedSeriesOptions):
         } as ScalarSeries;
     }
 
-    const positivitySeries = series as PositivitySeries;
     const shiftedValues = buildShiftedValues<Datapoint>(
-        positivitySeries.values,
+        series.values,
         length,
         shiftByIndexes,
         POSITIVITY_PLACEHOLDER
@@ -215,7 +221,7 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
     const averagedSeries: DataSeries[] = data.series.flatMap((series): DataSeries[] => {
         const adjustedWindowSizes = windowSizes.map(w => windowSizeDaysToIndex(w, series.frequencyInDays));
         
-        if ('dataType' in series && series.dataType === 'scalar') {
+        if (isScalarSeries(series)) {
             // Handle scalar data (e.g., wastewater virus load)
             return adjustedWindowSizes.map((windowSizeInIndex, i) => {
                 const averagedValues = series.values.map((v, j) => {
@@ -226,7 +232,7 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
                         if (index < 0) continue;
                         if (index >= series.values.length) continue;
                         
-                        const value = (series.values[index] as ScalarDatapoint).virusLoad;
+                        const value = series.values[index].virusLoad;
                         if (value > 0) {  // Only count non-zero values
                             sumLoad += value;
                             count++;
@@ -245,34 +251,34 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
                     ...(series.country ? { country: series.country } : {})
                 } as ScalarSeries;
             });
-        } else {
-            // Handle positivity data
-            return adjustedWindowSizes.map((windowSizeInIndex, i) => {
-                const averagedValues = series.values.map((v, j) => {
-                    let sumPos = 0;
-                    let sumTotal = 0;
-                    for (let k = -Math.floor(windowSizeInIndex/2); k <= Math.floor(windowSizeInIndex/2); k++) {
-                        let index = j + k;
-                        if (index < 0) continue;
-                        if (index >= series.values.length) continue;
-                        
-                        sumPos += (series.values[index] as Datapoint).positive;
-                        sumTotal += (series.values[index] as Datapoint).tests;
-                    }
-                    return { positive: sumPos, tests: sumTotal };
-                });
-                const originalWindowSize = windowSizes[i];
-                return {
-                    name: `${series.name} (${originalWindowSize}d avg)`,
-                    values: averagedValues,
-                    type: 'averaged',
-                    windowSizeInDays: windowSizes[i],
-                    frequencyInDays: series.frequencyInDays,
-                    dataType: 'positivity',
-                    ...(series.country ? { country: series.country } : {})
-                } as PositivitySeries;
-            });
         }
+        
+        // Handle positivity data
+        return adjustedWindowSizes.map((windowSizeInIndex, i) => {
+            const averagedValues = series.values.map((v, j) => {
+                let sumPos = 0;
+                let sumTotal = 0;
+                for (let k = -Math.floor(windowSizeInIndex/2); k <= Math.floor(windowSizeInIndex/2); k++) {
+                    let index = j + k;
+                    if (index < 0) continue;
+                    if (index >= series.values.length) continue;
+                    
+                    sumPos += series.values[index].positive;
+                    sumTotal += series.values[index].tests;
+                }
+                return { positive: sumPos, tests: sumTotal };
+            });
+            const originalWindowSize = windowSizes[i];
+            return {
+                name: `${series.name} (${originalWindowSize}d avg)`,
+                values: averagedValues,
+                type: 'averaged',
+                windowSizeInDays: windowSizes[i],
+                frequencyInDays: series.frequencyInDays,
+                dataType: 'positivity',
+                ...(series.country ? { country: series.country } : {})
+            } as PositivitySeries;
+        });
     });
 
     return {
@@ -419,8 +425,8 @@ export function calculateRatios(data: TimeseriesData, visibleMainSeries: string[
     });
 }
 
-function calculatePeriodRatio(serie: DataSeries, endIndex: number, periodDays: number): number | null {
-    const periodIndices = Math.floor(periodDays / serie.frequencyInDays);
+function calculatePeriodRatio(series: DataSeries, endIndex: number, periodDays: number): number | null {
+    const periodIndices = Math.floor(periodDays / series.frequencyInDays);
     
     // Calculate current period average (last N days)
     const currentStart = Math.max(0, endIndex - periodIndices + 1);
@@ -435,10 +441,10 @@ function calculatePeriodRatio(serie: DataSeries, endIndex: number, periodDays: n
     let currentAvg: number;
     let previousAvg: number;
     
-    if ('dataType' in serie && serie.dataType === 'scalar') {
+    if (isScalarSeries(series)) {
         // For scalar series, calculate average value
-        const currentValues = serie.values.slice(currentStart, currentEnd) as ScalarDatapoint[];
-        const previousValues = serie.values.slice(previousStart, previousEnd) as ScalarDatapoint[];
+        const currentValues = series.values.slice(currentStart, currentEnd);
+        const previousValues = series.values.slice(previousStart, previousEnd);
         
         if (currentValues.length === 0 || previousValues.length === 0) return null;
         
@@ -448,8 +454,8 @@ function calculatePeriodRatio(serie: DataSeries, endIndex: number, periodDays: n
         previousAvg = previousSum / previousValues.length;
     } else {
         // For positivity data, calculate percentage
-        const currentValues = (serie as PositivitySeries).values.slice(currentStart, currentEnd);
-        const previousValues = (serie as PositivitySeries).values.slice(previousStart, previousEnd);
+        const currentValues = series.values.slice(currentStart, currentEnd);
+        const previousValues = series.values.slice(previousStart, previousEnd);
         
         if (currentValues.length === 0 || previousValues.length === 0) return null;
         
@@ -476,11 +482,10 @@ export function datapointToPercentage(datapoint: Datapoint | undefined): number 
 }
 
 function seriesValueToNumber(series: DataSeries, index: number): number {
-    if ('dataType' in series && series.dataType === 'scalar') {
-        return (series.values[index] as ScalarDatapoint)?.virusLoad || NaN;
-    } else {
-        return datapointToPercentage(series.values[index] as Datapoint);
+    if (isScalarSeries(series)) {
+        return series.values[index]?.virusLoad || NaN;
     }
+    return datapointToPercentage(series.values[index]);
 }
 
 function calculateMedian(values: number[]): number {

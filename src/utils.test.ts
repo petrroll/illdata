@@ -5,11 +5,61 @@ import {
     getNewWithSifterToAlignExtremeDates,
     getNewWithCustomShift,
     compareLabels,
+    isScalarSeries,
     type PositivitySeries, 
+    type ScalarSeries,
     type ExtremeSeries,
     type TimeseriesData,
     type Datapoint
 } from './utils';
+
+describe('isScalarSeries Type Guard Tests', () => {
+    test('returns true for scalar series', () => {
+        const scalarSeries: ScalarSeries = {
+            name: 'Wastewater Series',
+            values: [{ virusLoad: 100 }, { virusLoad: 200 }],
+            type: 'raw',
+            frequencyInDays: 1,
+            dataType: 'scalar'
+        };
+        expect(isScalarSeries(scalarSeries)).toBe(true);
+    });
+
+    test('returns false for positivity series', () => {
+        const positivitySeries: PositivitySeries = {
+            name: 'PCR Positivity',
+            values: [{ positive: 10, tests: 100 }, { positive: 20, tests: 100 }],
+            type: 'raw',
+            frequencyInDays: 1,
+            dataType: 'positivity'
+        };
+        expect(isScalarSeries(positivitySeries)).toBe(false);
+    });
+
+    test('works with averaged scalar series', () => {
+        const avgScalarSeries: ScalarSeries = {
+            name: 'Wastewater (28d avg)',
+            values: [{ virusLoad: 150 }],
+            type: 'averaged',
+            windowSizeInDays: 28,
+            frequencyInDays: 1,
+            dataType: 'scalar'
+        };
+        expect(isScalarSeries(avgScalarSeries)).toBe(true);
+    });
+
+    test('works with averaged positivity series', () => {
+        const avgPositivitySeries: PositivitySeries = {
+            name: 'PCR Positivity (28d avg)',
+            values: [{ positive: 15, tests: 100 }],
+            type: 'averaged',
+            windowSizeInDays: 28,
+            frequencyInDays: 1,
+            dataType: 'positivity'
+        };
+        expect(isScalarSeries(avgPositivitySeries)).toBe(false);
+    });
+});
 
 describe('findLocalExtreme - Local Maxima Tests', () => {
     const seriesMax: PositivitySeries = {

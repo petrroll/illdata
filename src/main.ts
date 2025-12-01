@@ -4,7 +4,7 @@ import deWastewaterImport from "../data_processed/de_wastewater_amelag/wastewate
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, datapointToPercentage, compareLabels, getColorBaseSeriesName } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, datapointToPercentage, compareLabels, getColorBaseSeriesName, isScalarSeries } from "./utils";
 import { getLanguage, setLanguage, getTranslations, translateSeriesName, normalizeSeriesName, type Language } from "./locales";
 import { createRegularLegendButton, createSplitTestPill, createSplitShiftedPill, type ChartConfig as LegendChartConfig } from "./ui/legend-utils";
 import { 
@@ -1285,8 +1285,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                         callback: function(tickValue: string | number) {
                             if (typeof tickValue === 'number') {
                                 // Check if this is a scalar series chart (e.g., wastewater)
-                                const isScalarChart = cfg.data.series.some(s => 'dataType' in s && s.dataType === 'scalar');
-                                if (isScalarChart) {
+                                const hasScalarSeries = cfg.data.series.some(s => isScalarSeries(s));
+                                if (hasScalarSeries) {
                                     // For scalar series, show the value with scientific notation if needed
                                     return tickValue.toExponential(2);
                                 } else {
@@ -1577,8 +1577,8 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
         const borderColor = selectedPalette[colorIndex % selectedPalette.length];
 
         // Validate data based on type
-        if ('dataType' in series && series.dataType === 'positivity') {
-            series.values.forEach((element: any, i: number) => {
+        if (!isScalarSeries(series)) {
+            series.values.forEach((element, i: number) => {
                 if (element === undefined || element === null) {
                     console.warn(`Missing value in series ${series.name} at index ${i}`);
                     return;
@@ -1591,9 +1591,9 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
         
         // Convert data based on type
         let chartData: number[];
-        if ('dataType' in series && series.dataType === 'scalar') {
+        if (isScalarSeries(series)) {
             // For scalar series, use the value directly (no percentage conversion)
-            chartData = series.values.slice(startIdx, endIdx).map((dp: any) => {
+            chartData = series.values.slice(startIdx, endIdx).map((dp) => {
                 if (!dp) return 0;
                 return dp.virusLoad || 0;
             });
@@ -1714,7 +1714,7 @@ function generateTestNumberBarDatasets(
 ) {
     // Only generate bar charts for raw positivity series (not averaged, not scalar)
     let rawPositivitySeriesWithIndices = sortedSeriesWithIndices.filter(({ series }) => 
-        series.type === 'raw' && 'dataType' in series && series.dataType === 'positivity'
+        series.type === 'raw' && !isScalarSeries(series)
     );
     
     // Filter out shifted series if showShifted is false or showShiftedTestNumbers is false
@@ -1789,8 +1789,8 @@ function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData:
             label: translateSeriesName(extrSeries.name),
             data: extrSeries.indices.map(index => {
                 let yValue: number;
-                if (originalSeries && 'dataType' in originalSeries && originalSeries.dataType === 'scalar') {
-                    yValue = (originalSeries.values[index] as any)?.virusLoad ?? 0;
+                if (originalSeries && isScalarSeries(originalSeries)) {
+                    yValue = originalSeries.values[index]?.virusLoad ?? 0;
                 } else {
                     yValue = datapointToPercentage(originalSeries?.values[index] as any) ?? -10;
                 }
