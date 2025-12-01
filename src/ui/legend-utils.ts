@@ -3,11 +3,8 @@
 
 import { Chart } from 'chart.js/auto';
 import { createStyledButton, createPillWrapper, updatePillVisibility } from './ui-utils';
-import { getLanguage, getTranslations, normalizeSeriesName, translateSeriesName } from './locales';
-import { SHIFTED_SERIES_IDENTIFIER, extractShiftSuffix } from './series-utils';
-
-// Re-export for use in main.ts
-export { SHIFTED_SERIES_IDENTIFIER };
+import { getLanguage, getTranslations, normalizeSeriesName, translateSeriesName } from '../locales';
+import { extractShiftSuffix } from '../series-utils';
 
 /**
  * Configuration for a chart
@@ -221,8 +218,7 @@ function translateShiftSuffix(shiftSuffix: string): string {
     if (waveMatch) {
         const [, count, waveWord, days] = waveMatch;
         const translatedWave = count === '1' ? t.seriesWave : t.seriesWaves;
-        const daysWord = 'dnů';
-        return `${t.seriesShiftedBy} ${count} ${translatedWave} (${days} ${daysWord})`;
+        return `${t.seriesShiftedBy} ${count} ${translatedWave} (${days} ${t.seriesDays})`;
     }
     
     // Pattern 2: Day-based shift
@@ -230,8 +226,7 @@ function translateShiftSuffix(shiftSuffix: string): string {
     const dayMatch = shiftSuffix.match(dayPattern);
     if (dayMatch) {
         const [, days] = dayMatch;
-        const daysWord = 'dnů';
-        return `${t.seriesShiftedBy} ${days} ${daysWord}`;
+        return `${t.seriesShiftedBy} ${days} ${t.seriesDays}`;
     }
     
     return shiftSuffix;

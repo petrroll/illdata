@@ -119,6 +119,7 @@ export interface Translations {
     seriesShiftedBy: string;  // "shifted by"
     seriesWave: string;  // "wave"
     seriesWaves: string;  // "waves"
+    seriesDays: string;  // "days"
     seriesPositiveTests: string;  // "Positive Tests"
     seriesNegativeTests: string;  // "Negative Tests"
 }
@@ -313,6 +314,7 @@ const en: Translations = {
     seriesShiftedBy: 'shifted by',
     seriesWave: 'wave',
     seriesWaves: 'waves',
+    seriesDays: 'days',
     seriesPositiveTests: 'Positive Tests',
     seriesNegativeTests: 'Negative Tests'
 };
@@ -464,6 +466,7 @@ const cs: Translations = {
     seriesShiftedBy: 'posunuto o',
     seriesWave: 'vlna',
     seriesWaves: 'vlny',
+    seriesDays: 'dnů',
     seriesPositiveTests: 'pozitivní testy',
     seriesNegativeTests: 'negativní testy'
 };
@@ -541,17 +544,13 @@ export function translateSeriesName(seriesName: string, lang?: Language): string
     if (waveMatch) {
         const [full, count, waveWord, days] = waveMatch;
         const translatedWave = count === '1' ? t.seriesWave : t.seriesWaves;
-        // In Czech, use format: "posunuto o X vlna (Y dnů)" or "posunuto o X vlny (Y dnů)"
-        const daysWord = currentLang === 'cs' ? 'dnů' : 'days';
-        shiftSuffix = ` ${t.seriesShiftedBy} ${count} ${translatedWave} (${days} ${daysWord})`;
+        shiftSuffix = ` ${t.seriesShiftedBy} ${count} ${translatedWave} (${days} ${t.seriesDays})`;
         translated = translated.replace(full, '');
     } else {
         const daysMatch = translated.match(shiftPatternDays);
         if (daysMatch) {
             const [full, days] = daysMatch;
-            // In Czech, use format: "posunuto o Y dnů"
-            const daysWord = currentLang === 'cs' ? 'dnů' : 'days';
-            shiftSuffix = ` ${t.seriesShiftedBy} ${days} ${daysWord}`;
+            shiftSuffix = ` ${t.seriesShiftedBy} ${days} ${t.seriesDays}`;
             translated = translated.replace(full, '');
         }
     }
