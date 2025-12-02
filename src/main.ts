@@ -222,21 +222,11 @@ function applyUrlState(state: UrlState, chartConfigs: ChartConfig[]): { appSetti
     
     // Apply visibility state
     // Note: In new compact format, only 'true' values are stored, so missing series should default to false
+    // Store the visibility map directly - the chart rendering code will handle merging with current series
     Object.entries(state.visibility).forEach(([visibilityKey, visibilityMap]) => {
-        // For each chart, get all series and set visibility based on the map
-        // Missing entries default to false (hidden)
-        const cfg = chartConfigs.find(c => c.visibilityKey === visibilityKey);
-        if (cfg) {
-            // Build complete visibility map with defaults
-            const completeVisibility: { [key: string]: boolean } = {};
-            Object.keys(cfg.datasetVisibility).forEach(seriesName => {
-                completeVisibility[seriesName] = visibilityMap[seriesName] === true;
-            });
-            localStorage.setItem(visibilityKey, JSON.stringify(completeVisibility));
-        } else {
-            // If chart not found, store as-is for compatibility
-            localStorage.setItem(visibilityKey, JSON.stringify(visibilityMap));
-        }
+        // Store visibility map from URL directly to localStorage
+        // The chart rendering code will use this when determining visibility
+        localStorage.setItem(visibilityKey, JSON.stringify(visibilityMap));
     });
     
     // Apply country filters

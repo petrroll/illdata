@@ -108,6 +108,22 @@ describe('Series Name Translation Tests', () => {
                 expect(normalized).toBe(original);
             });
         });
+
+        test('normalizes custom days shift with negative value', () => {
+            // This is the exact format in the URL: "PCR Positivity (28d avg) shifted by -370d"
+            const englishName = 'PCR Positivity (28d avg) shifted by -370d';
+            setLanguage('cs');
+            const czechName = translateSeriesName(englishName);
+            
+            // Verify it was translated
+            expect(czechName).toContain('posunuto o');
+            expect(czechName).toContain('-370');
+            
+            // Normalize back
+            setLanguage('en');
+            const normalized = normalizeSeriesName(czechName);
+            expect(normalized).toBe(englishName);
+        });
     });
 
     describe('URL State Round-Trip for Shifted Series', () => {
@@ -128,6 +144,22 @@ describe('Series Name Translation Tests', () => {
             
             // The normalized name should match the original English name
             expect(normalizedName).toBe(englishName);
+        });
+
+        test('URL state with custom days shift preserves visibility', () => {
+            // This is the exact scenario from the user's URL:
+            // shiftOverride: 370, alignByExtreme: 'days' → generates "shifted by -370d"
+            const shiftedSeriesName = 'PCR Positivity (28d avg) shifted by -370d';
+            
+            // Verify the series name can be translated and normalized correctly
+            setLanguage('cs');
+            const czechName = translateSeriesName(shiftedSeriesName);
+            expect(czechName).toContain('posunuto o');
+            expect(czechName).toContain('-370');
+            
+            setLanguage('en');
+            const normalized = normalizeSeriesName(czechName);
+            expect(normalized).toBe(shiftedSeriesName);
         });
     });
 });
