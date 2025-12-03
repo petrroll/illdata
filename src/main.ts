@@ -1107,6 +1107,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     
     // Initialize visibility for new series, checking both exact name and base name for previous state
     // Always use normalized (English) names for storage
+    // Check if we have any stored visibility (from URL or previous session)
+    const hasStoredVisibility = Object.keys(cfg.datasetVisibility).length > 0;
+    
     normalizedValidNames.forEach(normalizedName => {
         if (cfg.datasetVisibility[normalizedName] === undefined) {
             // Check if we have visibility state for the base series name (from a different shift)
@@ -1124,8 +1127,13 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                 // If filters allow it (defaultState is true), preserve the previous user choice
                 cfg.datasetVisibility[normalizedName] = defaultState === false ? false : previousState;
             } else {
-                // No previous state, use default
-                cfg.datasetVisibility[normalizedName] = getVisibilityDefault(normalizedName, showShifted, showTestNumbers, showShiftedTestNumbers);
+                // If we have stored visibility (from URL or localStorage), missing entries should be false
+                // Otherwise, use the default visibility for first-time load
+                if (hasStoredVisibility) {
+                    cfg.datasetVisibility[normalizedName] = false;
+                } else {
+                    cfg.datasetVisibility[normalizedName] = getVisibilityDefault(normalizedName, showShifted, showTestNumbers, showShiftedTestNumbers);
+                }
             }
         }
         
@@ -1135,10 +1143,18 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         const negativeTestsName = `${normalizedName} - Negative Tests`;
         
         if (cfg.datasetVisibility[positiveTestsName] === undefined) {
-            cfg.datasetVisibility[positiveTestsName] = getVisibilityDefault(positiveTestsName, showShifted, showTestNumbers, showShiftedTestNumbers);
+            if (hasStoredVisibility) {
+                cfg.datasetVisibility[positiveTestsName] = false;
+            } else {
+                cfg.datasetVisibility[positiveTestsName] = getVisibilityDefault(positiveTestsName, showShifted, showTestNumbers, showShiftedTestNumbers);
+            }
         }
         if (cfg.datasetVisibility[negativeTestsName] === undefined) {
-            cfg.datasetVisibility[negativeTestsName] = getVisibilityDefault(negativeTestsName, showShifted, showTestNumbers, showShiftedTestNumbers);
+            if (hasStoredVisibility) {
+                cfg.datasetVisibility[negativeTestsName] = false;
+            } else {
+                cfg.datasetVisibility[negativeTestsName] = getVisibilityDefault(negativeTestsName, showShifted, showTestNumbers, showShiftedTestNumbers);
+            }
         }
     });
     
