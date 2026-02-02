@@ -73,21 +73,29 @@ export function computeEuEcdcData(data: Record<string, string>[], preserveSurvty
     // Create series for each combination
     const allSeries: PositivitySeries[] = countries.flatMap(country => 
         pathogens.flatMap(pathogen =>
-            survtypes.map(survtype => ({
-                name: `${pathogen} Positivity`,
-                country: country,
-                survtype: preserveSurvtype ? survtype : undefined,
-                values: dates.map(date => {
-                    const stats = groupedData.get(date)?.get(country)?.get(pathogen)?.get(survtype);
-                    return {
-                        positive: stats ? stats.detections : 0,
-                        tests: stats ? stats.tests : 0
-                    };
-                }),
-                type: 'raw' as const,
-                frequencyInDays: 7,
-                dataType: 'positivity' as const
-            }))
+            survtypes.map(survtype => {
+                // Include survtype in name when preserving it to ensure unique series names
+                const baseName = `${pathogen} Positivity`;
+                const seriesName = preserveSurvtype && survtype !== "all" 
+                    ? `${baseName} (${survtype === "primary care sentinel" ? "Sentinel" : "Non-Sentinel"})`
+                    : baseName;
+                
+                return {
+                    name: seriesName,
+                    country: country,
+                    survtype: preserveSurvtype ? survtype : undefined,
+                    values: dates.map(date => {
+                        const stats = groupedData.get(date)?.get(country)?.get(pathogen)?.get(survtype);
+                        return {
+                            positive: stats ? stats.detections : 0,
+                            tests: stats ? stats.tests : 0
+                        };
+                    }),
+                    type: 'raw' as const,
+                    frequencyInDays: 7,
+                    dataType: 'positivity' as const
+                };
+            })
         )
     );
 
