@@ -1,6 +1,7 @@
 import mzcrPositivityImport from "../data_processed/cr_cov_mzcr/positivity_data.json" with { type: "json" };
 import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_data.json" with { type: "json" };
 import deWastewaterImport from "../data_processed/de_wastewater_amelag/wastewater_data.json" with { type: "json" };
+import szuRespiratoryImport from "../data_processed/cr_respiratory_szu/respiratory_data.json" with { type: "json" };
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
@@ -24,12 +25,14 @@ import {
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
 const deWastewater = deWastewaterImport as TimeseriesData;
+const szuRespiratory = szuRespiratoryImport as TimeseriesData;
 const averagingWindows = [28];
 const extremesForWindow = 28;
 const extremeWindow = 3*28;
 const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, averagingWindows);
 const euPositivityEnhanced = computeMovingAverageTimeseries(euPositivity, averagingWindows);
 const deWastewaterEnhanced = computeMovingAverageTimeseries(deWastewater, averagingWindows);
+const szuRespiratoryEnhanced = computeMovingAverageTimeseries(szuRespiratory, averagingWindows);
 
 // Constants for chart styling
 const SHIFTED_LINE_DASH_PATTERN = [15, 1]; // Dash pattern for shifted series: [dash length, gap length] - very subtle, almost solid pattern
@@ -248,6 +251,7 @@ const DATASET_VISIBILITY_KEY = "datasetVisibility";
 const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
 const EU_COUNTRY_FILTER_KEY = "euCountryFilter";
 const DE_WASTEWATER_VISIBILITY_KEY = "deWastewaterVisibility";
+const SZU_RESPIRATORY_VISIBILITY_KEY = "szuRespiratoryVisibility";
 
 interface ChartConfig {
     containerId: string;
@@ -301,6 +305,16 @@ const chartConfigs : ChartConfig[] = [
         title: "Germany Wastewater Surveillance (AMELAG)",
         shortTitle: "DE-WW",
         visibilityKey: DE_WASTEWATER_VISIBILITY_KEY,
+        chartHolder: { chart: undefined as Chart | undefined },
+        datasetVisibility: { }
+    },
+    {
+        containerId: "szuRespiratoryContainer",
+        canvasId: "szuRespiratoryChart",
+        data: szuRespiratoryEnhanced,
+        title: "Czech Respiratory Viruses (SZU)",
+        shortTitle: "CZ-SZU",
+        visibilityKey: SZU_RESPIRATORY_VISIBILITY_KEY,
         chartHolder: { chart: undefined as Chart | undefined },
         datasetVisibility: { }
     }
