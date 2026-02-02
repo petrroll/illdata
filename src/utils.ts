@@ -83,7 +83,8 @@ function createShiftedSeries(series: DataSeries, options: ShiftedSeriesOptions):
         shiftedByIndexes: shiftByIndexes,
         frequencyInDays: series.frequencyInDays,
         ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {}),
-        ...(includeCountry && series.country ? { country: series.country } : {})
+        ...(includeCountry && series.country ? { country: series.country } : {}),
+        ...(series.survtype ? { survtype: series.survtype } : {})
     } as const;
 
     if (isScalarSeries(series)) {
@@ -251,7 +252,8 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
                     windowSizeInDays: windowSizes[i],
                     frequencyInDays: series.frequencyInDays,
                     dataType: 'scalar',
-                    ...(series.country ? { country: series.country } : {})
+                    ...(series.country ? { country: series.country } : {}),
+                    ...(series.survtype ? { survtype: series.survtype } : {})
                 } as ScalarSeries;
             });
         }
@@ -279,7 +281,8 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
                 windowSizeInDays: windowSizes[i],
                 frequencyInDays: series.frequencyInDays,
                 dataType: 'positivity',
-                ...(series.country ? { country: series.country } : {})
+                ...(series.country ? { country: series.country } : {}),
+                ...(series.survtype ? { survtype: series.survtype } : {})
             } as PositivitySeries;
         });
     });
