@@ -247,6 +247,7 @@ function applyUrlState(state: UrlState, chartConfigs: ChartConfig[]): { appSetti
 const DATASET_VISIBILITY_KEY = "datasetVisibility";
 const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
 const EU_COUNTRY_FILTER_KEY = "euCountryFilter";
+const EU_SURVTYPE_FILTER_KEY = "euSurvtypeFilter";
 const DE_WASTEWATER_VISIBILITY_KEY = "deWastewaterVisibility";
 
 interface ChartConfig {
@@ -268,6 +269,8 @@ interface ChartConfig {
     };
     hasCountryFilter?: boolean;
     countryFilterKey?: string;
+    hasSurvtypeFilter?: boolean;
+    survtypeFilterKey?: string;
 }
 
 // Global chart holders for hideAllSeries
@@ -292,7 +295,9 @@ const chartConfigs : ChartConfig[] = [
         chartHolder: { chart: undefined as Chart | undefined },
         datasetVisibility: { },
         hasCountryFilter: true,
-        countryFilterKey: EU_COUNTRY_FILTER_KEY
+        countryFilterKey: EU_COUNTRY_FILTER_KEY,
+        hasSurvtypeFilter: true,
+        survtypeFilterKey: EU_SURVTYPE_FILTER_KEY
     },
     {
         containerId: "deWastewaterContainer",
@@ -500,6 +505,68 @@ function createCountrySelector(cfg: ChartConfig, countryFilters: Map<string, str
     container.insertBefore(selectorWrapper, container.firstChild);
 }
 
+function createSurvtypeSelector(cfg: ChartConfig, survtypeFilters: Map<string, string>, onSettingsChange: () => void) {
+    const container = document.getElementById(cfg.containerId);
+    if (!container) {
+        console.error(`Container not found: ${cfg.containerId}`);
+        return;
+    }
+
+    // Create a wrapper div for the selector with minimal styling
+    const selectorWrapper = document.createElement('div');
+    selectorWrapper.id = `${cfg.containerId}-survtype-selector`;
+    selectorWrapper.style.marginBottom = '10px';
+
+    // Create label
+    const label = document.createElement('label');
+    label.htmlFor = `${cfg.containerId}-survtype-select`;
+    label.textContent = "Surveillance Type:";
+    label.style.marginRight = '5px';
+
+    // Create select element with minimal styling
+    const select = document.createElement('select');
+    select.id = `${cfg.containerId}-survtype-select`;
+
+    // Add options for surveillance types
+    const survtypes = [
+        { value: "both", label: "Both" },
+        { value: "primary care sentinel", label: "Sentinel" },
+        { value: "non-sentinel", label: "Non-Sentinel" }
+    ];
+
+    survtypes.forEach(st => {
+        const option = document.createElement('option');
+        option.value = st.value;
+        option.textContent = st.label;
+        select.appendChild(option);
+    });
+
+    // Set current value
+    const currentSurvtype = survtypeFilters.get(cfg.containerId) || "both";
+    select.value = currentSurvtype;
+
+    // Add change handler
+    select.addEventListener('change', () => {
+        const newSurvtype = select.value;
+        survtypeFilters.set(cfg.containerId, newSurvtype);
+        if (cfg.survtypeFilterKey) {
+            saveSurvtypeFilter(cfg.survtypeFilterKey, newSurvtype);
+        }
+        onSettingsChange();
+    });
+
+    selectorWrapper.appendChild(label);
+    selectorWrapper.appendChild(select);
+
+    // Insert after country selector if it exists, otherwise at the beginning
+    const countrySelector = document.getElementById(`${cfg.containerId}-country-selector`);
+    if (countrySelector && countrySelector.nextSibling) {
+        container.insertBefore(selectorWrapper, countrySelector.nextSibling);
+    } else {
+        container.insertBefore(selectorWrapper, container.firstChild);
+    }
+}
+
 // Refactored renderPage to use unified control creation and callback
 function renderPage(rootDiv: HTMLElement | null) {
     if (!rootDiv) {
@@ -527,14 +594,19 @@ function renderPage(rootDiv: HTMLElement | null) {
         }
     });
     
-    // Also clear country selectors from chart containers (they have IDs like "euDataContainer-country-selector")
+    // Also clear country and survtype selectors from chart containers
     chartConfigs.forEach(cfg => {
         const container = document.getElementById(cfg.containerId);
         if (container) {
-            const selectorId = `${cfg.containerId}-country-selector`;
-            const existingSelector = document.getElementById(selectorId);
-            if (existingSelector) {
-                existingSelector.remove();
+            const countrySelectorId = `${cfg.containerId}-country-selector`;
+            const survtypeSelectorId = `${cfg.containerId}-survtype-selector`;
+            const existingCountrySelector = document.getElementById(countrySelectorId);
+            const existingSurvtypeSelector = document.getElementById(survtypeSelectorId);
+            if (existingCountrySelector) {
+                existingCountrySelector.remove();
+            }
+            if (existingSurvtypeSelector) {
+                existingSurvtypeSelector.remove();
             }
         }
     });
@@ -546,12 +618,21 @@ function renderPage(rootDiv: HTMLElement | null) {
     const urlState = loadStateFromUrl();
     let appSettings: AppSettings;
     let countryFilters: Map<string, string>;
+    let survtypeFilters: Map<string, string>;
     
     if (urlState) {
         // Apply state from URL
         const applied = applyUrlState(urlState, chartConfigs);
         appSettings = applied.appSettings;
         countryFilters = applied.countryFilters;
+        
+        // Initialize survtype filters from localStorage (URL state support can be added later)
+        survtypeFilters = new Map<string, string>();
+        chartConfigs.forEach(cfg => {
+            if (cfg.hasSurvtypeFilter && cfg.survtypeFilterKey) {
+                survtypeFilters.set(cfg.containerId, loadSurvtypeFilter(cfg.survtypeFilterKey));
+            }
+        });
         
         // Update language select element if language was restored from URL
         if (urlState.language) {
@@ -568,9 +649,13 @@ function renderPage(rootDiv: HTMLElement | null) {
         // Load from localStorage
         appSettings = loadAppSettings();
         countryFilters = new Map<string, string>();
+        survtypeFilters = new Map<string, string>();
         chartConfigs.forEach(cfg => {
             if (cfg.hasCountryFilter && cfg.countryFilterKey) {
                 countryFilters.set(cfg.containerId, loadCountryFilter(cfg.countryFilterKey));
+            }
+            if (cfg.hasSurvtypeFilter && cfg.survtypeFilterKey) {
+                survtypeFilters.set(cfg.containerId, loadSurvtypeFilter(cfg.survtypeFilterKey));
             }
         });
     }
@@ -600,6 +685,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         chartConfigs.forEach(cfg => {
             if ((cfg as any).canvas) {
                 const countryFilter = cfg.hasCountryFilter ? countryFilters.get(cfg.containerId) : undefined;
+                const survtypeFilter = cfg.hasSurvtypeFilter ? survtypeFilters.get(cfg.containerId) : undefined;
                 cfg.chartHolder.chart = updateChart(
                     appSettings.timeRange,
                     cfg,
@@ -610,7 +696,8 @@ function renderPage(rootDiv: HTMLElement | null) {
                     appSettings.showShiftedTestNumbers,
                     appSettings.shiftOverride,
                     appSettings.alignByExtreme,
-                    countryFilter
+                    countryFilter,
+                    survtypeFilter
                 );
             }
         });
@@ -768,6 +855,13 @@ function renderPage(rootDiv: HTMLElement | null) {
             createCountrySelector(cfg, countryFilters, onSettingsChange);
         }
     });
+    
+    // Create survtype selectors for charts that have them
+    chartConfigs.forEach(cfg => {
+        if (cfg.hasSurvtypeFilter && cfg.survtypeFilterKey) {
+            createSurvtypeSelector(cfg, survtypeFilters, onSettingsChange);
+        }
+    });
 
     // Initial render
     onSettingsChange();
@@ -889,6 +983,23 @@ function filterDataByCountry(data: TimeseriesData, country: string): TimeseriesD
     };
 }
 
+function filterDataBySurvtype(data: TimeseriesData, survtype: string): TimeseriesData {
+    // "both" means show all survtypes
+    if (survtype === "both") {
+        return data;
+    }
+    return {
+        dates: data.dates,
+        series: data.series.filter(series => {
+            // If series doesn't have survtype metadata, include it
+            if (!series.survtype) {
+                return true;
+            }
+            return series.survtype === survtype;
+        })
+    };
+}
+
 function loadCountryFilter(key: string): string {
     try {
         const stored = localStorage.getItem(key);
@@ -896,6 +1007,24 @@ function loadCountryFilter(key: string): string {
     } catch (error) {
         console.error("Error loading country filter:", error);
         return "EU/EEA";
+    }
+}
+
+function loadSurvtypeFilter(key: string): string {
+    try {
+        const stored = localStorage.getItem(key);
+        return stored || "both";
+    } catch (error) {
+        console.error("Error loading survtype filter:", error);
+        return "both";
+    }
+}
+
+function saveSurvtypeFilter(key: string, survtype: string): void {
+    try {
+        localStorage.setItem(key, survtype);
+    } catch (error) {
+        console.error("Error saving survtype filter:", error);
     }
 }
 
@@ -950,7 +1079,7 @@ function extractShiftFromLabel(label: string): number | null {
     return null;
 }
 
-function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima', countryFilter?: string) {
+function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima', countryFilter?: string, survtypeFilter?: string) {
     // Destroy existing chart if it exists
     if (cfg.chartHolder.chart) {
         cfg.chartHolder.chart.destroy();
@@ -962,6 +1091,11 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     // Note: "EU/EEA" is a valid country value in the data representing aggregate European data
     if (countryFilter && cfg.hasCountryFilter) {
         data = filterDataByCountry(data, countryFilter);
+    }
+    
+    // Apply survtype filter if applicable
+    if (survtypeFilter && cfg.hasSurvtypeFilter) {
+        data = filterDataBySurvtype(data, survtypeFilter);
     }
     let cutoffDateString = data.dates[0] ?? new Date().toISOString().split('T')[0];
     if (timeRange !== "all") {

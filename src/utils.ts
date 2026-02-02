@@ -24,6 +24,7 @@ export interface LinearSeries {
     shiftedByIndexes?: number;
     frequencyInDays: number;
     country?: string; // Optional country field for EU data
+    survtype?: string; // Optional surveillance type field for EU ERVIS data (sentinel/non-sentinel)
 }
 
 export interface PositivitySeries extends LinearSeries {
