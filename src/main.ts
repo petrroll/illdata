@@ -133,6 +133,9 @@ interface UrlState {
     countryFilters: {
         [key: string]: string;
     };
+    survtypeFilters?: {
+        [key: string]: string;
+    };
     language?: string; // Optional for backward compatibility
 }
 
@@ -368,6 +371,9 @@ updateAllUITexts();
 // Set up language switcher
 const languageSelect = document.getElementById("languageSelect") as HTMLSelectElement;
 
+// Flag to prevent recursive renderPage calls
+let isRendering = false;
+
 // Helper function to change language and update UI
 function changeLanguageAndUpdate(newLang: Language) {
     setLanguage(newLang);
@@ -383,7 +389,10 @@ function changeLanguageAndUpdate(newLang: Language) {
     updateAllUITexts();
     
     // Update chart titles and re-render charts with translated labels
-    renderPage(container);
+    // Only render if not already rendering to prevent infinite loops
+    if (!isRendering) {
+        renderPage(container);
+    }
 }
 
 if (languageSelect) {
@@ -575,6 +584,15 @@ function renderPage(rootDiv: HTMLElement | null) {
         console.error("Root element not found.");
         return;
     }
+    
+    // Set flag to prevent recursive calls
+    if (isRendering) {
+        console.warn("renderPage called recursively, skipping");
+        return;
+    }
+    isRendering = true;
+    
+    try {
 
     // Clear dynamically created controls to prevent duplication when re-rendering
     // Keep only: ratioTableContainer, chart containers, and hideAllButton
@@ -880,6 +898,11 @@ function renderPage(rootDiv: HTMLElement | null) {
     // Setup global click handler to close tooltips when clicking outside charts
     // This is especially important for Safari/iOS where tooltips can get stuck
     setupTooltipDismissHandler(chartConfigs);
+    
+    } finally {
+        // Clear flag to allow future renders
+        isRendering = false;
+    }
 }
 
 function createGetLinkButton(appSettings: AppSettings, chartConfigs: ChartConfig[], countryFilters: Map<string, string>) {
