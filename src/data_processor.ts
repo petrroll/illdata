@@ -29,9 +29,9 @@ await Promise.all([
 // computeEuEcdcData will aggregate test counts by date/country/pathogen
 const sentinelData = await loadAndParseCsv("sentinelTestsDetectionsPositivity.csv");
 const nonSentinelData = await loadAndParseCsv("nonSentinelTestsDetections.csv");
-data = [...sentinelData, ...nonSentinelData];
+const euEcdcData = [...sentinelData, ...nonSentinelData];
 
-let euPositivityData = computeEuEcdcData(data);
+let euPositivityData = computeEuEcdcData(euEcdcData);
 
 await saveData(euPositivityData, EU_ALLSENTINEL_ERVIS_POSITIVITY);
 
