@@ -159,11 +159,19 @@
       <div class="data-source">
         <h3>EU ECDC Respiratory Viruses (ERV-IS)</h3>
         <p><strong>Source:</strong> European Centre for Disease Prevention and Control</p>
-        <p><strong>Data Type:</strong> Sentinel surveillance data for multiple respiratory viruses (COVID-19, Influenza, RSV)</p>
+        <p><strong>Data Type:</strong> Sentinel and non-sentinel surveillance data for multiple respiratory viruses (COVID-19, Influenza, RSV)</p>
         <p><strong>Frequency:</strong> Weekly</p>
         <p><strong>Link:</strong> <a href="https://github.com/EU-ECDC/Respiratory_viruses_weekly_data" target="_blank">ECDC Respiratory Viruses Weekly Data</a></p>
         <p><strong>What it shows:</strong> Aggregated positivity rates across EU/EEA countries and individual country data for various respiratory pathogens.</p>
-        <p><strong>Note on Sentinel Data:</strong> Sentinel surveillance uses a network of selected healthcare providers (like specific clinics and laboratories) to systematically monitor disease trends. Unlike comprehensive testing of all cases, sentinel sites report data from a representative sample of the population, providing early warning signals and trend indicators for respiratory illness activity across regions.</p>
+        
+        <p><strong>Surveillance Type Filter:</strong> The dashboard allows you to view data from different surveillance systems:</p>
+        <ul>
+          <li><strong>Sentinel (Primary Care):</strong> Data from ILI/ARI/SARI syndromic and virological surveillance using sentinel networks of primary care practices and hospitals. This surveillance relies on well-defined case definitions (ILI = Influenza-like illness, ARI = Acute respiratory infection, SARI = Severe acute respiratory infection) from representative populations, providing reliable trends for respiratory illness activity. Sentinel surveillance is the preferred method for monitoring respiratory viruses in primary care settings.</li>
+          <li><strong>Non-Sentinel (Laboratory-Based):</strong> Data from laboratory information systems reporting test results from various settings (schools, hospitals, nursing homes, laboratories) not involved in sentinel surveillance, regardless of whether patients meet syndromic case definitions. These data tend to be reported in higher volumes than sentinel data but may vary significantly by country in terms of testing criteria, scale, and geographical distribution. Direct comparisons between countries should be avoided for non-sentinel data.</li>
+          <li><strong>Both:</strong> Shows both surveillance types as separate series for comparison. Note that these are complementary data sources with different methodologies and should not be directly compared without understanding their respective contexts.</li>
+        </ul>
+        
+        <p><strong>Data Availability:</strong> Not all countries report both surveillance types. Some countries only provide sentinel data, while others may primarily report non-sentinel laboratory-based data. Recent data for some countries (e.g., Czech Republic in early 2026) may only be available through non-sentinel surveillance.</p>
       </div>
 
       <div class="data-source">
