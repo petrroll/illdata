@@ -15,8 +15,16 @@ let positivityData = computeCzCovPositivityData(data);
 
 await saveData(positivityData, CR_COV_MZCR_POSITIVITY);
 
+// Download both sentinel and non-sentinel data to get complete coverage
+// Non-sentinel data contains Czech data for recent weeks that sentinel data is missing
 await downloadEuEcdcData("sentinelTestsDetectionsPositivity.csv");
-data = await loadAndParseCsv("sentinelTestsDetectionsPositivity.csv");
+await downloadEuEcdcData("nonSentinelTestsDetections.csv");
+
+// Load and merge both data sources
+const sentinelData = await loadAndParseCsv("sentinelTestsDetectionsPositivity.csv");
+const nonSentinelData = await loadAndParseCsv("nonSentinelTestsDetections.csv");
+data = [...sentinelData, ...nonSentinelData];
+
 let euPositivityData = computeEuEcdcData(data);
 
 await saveData(euPositivityData, EU_ALLSENTINEL_ERVIS_POSITIVITY);
