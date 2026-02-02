@@ -520,18 +520,20 @@ function createSurvtypeSelector(cfg: ChartConfig, survtypeFilters: Map<string, s
     // Create label
     const label = document.createElement('label');
     label.htmlFor = `${cfg.containerId}-survtype-select`;
-    label.textContent = "Surveillance Type:";
+    // Get fresh translations for current language
+    const currentTranslations = getTranslations();
+    label.textContent = currentTranslations.survtypeLabel;
     label.style.marginRight = '5px';
 
     // Create select element with minimal styling
     const select = document.createElement('select');
     select.id = `${cfg.containerId}-survtype-select`;
 
-    // Add options for surveillance types
+    // Add options for surveillance types using translations
     const survtypes = [
-        { value: "both", label: "Both" },
-        { value: "primary care sentinel", label: "Sentinel" },
-        { value: "non-sentinel", label: "Non-Sentinel" }
+        { value: "both", label: currentTranslations.survtypeBoth },
+        { value: "primary care sentinel", label: currentTranslations.survtypeSentinel },
+        { value: "non-sentinel", label: currentTranslations.survtypeNonSentinel }
     ];
 
     survtypes.forEach(st => {

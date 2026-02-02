@@ -37,6 +37,10 @@ export interface Translations {
     chartTitleEuViruses: string;
     chartTitleDeWastewater: string;
     countryLabel: string;
+    survtypeLabel: string;
+    survtypeBoth: string;
+    survtypeSentinel: string;
+    survtypeNonSentinel: string;
     
     // Trends table
     trendsTableTitle: string;
@@ -201,6 +205,10 @@ const en: Translations = {
     chartTitleEuViruses: 'EU ECDC Respiratory Viruses',
     chartTitleDeWastewater: 'Germany Wastewater Surveillance (AMELAG)',
     countryLabel: 'Country:',
+    survtypeLabel: 'Surveillance Type:',
+    survtypeBoth: 'Both',
+    survtypeSentinel: 'Sentinel',
+    survtypeNonSentinel: 'Non-Sentinel',
     
     // Trends table
     trendsTableTitle: 'Current Trends',
@@ -353,6 +361,10 @@ const cs: Translations = {
     chartTitleEuViruses: 'Respirační viry EU ECDC',
     chartTitleDeWastewater: 'Sledování odpadních vod v Německu (AMELAG)',
     countryLabel: 'Země:',
+    survtypeLabel: 'Typ sledování:',
+    survtypeBoth: 'Obě',
+    survtypeSentinel: 'Sentinelové',
+    survtypeNonSentinel: 'Non-sentinelové',
     
     // Trends table
     trendsTableTitle: 'Aktuální trendy',
