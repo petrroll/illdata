@@ -553,7 +553,7 @@ function createSurvtypeSelector(cfg: ChartConfig, survtypeFilters: Map<string, s
     });
 
     // Set current value
-    const currentSurvtype = survtypeFilters.get(cfg.containerId) || "non-sentinel";
+    const currentSurvtype = survtypeFilters.get(cfg.containerId) || "both";
     select.value = currentSurvtype;
 
     // Add change handler
@@ -1038,10 +1038,10 @@ function loadCountryFilter(key: string): string {
 function loadSurvtypeFilter(key: string): string {
     try {
         const stored = localStorage.getItem(key);
-        return stored || "non-sentinel";
+        return stored || "both";
     } catch (error) {
         console.error("Error loading survtype filter:", error);
-        return "non-sentinel";
+        return "both";
     }
 }
 
