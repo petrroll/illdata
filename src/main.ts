@@ -1267,7 +1267,10 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     // Initialize visibility for new series, checking both exact name and base name for previous state
     // Always use normalized (English) names for storage
     // Check if we have any stored visibility (from URL or previous session)
-    const hasStoredVisibility = Object.keys(cfg.datasetVisibility).length > 0;
+    // When survtype filter is active, don't treat stored visibility as authoritative
+    // because the set of available series changes when survtype changes
+    const hasSurvtypeFilter = cfg.hasSurvtypeFilter && survtypeFilter;
+    const hasStoredVisibility = !hasSurvtypeFilter && Object.keys(cfg.datasetVisibility).length > 0;
     
     normalizedValidNames.forEach(normalizedName => {
         if (cfg.datasetVisibility[normalizedName] === undefined) {
