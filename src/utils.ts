@@ -24,6 +24,7 @@ export interface LinearSeries {
     shiftedByIndexes?: number;
     frequencyInDays: number;
     country?: string; // Optional country field for EU data
+    survtype?: string; // Optional surveillance type field for EU ERVIS data (sentinel/non-sentinel)
 }
 
 export interface PositivitySeries extends LinearSeries {
@@ -82,7 +83,8 @@ function createShiftedSeries(series: DataSeries, options: ShiftedSeriesOptions):
         shiftedByIndexes: shiftByIndexes,
         frequencyInDays: series.frequencyInDays,
         ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {}),
-        ...(includeCountry && series.country ? { country: series.country } : {})
+        ...(includeCountry && series.country ? { country: series.country } : {}),
+        ...(series.survtype ? { survtype: series.survtype } : {})
     } as const;
 
     if (isScalarSeries(series)) {
@@ -250,7 +252,8 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
                     windowSizeInDays: windowSizes[i],
                     frequencyInDays: series.frequencyInDays,
                     dataType: 'scalar',
-                    ...(series.country ? { country: series.country } : {})
+                    ...(series.country ? { country: series.country } : {}),
+                    ...(series.survtype ? { survtype: series.survtype } : {})
                 } as ScalarSeries;
             });
         }
@@ -278,7 +281,8 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
                 windowSizeInDays: windowSizes[i],
                 frequencyInDays: series.frequencyInDays,
                 dataType: 'positivity',
-                ...(series.country ? { country: series.country } : {})
+                ...(series.country ? { country: series.country } : {}),
+                ...(series.survtype ? { survtype: series.survtype } : {})
             } as PositivitySeries;
         });
     });

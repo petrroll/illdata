@@ -157,12 +157,20 @@
 
       <div class="data-source">
         <h3>Respirační viry EU ECDC (ERV-IS)</h3>
-        <p><strong>Source:</strong> Evropské centrum pro prevenci a kontrolu nemocí</p>
-        <p><strong>Data Type:</strong> Data ze sentinelového sledování pro více respiračních virů (COVID-19, chřipka, RSV)</p>
-        <p><strong>Frequency:</strong> Týdně</p>
-        <p><strong>Link:</strong> <a href="https://github.com/EU-ECDC/Respiratory_viruses_weekly_data" target="_blank">ECDC týdenní data o respiračních virech</a></p>
-        <p><strong>What it shows:</strong> Agregované míry pozitivity napříč zeměmi EU/EEA a individuální data zemí pro různé respirační patogeny.</p>
-        <p><strong>Note on Sentinel Data:</strong> Sentinelové sledování využívá síť vybraných poskytovatelů zdravotní péče (jako jsou konkrétní kliniky a laboratoře) k systematickému monitorování trendů nemocí. Na rozdíl od komplexního testování všech případů, sentinelová místa hlásí data z reprezentativního vzorku populace, poskytující včasná varování a trendové indikátory pro aktivitu respiračních nemocí napříč regiony.</p>
+        <p><strong>Zdroj:</strong> Evropské centrum pro prevenci a kontrolu nemocí (ECDC)</p>
+        <p><strong>Typ dat:</strong> Data ze sentinelového a non-sentinelového sledování pro více respiračních virů (COVID-19, chřipka, RSV)</p>
+        <p><strong>Frekvence:</strong> Týdně</p>
+        <p><strong>Odkaz:</strong> <a href="https://github.com/EU-ECDC/Respiratory_viruses_weekly_data" target="_blank">ECDC týdenní data o respiračních virech</a></p>
+        <p><strong>Co zobrazuje:</strong> Agregované míry pozitivity napříč zeměmi EU/EEA a individuální data zemí pro různé respirační patogeny.</p>
+        
+        <p><strong>Filtr typu sledování:</strong> Dashboard umožňuje zobrazit data z různých systémů sledování:</p>
+        <ul>
+          <li><strong>Sentinelové (Primární péče):</strong> Data z ILI/ARI/SARI syndromového a virologického sledování pomocí sentinelových sítí ordinací primární péče a nemocnic. Toto sledování je založeno na dobře definovaných case definicích (ILI = onemocnění podobné chřipce, ARI = akutní respirační infekce, SARI = těžká akutní respirační infekce) z reprezentativních populací, poskytující spolehlivé trendy aktivity respiračních nemocí. Sentinelové sledování je preferovanou metodou pro monitorování respiračních virů v primární péči.</li>
+          <li><strong>Non-sentinelové (Laboratorní):</strong> Data z laboratorních informačních systémů hlásící výsledky testů z různých zařízení (školy, nemocnice, domovy pro seniory, laboratoře), které nejsou zapojeny do sentinelového sledování, bez ohledu na to, zda pacienti splňují syndromové case definice. Tato data bývají hlášena ve vyšších objemech než sentinelová data, ale mohou se výrazně lišit mezi zeměmi z hlediska kritérií testování, rozsahu a geografického rozložení. Přímé srovnání mezi zeměmi by mělo být u non-sentinelových dat vyhýbáno.</li>
+          <li><strong>Obě:</strong> Zobrazuje oba typy sledování jako samostatné série pro srovnání. Upozornění: jedná se o komplementární zdroje dat s různými metodologiemi a neměly by být přímo porovnávány bez pochopení jejich kontextu.</li>
+        </ul>
+        
+        <p><strong>Dostupnost dat:</strong> Ne všechny země hlásí oba typy sledování. Některé země poskytují pouze sentinelová data, zatímco jiné mohou primárně hlásit non-sentinelová laboratorní data. Nedávná data pro některé země (např. Česká republika v začátku roku 2026) mohou být dostupná pouze prostřednictvím non-sentinelového sledování.</p>
       </div>
 
       <div class="data-source">

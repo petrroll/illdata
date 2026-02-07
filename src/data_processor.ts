@@ -15,9 +15,19 @@ let positivityData = computeCzCovPositivityData(data);
 
 await saveData(positivityData, CR_COV_MZCR_POSITIVITY);
 
-await downloadEuEcdcData("sentinelTestsDetectionsPositivity.csv");
-data = await loadAndParseCsv("sentinelTestsDetectionsPositivity.csv");
-let euPositivityData = computeEuEcdcData(data);
+// Download both sentinel and non-sentinel data files
+await Promise.all([
+    downloadEuEcdcData("sentinelTestsDetectionsPositivity.csv"),
+    downloadEuEcdcData("nonSentinelTestsDetections.csv")
+]);
+
+// Load both data sources
+const sentinelData = await loadAndParseCsv("sentinelTestsDetectionsPositivity.csv");
+const nonSentinelData = await loadAndParseCsv("nonSentinelTestsDetections.csv");
+
+// Combine the data and process with survtype preserved
+const combinedEuData = [...sentinelData, ...nonSentinelData];
+let euPositivityData = computeEuEcdcData(combinedEuData, true); // true = preserve survtype
 
 await saveData(euPositivityData, EU_ALLSENTINEL_ERVIS_POSITIVITY);
 

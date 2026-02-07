@@ -7,7 +7,7 @@ export async function downloadEuEcdcData(filename: string = "nonSentinelTestsDet
     await downloadAndSaveCsv(url, filePath);
 }
 
-export function computeEuEcdcData(data: Record<string, string>[]): TimeseriesData {
+export function computeEuEcdcData(data: Record<string, string>[], preserveSurvtype: boolean = false): TimeseriesData {
     // Filter for main pathogen types (where pathogen equals pathogentype)
     const mainPathogens = data.filter(row => row["pathogen"] === row["pathogentype"]);
 
@@ -28,13 +28,14 @@ export function computeEuEcdcData(data: Record<string, string>[]): TimeseriesDat
             datum,
             pathogen: row["pathogen"],
             country: row["countryname"],
+            survtype: row["survtype"],
             tests,
             detections
         };
     });
 
-    // Group by date, country, and pathogen
-    const groupedData = new Map<string, Map<string, Map<string, { tests: number, detections: number }>>>();
+    // Group by date, country, pathogen, and optionally survtype
+    const groupedData = new Map<string, Map<string, Map<string, Map<string, { tests: number, detections: number }>>>>();
     
     processedData.forEach(row => {
         if (!groupedData.has(row.datum)) {
@@ -48,35 +49,54 @@ export function computeEuEcdcData(data: Record<string, string>[]): TimeseriesDat
         const countryGroup = dateGroup.get(row.country)!;
         
         if (!countryGroup.has(row.pathogen)) {
-            countryGroup.set(row.pathogen, { tests: 0, detections: 0 });
+            countryGroup.set(row.pathogen, new Map());
         }
-        const pathogenStats = countryGroup.get(row.pathogen)!;
+        const pathogenGroup = countryGroup.get(row.pathogen)!;
         
-        pathogenStats.tests += row.tests;
-        pathogenStats.detections += row.detections;
+        // Group by survtype if preserving it, otherwise use a single key
+        const survtypeKey = preserveSurvtype ? row.survtype : "all";
+        if (!pathogenGroup.has(survtypeKey)) {
+            pathogenGroup.set(survtypeKey, { tests: 0, detections: 0 });
+        }
+        const survtypeStats = pathogenGroup.get(survtypeKey)!;
+        
+        survtypeStats.tests += row.tests;
+        survtypeStats.detections += row.detections;
     });
 
-    // Get unique dates, countries and pathogens
+    // Get unique dates, countries, pathogens, and survtypes
     const dates = [...groupedData.keys()].sort();
     const countries = [...new Set(processedData.map(row => row.country))].sort();
     const pathogens = [...new Set(processedData.map(row => row.pathogen))];
+    const survtypes = preserveSurvtype ? [...new Set(processedData.map(row => row.survtype))].sort() : ["all"];
 
-    // Create series for each pathogen and country combination
+    // Create series for each combination
     const allSeries: PositivitySeries[] = countries.flatMap(country => 
-        pathogens.map(pathogen => ({
-            name: `${pathogen} Positivity`,
-            country: country,
-            values: dates.map(date => {
-                const stats = groupedData.get(date)?.get(country)?.get(pathogen);
+        pathogens.flatMap(pathogen =>
+            survtypes.map(survtype => {
+                // Include survtype in name when preserving it to ensure unique series names
+                const baseName = `${pathogen} Positivity`;
+                const seriesName = preserveSurvtype && survtype !== "all" 
+                    ? `${baseName} (${survtype === "primary care sentinel" ? "Sentinel" : "Non-Sentinel"})`
+                    : baseName;
+                
                 return {
-                    positive: stats ? stats.detections : 0,
-                    tests: stats ? stats.tests : 0
+                    name: seriesName,
+                    country: country,
+                    survtype: preserveSurvtype ? survtype : undefined,
+                    values: dates.map(date => {
+                        const stats = groupedData.get(date)?.get(country)?.get(pathogen)?.get(survtype);
+                        return {
+                            positive: stats ? stats.detections : 0,
+                            tests: stats ? stats.tests : 0
+                        };
+                    }),
+                    type: 'raw' as const,
+                    frequencyInDays: 7,
+                    dataType: 'positivity' as const
                 };
-            }),
-            type: 'raw' as const,
-            frequencyInDays: 7,
-            dataType: 'positivity' as const
-        }))
+            })
+        )
     );
 
     return {
