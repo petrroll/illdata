@@ -101,7 +101,7 @@ export function computeNlInfectieradarData(data: Record<string, string>[]): Time
  * E.g., "Influenza A" and "Influenza B" → "Influenza"
  */
 function normalizePathogenName(name: string): string {
-    if (name.includes("Influenza")) return "Influenza";
     if (name.includes("Parainfluenza")) return "Parainfluenza";
+    if (name.includes("Influenza")) return "Influenza";
     return name;
 }

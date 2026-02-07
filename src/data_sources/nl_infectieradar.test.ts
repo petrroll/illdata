@@ -75,6 +75,23 @@ describe('computeNlInfectieradarData Tests', () => {
         expect(result.series.find(s => s.name === 'Influenza B Positivity')).toBeUndefined();
     });
 
+    test('does not aggregate Parainfluenza with Influenza', () => {
+        const input = [
+            { WEEK: '2023-01-02', SAMPLES_N: '100', PATHOGEN: 'Influenza A', PERC: '5,00', WEEK_LABEL: '' },
+            { WEEK: '2023-01-02', SAMPLES_N: '100', PATHOGEN: 'Parainfluenzavirussen', PERC: '3,00', WEEK_LABEL: '' },
+        ];
+
+        const result: TimeseriesData = computeNlInfectieradarData(input);
+
+        // Should have separate Influenza and Parainfluenza series
+        const influenza = result.series.find(s => s.name === 'Influenza Positivity');
+        const parainfluenza = result.series.find(s => s.name === 'Parainfluenza Positivity');
+        expect(influenza).toBeDefined();
+        expect(parainfluenza).toBeDefined();
+        expect((influenza?.values[0] as Datapoint).tests).toBe(100);
+        expect((parainfluenza?.values[0] as Datapoint).tests).toBe(100);
+    });
+
     test('handles comma decimal separator in PERC', () => {
         const input = [
             { WEEK: '2023-01-02', SAMPLES_N: '200', PATHOGEN: 'Adenovirus', PERC: '3,51', WEEK_LABEL: '' },
