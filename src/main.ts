@@ -1181,6 +1181,39 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         data = getNewWithSifterToAlignExtremeDates(data, extremesToAlign, 1, 1 + waveCount, true);
     }
 
+    // Extend dates further if needed to accommodate the timeRange's future display requirement
+    if (includeFuture && timeRange !== "all") {
+        const days = parseInt(timeRange);
+        const todayString = new Date().toISOString().split('T')[0];
+        const futureDate = new Date();
+        futureDate.setDate(futureDate.getDate() + days);
+        const futureDateString = futureDate.toISOString().split('T')[0];
+        
+        // Check if we need to extend dates to reach the future date
+        const lastDate = data.dates[data.dates.length - 1];
+        if (lastDate < futureDateString) {
+            // Calculate how many extra dates we need
+            const freqDays = data.series[0]?.frequencyInDays ?? 1;
+            const lastDateTime = new Date(lastDate).getTime();
+            const futureDateTime = new Date(futureDateString).getTime();
+            const daysToExtend = Math.ceil((futureDateTime - lastDateTime) / (24 * 60 * 60 * 1000));
+            const extraCount = Math.ceil(daysToExtend / freqDays);
+            
+            // Extend dates
+            const extraDates = Array.from({ length: extraCount }, (_, i) => {
+                const d = new Date(new Date(lastDate).getTime() + freqDays * 24 * 60 * 60 * 1000 * (i + 1));
+                return d.toISOString().split('T')[0];
+            });
+            data.dates = [...data.dates, ...extraDates];
+            
+            // Extend series values with NaN padding
+            data.series = data.series.map(series => ({
+                ...series,
+                values: [...series.values, ...Array(extraCount).fill(NaN)]
+            }));
+        }
+    }
+
     // End cutoff based on future inclusion flag
     const todayString = new Date().toISOString().split('T')[0];
     let startIdx = data.dates.findIndex(d => d > cutoffDateString);
@@ -1188,6 +1221,14 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     let endIdx = data.dates.length;
     if (!includeFuture) {
         const futureIdx = data.dates.findIndex(d => d > todayString);
+        if (futureIdx >= 0) endIdx = futureIdx;
+    } else if (timeRange !== "all") {
+        // When includeFuture is true and timeRange is set, show same amount of future as past
+        const days = parseInt(timeRange);
+        const futureDate = new Date();
+        futureDate.setDate(futureDate.getDate() + days);
+        const futureDateString = futureDate.toISOString().split('T')[0];
+        const futureIdx = data.dates.findIndex(d => d > futureDateString);
         if (futureIdx >= 0) endIdx = futureIdx;
     }
     const labels = data.dates.slice(startIdx, endIdx);
