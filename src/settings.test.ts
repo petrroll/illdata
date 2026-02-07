@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach } from 'bun:test';
+import { loadAppSettings, saveAppSettings, migrateOldSettings, DEFAULT_APP_SETTINGS, APP_SETTINGS_KEY, type AppSettings } from './settings';
 
 // Mock localStorage for testing
 const mockLocalStorage = (() => {
@@ -17,68 +18,6 @@ Object.defineProperty(global, 'localStorage', {
     writable: true
 });
 
-// Simple test module to validate settings logic
-interface AppSettings {
-    timeRange: string;
-    includeFuture: boolean;
-    showExtremes: boolean;
-    showShifted?: boolean;
-    showTestNumbers?: boolean;
-    showShiftedTestNumbers?: boolean;
-}
-
-const DEFAULT_APP_SETTINGS: AppSettings = {
-    timeRange: "all",
-    includeFuture: true,
-    showExtremes: false,
-    showShifted: true,
-    showTestNumbers: true,
-    showShiftedTestNumbers: false
-};
-
-const APP_SETTINGS_KEY = "appSettings";
-
-function loadAppSettings(): AppSettings {
-    try {
-        const stored = localStorage.getItem(APP_SETTINGS_KEY);
-        if (stored) {
-            const parsed = JSON.parse(stored);
-            return { ...DEFAULT_APP_SETTINGS, ...parsed };
-        }
-    } catch (error) {
-        console.error("Error loading app settings:", error);
-    }
-    return { ...DEFAULT_APP_SETTINGS };
-}
-
-function saveAppSettings(settings: AppSettings): void {
-    try {
-        localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(settings));
-    } catch (error) {
-        console.error("Error saving app settings:", error);
-    }
-}
-
-function migrateOldSettings(): void {
-    const oldTimeRange = localStorage.getItem("selectedTimeRange");
-    const oldIncludeFuture = localStorage.getItem("includeFuture");
-    const oldShowExtremes = localStorage.getItem("showExtremes");
-    
-    if (oldTimeRange || oldIncludeFuture || oldShowExtremes) {
-        const settings: AppSettings = {
-            timeRange: oldTimeRange || DEFAULT_APP_SETTINGS.timeRange,
-            includeFuture: oldIncludeFuture ? JSON.parse(oldIncludeFuture) : DEFAULT_APP_SETTINGS.includeFuture,
-            showExtremes: oldShowExtremes ? JSON.parse(oldShowExtremes) : DEFAULT_APP_SETTINGS.showExtremes
-        };
-        saveAppSettings(settings);
-        
-        // Clean up old keys
-        localStorage.removeItem("selectedTimeRange");
-        localStorage.removeItem("includeFuture");
-        localStorage.removeItem("showExtremes");
-    }
-}
-
 describe('Unified Settings Tests', () => {
     beforeEach(() => {
         mockLocalStorage.clear();
@@ -96,7 +35,9 @@ describe('Unified Settings Tests', () => {
             showExtremes: true,
             showShifted: true,
             showTestNumbers: true,
-            showShiftedTestNumbers: false
+            showShiftedTestNumbers: false,
+            shiftOverride: 1,
+            alignByExtreme: 'maxima'
         };
         
         saveAppSettings(customSettings);
@@ -111,14 +52,13 @@ describe('Unified Settings Tests', () => {
         
         const settings = loadAppSettings();
         
-        expect(settings).toEqual({
-            timeRange: "90",
-            includeFuture: true,  // from defaults
-            showExtremes: false,   // from defaults
-            showShifted: true,  // from defaults
-            showTestNumbers: true,  // from defaults
-            showShiftedTestNumbers: false  // from defaults
-        });
+        expect(settings.timeRange).toBe("90");
+        // All other fields should come from defaults
+        expect(settings.includeFuture).toBe(DEFAULT_APP_SETTINGS.includeFuture);
+        expect(settings.showExtremes).toBe(DEFAULT_APP_SETTINGS.showExtremes);
+        expect(settings.showShifted).toBe(DEFAULT_APP_SETTINGS.showShifted);
+        expect(settings.showTestNumbers).toBe(DEFAULT_APP_SETTINGS.showTestNumbers);
+        expect(settings.showShiftedTestNumbers).toBe(DEFAULT_APP_SETTINGS.showShiftedTestNumbers);
     });
 
     test('migrates old individual localStorage keys', () => {
@@ -131,14 +71,9 @@ describe('Unified Settings Tests', () => {
         
         // Check that unified settings were created
         const settings = loadAppSettings();
-        expect(settings).toEqual({
-            timeRange: "365",
-            includeFuture: false,
-            showExtremes: true,
-            showShifted: true,  // from defaults
-            showTestNumbers: true,  // from defaults
-            showShiftedTestNumbers: false  // from defaults
-        });
+        expect(settings.timeRange).toBe("365");
+        expect(settings.includeFuture).toBe(false);
+        expect(settings.showExtremes).toBe(true);
         
         // Check that old keys were removed
         expect(localStorage.getItem("selectedTimeRange")).toBeNull();
@@ -155,14 +90,9 @@ describe('Unified Settings Tests', () => {
         migrateOldSettings();
         
         const settings = loadAppSettings();
-        expect(settings).toEqual({
-            timeRange: "90",
-            includeFuture: true,  // from defaults
-            showExtremes: true,
-            showShifted: true,  // from defaults
-            showTestNumbers: true,  // from defaults
-            showShiftedTestNumbers: false  // from defaults
-        });
+        expect(settings.timeRange).toBe("90");
+        expect(settings.includeFuture).toBe(DEFAULT_APP_SETTINGS.includeFuture); // from defaults
+        expect(settings.showExtremes).toBe(true);
     });
 
     test('handles corrupted localStorage gracefully', () => {
@@ -184,7 +114,9 @@ describe('Unified Settings Tests', () => {
             showExtremes: true,
             showShifted: true,
             showTestNumbers: true,
-            showShiftedTestNumbers: true  // Enable the new setting
+            showShiftedTestNumbers: true,  // Enable the new setting
+            shiftOverride: 1,
+            alignByExtreme: 'maxima'
         };
         
         saveAppSettings(customSettings);
@@ -192,5 +124,41 @@ describe('Unified Settings Tests', () => {
         
         expect(loadedSettings.showShiftedTestNumbers).toBe(true);
         expect(loadedSettings).toEqual(customSettings);
+    });
+
+    test('migrates old useCustomShift setting', () => {
+        const oldSettings = {
+            timeRange: "365",
+            includeFuture: false,
+            showExtremes: false,
+            showShifted: true,
+            showTestNumbers: true,
+            showShiftedTestNumbers: false,
+            useCustomShift: true,
+            shiftOverride: 1
+        };
+        localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(oldSettings));
+        
+        const settings = loadAppSettings();
+        expect(settings.alignByExtreme).toBe('days');
+        expect((settings as any).useCustomShift).toBeUndefined();
+    });
+
+    test('migrates old shiftOverrideDays setting', () => {
+        const oldSettings = {
+            timeRange: "365",
+            includeFuture: false,
+            showExtremes: false,
+            showShifted: true,
+            showTestNumbers: true,
+            showShiftedTestNumbers: false,
+            shiftOverrideDays: 42,
+            alignByExtreme: 'days'
+        };
+        localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(oldSettings));
+        
+        const settings = loadAppSettings();
+        expect(settings.shiftOverride).toBe(42);
+        expect((settings as any).shiftOverrideDays).toBeUndefined();
     });
 });

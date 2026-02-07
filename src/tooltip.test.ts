@@ -1,26 +1,5 @@
 import { describe, test, expect } from "bun:test";
-
-/**
- * Extracts the shift amount in days from a series label.
- * This is a copy of the function from main.ts for testing purposes.
- */
-function extractShiftFromLabel(label: string): number | null {
-    // Pattern 1: Wave-based shift: "shifted by X wave(s) -347d" or "shifted by X wave(s) 347d"
-    const wavePattern = /shifted by \d+ waves? (-?\d+)d/;
-    const waveMatch = label.match(wavePattern);
-    if (waveMatch) {
-        return parseInt(waveMatch[1], 10);
-    }
-    
-    // Pattern 2: Custom day shift: "shifted by -180d" or "shifted by 180d"
-    const dayPattern = /shifted by (-?\d+)d/;
-    const dayMatch = label.match(dayPattern);
-    if (dayMatch) {
-        return parseInt(dayMatch[1], 10);
-    }
-    
-    return null;
-}
+import { extractShiftFromLabel } from "./tooltip";
 
 describe("extractShiftFromLabel Tests", () => {
     test("extracts positive shift from wave-based label", () => {

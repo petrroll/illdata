@@ -132,3 +132,110 @@ export function extractShiftSuffix(label: string): string {
     
     return '';
 }
+
+/**
+ * Extracts the base series name without ANY shift information.
+ * Completely removes the shift suffix to get the original series name.
+ * 
+ * Examples:
+ * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "PCR Positivity (28d avg)"
+ * - "PCR Positivity (28d avg) shifted by -300d" -> "PCR Positivity (28d avg)"
+ * - "RSV Wastewater shifted by 1 wave NaNd" -> "RSV Wastewater"
+ * - "Influenza Positivity" -> "Influenza Positivity" (unchanged, no shift info)
+ */
+export function getBaseSeriesNameWithoutShift(label: string): string {
+    // Normalize to English first for consistent identifier matching across languages
+    const normalizedLabel = normalizeSeriesName(label);
+    
+    // Only process if the label contains the shifted series identifier
+    if (!normalizedLabel.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER)) {
+        return label;
+    }
+    
+    // Remove shift suffix completely to get the base series name
+    // Updated patterns to handle NaN days as well as numeric days
+    return label
+        .replace(/ shifted by \d+ waves? (?:-?\d+|NaN)d/, '')
+        .replace(/ shifted by -?\d+d/, '')
+        .replace(/ maxima over \d+d/, '')
+        .replace(/ minima over \d+d/, '')
+        .trim();
+}
+
+/**
+ * Extracts the base series name without shift information.
+ * This allows tracking visibility across different shift values AND shift modes.
+ * Only strips shift suffix if the series is actually a shifted series to avoid
+ * collision with non-shifted series that might have similar names.
+ * 
+ * IMPORTANT: Normalizes ALL shifted series (wave-based and custom) to the same pattern
+ * "shifted" to enable visibility preservation when switching between alignment modes
+ * (e.g., from Maxima to Days mode).
+ * 
+ * Examples:
+ * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "PCR Positivity (28d avg) shifted"
+ * - "PCR Positivity (28d avg) shifted by 1 wave 347d" -> "PCR Positivity (28d avg) shifted"
+ * - "PCR Positivity (28d avg) shifted by -300d" -> "PCR Positivity (28d avg) shifted"
+ * - "PCR Positivity (28d avg) shifted by 300d" -> "PCR Positivity (28d avg) shifted"
+ * - "Influenza Positivity" -> "Influenza Positivity" (unchanged, no shift info)
+ * - "Influenza Positivity (28d avg)" -> "Influenza Positivity (28d avg)" (unchanged, no shift info)
+ */
+export function getBaseSeriesName(label: string): string {
+    // Normalize to English first for consistent identifier matching across languages
+    const normalizedLabel = normalizeSeriesName(label);
+    
+    // Only process if the label contains the shifted series identifier
+    // This prevents collision with non-shifted series
+    if (!normalizedLabel.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER)) {
+        return label;
+    }
+    
+    // Normalize ALL shifted series to the same base name pattern "shifted"
+    // This works across both wave-based shifts, custom day shifts, and maxima/minima alignment
+    // Pattern matches:
+    // - "shifted by X wave(s) -XXXd" or "shifted by X wave(s) XXXd" (wave-based)
+    // - "shifted by -XXXd" or "shifted by XXXd" (custom days)
+    // - "maxima over XXXd" or "minima over XXXd" (extreme alignment modes)
+    // And normalizes to just "shifted" to enable cross-mode visibility preservation
+    return label
+        .replace(/ shifted by \d+ waves? -?\d+d/, ' shifted')
+        .replace(/ shifted by -?\d+d/, ' shifted')
+        .replace(/ maxima over \d+d/, ' shifted')
+        .replace(/ minima over \d+d/, ' shifted')
+        .trim();
+}
+
+/**
+ * Determines the default visibility for a series based on its label and current settings.
+ * 
+ * @param label - Series label (in any language)
+ * @param showShifted - Whether shifted series should be shown
+ * @param showTestNumbers - Whether test number series should be shown
+ * @param showShiftedTestNumbers - Whether shifted test number series should be shown
+ * @returns True if the series should be visible by default
+ */
+export function getVisibilityDefault(label: string, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false): boolean {
+    // Hide min/max datasets by default
+    if (isMinMaxSeries(label)) {
+        return false;
+    }
+    
+    // Hide shifted test numbers if the setting is false
+    if (isShiftedTestNumberSeries(label) && !showShiftedTestNumbers) {
+        return false;
+    }
+    
+    // Shifted series should be hidden by default (though the toggle remains ON)
+    // This allows them to be toggled in the legend but starts them as disabled
+    if (isShiftedSeries(label)) {
+        return false;
+    }
+
+    // Show/hide test number bar charts based on setting (default: shown)
+    if (isTestNumberSeries(label)) {
+        return showTestNumbers;
+    }
+
+    // Show all other datasets by default
+    return true;
+}
