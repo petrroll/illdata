@@ -36,6 +36,7 @@ export interface Translations {
     chartTitleCzechCovid: string;
     chartTitleEuViruses: string;
     chartTitleDeWastewater: string;
+    chartTitleNlInfectieradar: string;
     countryLabel: string;
     survtypeLabel: string;
     survtypeBoth: string;
@@ -76,6 +77,12 @@ export interface Translations {
     aboutDeWastewaterFrequency: string;
     aboutDeWastewaterLink: string;
     aboutDeWastewaterDescription: string;
+    aboutNlInfectieradarTitle: string;
+    aboutNlInfectieradarSource: string;
+    aboutNlInfectieradarType: string;
+    aboutNlInfectieradarFrequency: string;
+    aboutNlInfectieradarLink: string;
+    aboutNlInfectieradarDescription: string;
     aboutUnderstandingDataTitle: string;
     aboutUnderstandingDataIntro: string;
     aboutRawSeries: string;
@@ -168,6 +175,22 @@ const seriesNameMap: SeriesNameMap = {
     'SARS-CoV-2 Wastewater': {
         en: 'SARS-CoV-2 Wastewater',
         cs: 'SARS-CoV-2 odpadní vody'
+    },
+    'Adenovirus Positivity': {
+        en: 'Adenovirus Positivity',
+        cs: 'Adenovirus pozitivita'
+    },
+    'Humaan metapneumovirus Positivity': {
+        en: 'HMPV Positivity',
+        cs: 'HMPV pozitivita'
+    },
+    'Parainfluenza Positivity': {
+        en: 'Parainfluenza Positivity',
+        cs: 'Parainfluenza pozitivita'
+    },
+    'Rhinovirus/Enterovirus Positivity': {
+        en: 'Rhinovirus/Enterovirus Positivity',
+        cs: 'Rhinovirus/Enterovirus pozitivita'
     }
 };
 
@@ -204,6 +227,7 @@ const en: Translations = {
     chartTitleCzechCovid: 'COVID Test Positivity (MZCR Data)',
     chartTitleEuViruses: 'EU ECDC Respiratory Viruses',
     chartTitleDeWastewater: 'Germany Wastewater Surveillance (AMELAG)',
+    chartTitleNlInfectieradar: 'Netherlands Infectieradar Pathogens',
     countryLabel: 'Country:',
     survtypeLabel: 'Surveillance Type:',
     survtypeBoth: 'Both',
@@ -244,6 +268,12 @@ const en: Translations = {
     aboutDeWastewaterFrequency: 'Daily',
     aboutDeWastewaterLink: 'RKI Abwassersurveillance AMELAG',
     aboutDeWastewaterDescription: 'Normalized virus load measurements from wastewater samples across Germany, providing an early warning indicator for COVID-19 trends.',
+    aboutNlInfectieradarTitle: 'Netherlands Infectieradar Pathogens',
+    aboutNlInfectieradarSource: 'RIVM (Rijksinstituut voor Volksgezondheid en Milieu)',
+    aboutNlInfectieradarType: 'Respiratory pathogen positivity from self-swab PCR testing',
+    aboutNlInfectieradarFrequency: 'Weekly',
+    aboutNlInfectieradarLink: 'Infectieradar Results',
+    aboutNlInfectieradarDescription: 'Weekly positivity rates for multiple respiratory pathogens (SARS-CoV-2, Influenza, RSV, and others) from the Dutch Infectieradar participatory surveillance program, based on self-swab multiplex PCR testing.',
     aboutUnderstandingDataTitle: 'Understanding the Data Series',
     aboutUnderstandingDataIntro: 'The dashboard presents data in several different formats to help you understand trends:',
     aboutRawSeries: 'Raw Series:',
@@ -260,7 +290,7 @@ const en: Translations = {
     aboutPositivityVsWastewaterTitle: 'Positivity Data vs Wastewater Data',
     aboutPositivityVsWastewaterDescription: 'Positivity Data: Shows the percentage of tests that are positive. Depends on testing behavior and policies. Values are shown as percentages. Wastewater Data: Measures viral RNA in sewage. Independent of testing behavior, provides population-level surveillance. Values are shown as normalized viral load (scientific notation).',
     aboutCountrySpecificTitle: 'Country-Specific vs Aggregate Data',
-    aboutCountrySpecificDescription: 'Czech MZCR: Specific to Czech Republic only. EU ECDC: Offers both EU/EEA aggregate data and individual country data (use the country selector). Germany Wastewater: Specific to Germany only.',
+    aboutCountrySpecificDescription: 'Czech MZCR: Specific to Czech Republic only. EU ECDC: Offers both EU/EEA aggregate data and individual country data (use the country selector). Germany Wastewater: Specific to Germany only. Netherlands Infectieradar: Specific to the Netherlands only.',
     aboutHowToUseTitle: 'How to Use the Dashboard',
     aboutBasicControlsTitle: 'Basic Controls',
     aboutBasicControlsItems: [
@@ -360,6 +390,7 @@ const cs: Translations = {
     chartTitleCzechCovid: 'Pozitivita testů COVID (data MZČR)',
     chartTitleEuViruses: 'Respirační viry EU ECDC',
     chartTitleDeWastewater: 'Sledování odpadních vod v Německu (AMELAG)',
+    chartTitleNlInfectieradar: 'Patogeny Infectieradar Nizozemsko',
     countryLabel: 'Země:',
     survtypeLabel: 'Typ sledování:',
     survtypeBoth: 'Obě',
@@ -400,6 +431,12 @@ const cs: Translations = {
     aboutDeWastewaterFrequency: 'Denně',
     aboutDeWastewaterLink: 'RKI Abwassersurveillance AMELAG',
     aboutDeWastewaterDescription: 'Normalizovaná měření virové nálože ze vzorků odpadních vod napříč Německem, poskytující včasný varovný indikátor pro trendy COVID-19.',
+    aboutNlInfectieradarTitle: 'Patogeny Infectieradar Nizozemsko',
+    aboutNlInfectieradarSource: 'RIVM (Rijksinstituut voor Volksgezondheid en Milieu)',
+    aboutNlInfectieradarType: 'Pozitivita respiračních patogenů ze samoodběrového PCR testování',
+    aboutNlInfectieradarFrequency: 'Týdně',
+    aboutNlInfectieradarLink: 'Výsledky Infectieradar',
+    aboutNlInfectieradarDescription: 'Týdenní míry pozitivity pro více respiračních patogenů (SARS-CoV-2, chřipka, RSV a další) z nizozemského participativního sledovacího programu Infectieradar, založeného na samoodběrovém multiplexním PCR testování.',
     aboutUnderstandingDataTitle: 'Porozumění datovým sériím',
     aboutUnderstandingDataIntro: 'Dashboard prezentuje data v několika různých formátech, které vám pomohou porozumět trendům:',
     aboutRawSeries: 'Surové série:',
@@ -416,7 +453,7 @@ const cs: Translations = {
     aboutPositivityVsWastewaterTitle: 'Data o pozitivitě vs. data z odpadních vod',
     aboutPositivityVsWastewaterDescription: 'Data o pozitivitě: Zobrazují procento testů, které jsou pozitivní. Závisí na testovacím chování a politikách. Hodnoty jsou zobrazeny jako procenta. Data z odpadních vod: Měří virovou RNA v odpadních vodách. Nezávislé na testovacím chování, poskytuje populační úroveň sledování. Hodnoty jsou zobrazeny jako normalizovaná virová nálož (vědecká notace).',
     aboutCountrySpecificTitle: 'Země-specifická vs. agregovaná data',
-    aboutCountrySpecificDescription: 'Česká MZČR: Specifické pouze pro Českou republiku. EU ECDC: Nabízí jak agregovaná data EU/EEA, tak individuální data zemí (použijte výběr země). Německé odpadní vody: Specifické pouze pro Německo.',
+    aboutCountrySpecificDescription: 'Česká MZČR: Specifické pouze pro Českou republiku. EU ECDC: Nabízí jak agregovaná data EU/EEA, tak individuální data zemí (použijte výběr země). Německé odpadní vody: Specifické pouze pro Německo. Nizozemský Infectieradar: Specifické pouze pro Nizozemsko.',
     aboutHowToUseTitle: 'Jak používat dashboard',
     aboutBasicControlsTitle: 'Základní ovládací prvky',
     aboutBasicControlsItems: [
