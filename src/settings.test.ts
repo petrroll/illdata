@@ -59,6 +59,8 @@ describe('Unified Settings Tests', () => {
         expect(settings.showShifted).toBe(DEFAULT_APP_SETTINGS.showShifted);
         expect(settings.showTestNumbers).toBe(DEFAULT_APP_SETTINGS.showTestNumbers);
         expect(settings.showShiftedTestNumbers).toBe(DEFAULT_APP_SETTINGS.showShiftedTestNumbers);
+        expect(settings.shiftOverride).toBe(DEFAULT_APP_SETTINGS.shiftOverride);
+        expect(settings.alignByExtreme).toBe(DEFAULT_APP_SETTINGS.alignByExtreme);
     });
 
     test('migrates old individual localStorage keys', () => {
@@ -74,6 +76,12 @@ describe('Unified Settings Tests', () => {
         expect(settings.timeRange).toBe("365");
         expect(settings.includeFuture).toBe(false);
         expect(settings.showExtremes).toBe(true);
+        // Fields not in old format should come from defaults
+        expect(settings.showShifted).toBe(DEFAULT_APP_SETTINGS.showShifted);
+        expect(settings.showTestNumbers).toBe(DEFAULT_APP_SETTINGS.showTestNumbers);
+        expect(settings.showShiftedTestNumbers).toBe(DEFAULT_APP_SETTINGS.showShiftedTestNumbers);
+        expect(settings.shiftOverride).toBe(DEFAULT_APP_SETTINGS.shiftOverride);
+        expect(settings.alignByExtreme).toBe(DEFAULT_APP_SETTINGS.alignByExtreme);
         
         // Check that old keys were removed
         expect(localStorage.getItem("selectedTimeRange")).toBeNull();
