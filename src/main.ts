@@ -1181,27 +1181,33 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         data = getNewWithSifterToAlignExtremeDates(data, extremesToAlign, 1, 1 + waveCount, true);
     }
 
-    // Extend dates further if needed to accommodate the timeRange's future display requirement
+    // Calculate key date strings once for reuse
+    const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+    const todayString = new Date().toISOString().split('T')[0];
+    
+    // Calculate future cutoff date if needed
+    let futureDateString: string | null = null;
     if (includeFuture && timeRange !== "all") {
         const days = parseInt(timeRange);
-        const todayString = new Date().toISOString().split('T')[0];
         const futureDate = new Date();
         futureDate.setDate(futureDate.getDate() + days);
-        const futureDateString = futureDate.toISOString().split('T')[0];
-        
-        // Check if we need to extend dates to reach the future date
+        futureDateString = futureDate.toISOString().split('T')[0];
+    }
+
+    // Extend dates further if needed to accommodate the timeRange's future display requirement
+    if (futureDateString) {
         const lastDate = data.dates[data.dates.length - 1];
         if (lastDate < futureDateString) {
             // Calculate how many extra dates we need
             const freqDays = data.series[0]?.frequencyInDays ?? 1;
             const lastDateTime = new Date(lastDate).getTime();
             const futureDateTime = new Date(futureDateString).getTime();
-            const daysToExtend = Math.ceil((futureDateTime - lastDateTime) / (24 * 60 * 60 * 1000));
+            const daysToExtend = Math.ceil((futureDateTime - lastDateTime) / MILLISECONDS_PER_DAY);
             const extraCount = Math.ceil(daysToExtend / freqDays);
             
             // Extend dates
             const extraDates = Array.from({ length: extraCount }, (_, i) => {
-                const d = new Date(new Date(lastDate).getTime() + freqDays * 24 * 60 * 60 * 1000 * (i + 1));
+                const d = new Date(new Date(lastDate).getTime() + freqDays * MILLISECONDS_PER_DAY * (i + 1));
                 return d.toISOString().split('T')[0];
             });
             data.dates = [...data.dates, ...extraDates];
@@ -1215,19 +1221,14 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     }
 
     // End cutoff based on future inclusion flag
-    const todayString = new Date().toISOString().split('T')[0];
     let startIdx = data.dates.findIndex(d => d > cutoffDateString);
     if (startIdx < 0) startIdx = 0;
     let endIdx = data.dates.length;
     if (!includeFuture) {
         const futureIdx = data.dates.findIndex(d => d > todayString);
         if (futureIdx >= 0) endIdx = futureIdx;
-    } else if (timeRange !== "all") {
+    } else if (futureDateString) {
         // When includeFuture is true and timeRange is set, show same amount of future as past
-        const days = parseInt(timeRange);
-        const futureDate = new Date();
-        futureDate.setDate(futureDate.getDate() + days);
-        const futureDateString = futureDate.toISOString().split('T')[0];
         const futureIdx = data.dates.findIndex(d => d > futureDateString);
         if (futureIdx >= 0) endIdx = futureIdx;
     }
