@@ -430,10 +430,9 @@ function createCustomGraphData(selections: CustomGraphSelection[]): TimeseriesDa
             if (sourceIndex !== undefined && sourceIndex < series.values.length) {
                 return series.values[sourceIndex];
             }
-            // Return placeholder for missing dates
-            return isScalarSeries(series)
-                ? { virusLoad: 0 }
-                : { positive: 0, tests: NaN };
+            // Return null for missing dates so Chart.js skips them (creating gaps in the line)
+            // This prevents showing 0% values where data doesn't exist
+            return null;
         });
         
         // Return series with aligned values and new name
@@ -1843,6 +1842,7 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
             hidden: false,
             borderWidth: 1,
             pointRadius: 0,
+            spanGaps: false, // Don't connect across null values
         };
     });
 }
