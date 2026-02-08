@@ -1211,16 +1211,22 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             const tooltip = chart.tooltip;
                             
                             // Find the closest item to cursor based on y-distance (with hysteresis)
+                            // Only calculate once per tooltip render by checking if this is the first item
                             let closestDatasetIndex = -1;
                             if (tooltip && tooltip.caretY !== undefined && tooltip.dataPoints) {
-                                closestDatasetIndex = findClosestItem(
-                                    tooltip.dataPoints as TooltipItem[], 
-                                    tooltip.caretY, 
-                                    chart,
-                                    previousClosestDatasetIndex
-                                );
-                                // Update the tracked value for next time
-                                previousClosestDatasetIndex = closestDatasetIndex;
+                                // Store in tooltip object to calculate only once
+                                if (tooltip._closestDatasetIndex === undefined) {
+                                    closestDatasetIndex = findClosestItem(
+                                        tooltip.dataPoints as TooltipItem[], 
+                                        tooltip.caretY, 
+                                        chart,
+                                        previousClosestDatasetIndex
+                                    );
+                                    tooltip._closestDatasetIndex = closestDatasetIndex;
+                                    previousClosestDatasetIndex = closestDatasetIndex;
+                                } else {
+                                    closestDatasetIndex = tooltip._closestDatasetIndex;
+                                }
                             }
                             
                             // Get the label and value
@@ -1246,6 +1252,14 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             const marker = isClosest ? '● ' : '  ';
                             
                             return `${marker}${label}: ${formattedValue}`;
+                        },
+                        afterBody: function() {
+                            // Clear the cached closest index after tooltip is fully rendered
+                            const chart = (this as any).chart;
+                            if (chart && chart.tooltip) {
+                                delete chart.tooltip._closestDatasetIndex;
+                            }
+                            return [];
                         },
                         title: function(context) {
                             if (context.length === 0) return '';
