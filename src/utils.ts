@@ -517,13 +517,14 @@ function calculateMedian(values: number[]): number {
  * Used for consistent sorting of series labels in charts and legends.
  * 
  * Series are sorted in this order:
- * 1. Regular positivity series (non-shifted)
+ * 1. Regular positivity series (non-shifted, non-averaged)
  * 2. Shifted positivity series
- * 3. Positive test number series (non-shifted)
- * 4. Negative test number series (non-shifted)
- * 5. Shifted positive test number series
- * 6. Shifted negative test number series
- * 7. Other types (min/max, scalar, etc.)
+ * 3. Averaged positivity series
+ * 4. Positive test number series (non-shifted)
+ * 5. Negative test number series (non-shifted)
+ * 6. Shifted positive test number series
+ * 7. Shifted negative test number series
+ * 8. Other types (min/max, scalar, etc.)
  * 
  * Within each type category, series are sorted alphabetically.
  * 
@@ -533,15 +534,15 @@ function calculateMedian(values: number[]): number {
  */
 export function compareLabels(labelA: string, labelB: string): number {
     // Priority constants (lower numbers appear first in sorted order)
-    // Note: Priority 4 is intentionally skipped to maintain logical grouping:
-    // - Priorities 0-1 are for positivity series
-    // - Priorities 2-3 are for non-shifted test numbers
+    // - Priorities 0-2 are for positivity series (regular, shifted, averaged)
+    // - Priorities 3-4 are for non-shifted test numbers
     // - Priorities 5-6 are for shifted test numbers
     // - Priority 7 is for other types
     const PRIORITY_POSITIVITY = 0;
     const PRIORITY_POSITIVITY_SHIFTED = 1;
-    const PRIORITY_POSITIVE_TESTS = 2;
-    const PRIORITY_NEGATIVE_TESTS = 3;
+    const PRIORITY_POSITIVITY_AVERAGED = 2;
+    const PRIORITY_POSITIVE_TESTS = 3;
+    const PRIORITY_NEGATIVE_TESTS = 4;
     const PRIORITY_POSITIVE_TESTS_SHIFTED = 5;
     const PRIORITY_NEGATIVE_TESTS_SHIFTED = 6;
     const PRIORITY_OTHER = 7;
@@ -556,6 +557,7 @@ export function compareLabels(labelA: string, labelB: string): number {
         // Check for positivity series (includes "positivity" or "pozitivita")
         const isPositivity = lower.includes('positivity') || lower.includes('pozitivita');
         const isShifted = lower.includes('shifted') || lower.includes('posunuto');
+        const isAveraged = lower.includes('d avg)') || lower.includes('d prům.)');
         
         // Check for specific test types first (more specific checks)
         const isPositiveTest = lower.includes(' - positive tests') || lower.includes(' - pozitivní testy');
@@ -569,7 +571,14 @@ export function compareLabels(labelA: string, labelB: string): number {
             return isShifted ? PRIORITY_NEGATIVE_TESTS_SHIFTED : PRIORITY_NEGATIVE_TESTS;
         }
         if (isPositivity) {
-            return isShifted ? PRIORITY_POSITIVITY_SHIFTED : PRIORITY_POSITIVITY;
+            // Shifted positivity takes precedence over averaged
+            if (isShifted) {
+                return PRIORITY_POSITIVITY_SHIFTED;
+            }
+            if (isAveraged) {
+                return PRIORITY_POSITIVITY_AVERAGED;
+            }
+            return PRIORITY_POSITIVITY;
         }
         
         return PRIORITY_OTHER;
