@@ -130,9 +130,10 @@ export function findClosestItem(items: TooltipItem[], cursorY: number, chart: an
         // Skip items with NaN values
         if (isNaN(value)) continue;
         
-        // Get the pixel y-coordinate for this value
-        // Chart.js stores scale information in the chart's scales
-        const yScale = chart.scales.y || chart.scales.y1;
+        // Get the correct y-scale for this dataset
+        // Datasets can use either 'y' (left axis) or 'y1' (right axis)
+        const yAxisID = item.dataset.yAxisID || 'y';
+        const yScale = chart.scales[yAxisID];
         if (!yScale) continue;
         
         const pixelY = yScale.getPixelForValue(value);
