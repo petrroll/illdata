@@ -32,6 +32,7 @@ describe('URL State Management Tests', () => {
             showShifted: false,
             showTestNumbers: true,
             showShiftedTestNumbers: true,
+            showNonAveragedSeries: true,
             shiftOverride: 2,
             alignByExtreme: 'minima'
         };
@@ -112,6 +113,7 @@ describe('URL State Management Tests', () => {
             showShifted: true,
             showTestNumbers: false,
             showShiftedTestNumbers: false,
+            showNonAveragedSeries: true,
             shiftOverride: 3,
             alignByExtreme: 'days'
         };
@@ -195,6 +197,7 @@ describe('URL State Management Tests', () => {
             showShifted: true,
             showTestNumbers: true,
             showShiftedTestNumbers: false,
+            showNonAveragedSeries: true,
             shiftOverride: 1,
             alignByExtreme: 'maxima'
         };

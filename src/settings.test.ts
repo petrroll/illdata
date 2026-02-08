@@ -36,6 +36,7 @@ describe('Unified Settings Tests', () => {
             showShifted: true,
             showTestNumbers: true,
             showShiftedTestNumbers: false,
+            showNonAveragedSeries: true,
             shiftOverride: 1,
             alignByExtreme: 'maxima'
         };
@@ -123,6 +124,7 @@ describe('Unified Settings Tests', () => {
             showShifted: true,
             showTestNumbers: true,
             showShiftedTestNumbers: true,  // Enable the new setting
+            showNonAveragedSeries: true,
             shiftOverride: 1,
             alignByExtreme: 'maxima'
         };

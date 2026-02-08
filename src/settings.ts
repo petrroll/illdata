@@ -11,6 +11,7 @@ export interface AppSettings {
     showShifted: boolean;
     showTestNumbers: boolean;
     showShiftedTestNumbers: boolean;
+    showNonAveragedSeries: boolean;
     // Shift value: either days for manual shift or wave count for automatic alignment
     // When alignByExtreme is 'days': shift by this many days
     // When alignByExtreme is 'maxima' or 'minima': shift by this many waves back to align to the last wave
@@ -27,6 +28,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
     showShifted: true,
     showTestNumbers: true,
     showShiftedTestNumbers: false,
+    showNonAveragedSeries: false, // Hide non-averaged series by default
     shiftOverride: 1, // Default to 1 wave for maxima/minima alignment
     alignByExtreme: 'maxima'
 };
