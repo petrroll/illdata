@@ -26,6 +26,7 @@ export interface Translations {
     showShiftedSeries: string;
     showTestNumbers: string;
     showShiftedTestNumbers: string;
+    showNonAveragedSeries: string;
     shiftBy: string;
     shiftByDays: string;
     shiftByMaxima: string;
@@ -221,6 +222,7 @@ const en: Translations = {
     showShiftedSeries: 'Show Shifted Series',
     showTestNumbers: 'Show Test Numbers',
     showShiftedTestNumbers: 'Show Shifted Test Numbers',
+    showNonAveragedSeries: 'Show Non-Averaged Series',
     shiftBy: 'Shift By:',
     shiftByDays: 'Days',
     shiftByMaxima: 'Maxima',
@@ -384,6 +386,7 @@ const cs: Translations = {
     showShiftedSeries: 'Zobrazit posunuté série',
     showTestNumbers: 'Zobrazit počty testů',
     showShiftedTestNumbers: 'Zobrazit posunuté počty testů',
+    showNonAveragedSeries: 'Zobrazit nezprůměrované série',
     shiftBy: 'Posun o:',
     shiftByDays: 'Dny',
     shiftByMaxima: 'Maxima',

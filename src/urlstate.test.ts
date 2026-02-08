@@ -32,6 +32,7 @@ describe('URL State Management Tests', () => {
             showShifted: false,
             showTestNumbers: true,
             showShiftedTestNumbers: true,
+            showNonAveragedSeries: true,
             shiftOverride: 2,
             alignByExtreme: 'minima'
         };
@@ -44,6 +45,22 @@ describe('URL State Management Tests', () => {
         
         expect(decoded).not.toBeNull();
         expect(decoded!.settings).toEqual(settings);
+    });
+
+    test('encodes and decodes default settings with showNonAveragedSeries false', () => {
+        const settings: AppSettings = {
+            ...DEFAULT_APP_SETTINGS,
+            showNonAveragedSeries: false  // Explicit default value
+        };
+        
+        const chartConfigs: UrlChartConfig[] = [];
+        const countryFilters = new Map<string, string>();
+        
+        const encoded = encodeUrlState(settings, chartConfigs, countryFilters);
+        const decoded = decodeUrlState(encoded);
+        
+        expect(decoded).not.toBeNull();
+        expect(decoded!.settings.showNonAveragedSeries).toBe(false);
     });
 
     test('encodes and decodes dataset visibility correctly', () => {
@@ -112,6 +129,7 @@ describe('URL State Management Tests', () => {
             showShifted: true,
             showTestNumbers: false,
             showShiftedTestNumbers: false,
+            showNonAveragedSeries: true,
             shiftOverride: 3,
             alignByExtreme: 'days'
         };
@@ -195,6 +213,7 @@ describe('URL State Management Tests', () => {
             showShifted: true,
             showTestNumbers: true,
             showShiftedTestNumbers: false,
+            showNonAveragedSeries: true,
             shiftOverride: 1,
             alignByExtreme: 'maxima'
         };

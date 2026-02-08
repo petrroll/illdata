@@ -216,15 +216,33 @@ export function getBaseSeriesName(label: string): string {
 }
 
 /**
+ * Checks if a series is a non-averaged series (raw series) based on its type
+ * @param series - Series object with type property
+ * @returns True if the series is a raw (non-averaged) series
+ */
+export function isNonAveragedSeries(series: { type: string }): boolean {
+    return series.type === 'raw';
+}
+
+/**
  * Determines the default visibility for a series based on its label and current settings.
  * 
  * @param label - Series label (in any language)
  * @param showShifted - Whether shifted series should be shown
  * @param showTestNumbers - Whether test number series should be shown
  * @param showShiftedTestNumbers - Whether shifted test number series should be shown
+ * @param showNonAveragedSeries - Whether non-averaged (raw) series should be shown
+ * @param seriesType - Optional series type ('raw' or 'averaged') for more precise filtering
  * @returns True if the series should be visible by default
  */
-export function getVisibilityDefault(label: string, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false): boolean {
+export function getVisibilityDefault(
+    label: string, 
+    showShifted: boolean = true, 
+    showTestNumbers: boolean = true, 
+    showShiftedTestNumbers: boolean = false,
+    showNonAveragedSeries: boolean = false,
+    seriesType?: 'raw' | 'averaged'
+): boolean {
     // Hide min/max datasets by default
     if (isMinMaxSeries(label)) {
         return false;
@@ -244,6 +262,12 @@ export function getVisibilityDefault(label: string, showShifted: boolean = true,
     // Show/hide test number bar charts based on setting (default: shown)
     if (isTestNumberSeries(label)) {
         return showTestNumbers;
+    }
+
+    // Hide non-averaged (raw) series if the setting is false
+    // Only apply this filter if we have type information and it's not a test number series
+    if (seriesType === 'raw' && !showNonAveragedSeries) {
+        return false;
     }
 
     // Show all other datasets by default

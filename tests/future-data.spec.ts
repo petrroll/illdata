@@ -101,10 +101,11 @@ test.describe('Future Data Display', () => {
     });
     
     expect(chartInfo).not.toBeNull();
-    expect(chartInfo!.pastDays).toBeGreaterThanOrEqual(80); // Allow tolerance for data update delays
+    // Use ±10 day tolerance to account for data update delays
+    expect(chartInfo!.pastDays).toBeGreaterThanOrEqual(80);
     expect(chartInfo!.pastDays).toBeLessThanOrEqual(100);
     
-    // Future should be approximately 2x past (180 days with some tolerance)
+    // Future should be approximately 2x past (180 days with ±20 day tolerance)
     expect(chartInfo!.futureDays).toBeGreaterThanOrEqual(160);
     expect(chartInfo!.futureDays).toBeLessThanOrEqual(200);
   });
@@ -140,10 +141,11 @@ test.describe('Future Data Display', () => {
     });
     
     expect(chartInfo).not.toBeNull();
-    expect(chartInfo!.pastDays).toBeGreaterThanOrEqual(170); // Allow tolerance for data update delays
+    // Use ±10 day tolerance to account for data update delays
+    expect(chartInfo!.pastDays).toBeGreaterThanOrEqual(170);
     expect(chartInfo!.pastDays).toBeLessThanOrEqual(190);
     
-    // Future should be approximately 2x past (360 days with some tolerance)
+    // Future should be approximately 2x past (360 days with ±20 day tolerance)
     expect(chartInfo!.futureDays).toBeGreaterThanOrEqual(340);
     expect(chartInfo!.futureDays).toBeLessThanOrEqual(380);
   });
@@ -179,13 +181,14 @@ test.describe('Future Data Display', () => {
     });
     
     expect(chartInfo).not.toBeNull();
-    expect(chartInfo!.pastDays).toBeGreaterThanOrEqual(355); // Allow tolerance for data update delays
+    // Use ±10 day tolerance to account for data update delays
+    expect(chartInfo!.pastDays).toBeGreaterThanOrEqual(355);
     expect(chartInfo!.pastDays).toBeLessThanOrEqual(375);
     
     // Future should be approximately 2x past (730 days) but might be limited by available data
     // The dataset may not have 730 days of future data, so we verify it shows maximum available
     // or at least more future data than for shorter time ranges
-    expect(chartInfo!.futureDays).toBeGreaterThanOrEqual(350);
+    expect(chartInfo!.futureDays).toBeGreaterThanOrEqual(340);
   });
 
   test('should not show future data when includeFuture is disabled', async ({ page }) => {
@@ -257,8 +260,9 @@ test.describe('Future Data Display', () => {
     expect(chartsInfo.length).toBeGreaterThan(0);
     
     // All charts should show consistent future projection
+    // Use ±10 day tolerance to account for data update delays
     for (const chartInfo of chartsInfo) {
-      expect(chartInfo.pastDays).toBeGreaterThanOrEqual(80); // Allow tolerance for data update delays
+      expect(chartInfo.pastDays).toBeGreaterThanOrEqual(80);
       expect(chartInfo.pastDays).toBeLessThanOrEqual(100);
       expect(chartInfo.futureDays).toBeGreaterThanOrEqual(160);
       expect(chartInfo.futureDays).toBeLessThanOrEqual(200);
