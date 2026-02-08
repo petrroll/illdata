@@ -236,70 +236,57 @@ export function windowSizeDaysToIndex(windowSizeInDays: number | undefined, freq
     return Math.round((windowSizeInDays ?? 1) / frequencyInDays);
 }
 
+function computeWindowValues<T, R>(
+    values: T[],
+    windowSizeInIndex: number,
+    aggregateFn: (windowSlice: T[]) => R
+): R[] {
+    const halfWindow = Math.floor(windowSizeInIndex / 2);
+    return values.map((_, j) => {
+        const start = Math.max(0, j - halfWindow);
+        const end = Math.min(values.length, j + halfWindow + 1);
+        return aggregateFn(values.slice(start, end));
+    });
+}
+
+function buildAveragedSeriesMetadata(series: DataSeries, windowSizeInDays: number) {
+    return {
+        name: `${series.name} (${windowSizeInDays}d avg)`,
+        type: 'averaged' as const,
+        windowSizeInDays,
+        frequencyInDays: series.frequencyInDays,
+        ...(series.country ? { country: series.country } : {}),
+        ...(series.survtype ? { survtype: series.survtype } : {})
+    };
+}
+
 export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes: number[]): TimeseriesData {
     const averagedSeries: DataSeries[] = data.series.flatMap((series): DataSeries[] => {
         const adjustedWindowSizes = windowSizes.map(w => windowSizeDaysToIndex(w, series.frequencyInDays));
         
         if (isScalarSeries(series)) {
-            // Handle scalar data (e.g., wastewater virus load)
-            return adjustedWindowSizes.map((windowSizeInIndex, i) => {
-                const averagedValues = series.values.map((v, j) => {
-                    let sumLoad = 0;
-                    let count = 0;
-                    for (let k = -Math.floor(windowSizeInIndex/2); k <= Math.floor(windowSizeInIndex/2); k++) {
-                        let index = j + k;
-                        if (index < 0) continue;
-                        if (index >= series.values.length) continue;
-                        
-                        const value = series.values[index].virusLoad;
-                        if (value > 0) {  // Only count non-zero values
-                            sumLoad += value;
-                            count++;
-                        }
+            return adjustedWindowSizes.map((windowSizeInIndex, i) => ({
+                ...buildAveragedSeriesMetadata(series, windowSizes[i]),
+                values: computeWindowValues(series.values, windowSizeInIndex, (window) => {
+                    let sumLoad = 0, count = 0;
+                    for (const dp of window) {
+                        if (dp.virusLoad > 0) { sumLoad += dp.virusLoad; count++; }
                     }
                     return { virusLoad: count > 0 ? sumLoad / count : 0 };
-                });
-                const originalWindowSize = windowSizes[i];
-                return {
-                    name: `${series.name} (${originalWindowSize}d avg)`,
-                    values: averagedValues,
-                    type: 'averaged',
-                    windowSizeInDays: windowSizes[i],
-                    frequencyInDays: series.frequencyInDays,
-                    dataType: 'scalar',
-                    ...(series.country ? { country: series.country } : {}),
-                    ...(series.survtype ? { survtype: series.survtype } : {})
-                } as ScalarSeries;
-            });
+                }),
+                dataType: 'scalar' as const
+            } as ScalarSeries));
         }
         
-        // Handle positivity data
-        return adjustedWindowSizes.map((windowSizeInIndex, i) => {
-            const averagedValues = series.values.map((v, j) => {
-                let sumPos = 0;
-                let sumTotal = 0;
-                for (let k = -Math.floor(windowSizeInIndex/2); k <= Math.floor(windowSizeInIndex/2); k++) {
-                    let index = j + k;
-                    if (index < 0) continue;
-                    if (index >= series.values.length) continue;
-                    
-                    sumPos += series.values[index].positive;
-                    sumTotal += series.values[index].tests;
-                }
+        return adjustedWindowSizes.map((windowSizeInIndex, i) => ({
+            ...buildAveragedSeriesMetadata(series, windowSizes[i]),
+            values: computeWindowValues(series.values, windowSizeInIndex, (window) => {
+                let sumPos = 0, sumTotal = 0;
+                for (const dp of window) { sumPos += dp.positive; sumTotal += dp.tests; }
                 return { positive: sumPos, tests: sumTotal };
-            });
-            const originalWindowSize = windowSizes[i];
-            return {
-                name: `${series.name} (${originalWindowSize}d avg)`,
-                values: averagedValues,
-                type: 'averaged',
-                windowSizeInDays: windowSizes[i],
-                frequencyInDays: series.frequencyInDays,
-                dataType: 'positivity',
-                ...(series.country ? { country: series.country } : {}),
-                ...(series.survtype ? { survtype: series.survtype } : {})
-            } as PositivitySeries;
-        });
+            }),
+            dataType: 'positivity' as const
+        } as PositivitySeries));
     });
 
     return {
@@ -459,33 +446,26 @@ function calculatePeriodRatio(series: DataSeries, endIndex: number, periodDays: 
     
     if (previousStart >= previousEnd || currentStart >= currentEnd) return null;
     
+    const currentValues = series.values.slice(currentStart, currentEnd);
+    const previousValues = series.values.slice(previousStart, previousEnd);
+    
+    if (currentValues.length === 0 || previousValues.length === 0) return null;
+    
     let currentAvg: number;
     let previousAvg: number;
     
     if (isScalarSeries(series)) {
-        // For scalar series, calculate average value
-        const currentValues = series.values.slice(currentStart, currentEnd);
-        const previousValues = series.values.slice(previousStart, previousEnd);
-        
-        if (currentValues.length === 0 || previousValues.length === 0) return null;
-        
-        const currentSum = currentValues.reduce((sum, val) => sum + val.virusLoad, 0);
-        const previousSum = previousValues.reduce((sum, val) => sum + val.virusLoad, 0);
+        const currentSum = (currentValues as ScalarDatapoint[]).reduce((sum, val) => sum + val.virusLoad, 0);
+        const previousSum = (previousValues as ScalarDatapoint[]).reduce((sum, val) => sum + val.virusLoad, 0);
         currentAvg = currentSum / currentValues.length;
         previousAvg = previousSum / previousValues.length;
     } else {
-        // For positivity data, calculate percentage
-        const currentValues = series.values.slice(currentStart, currentEnd);
-        const previousValues = series.values.slice(previousStart, previousEnd);
-        
-        if (currentValues.length === 0 || previousValues.length === 0) return null;
-        
-        const current = currentValues.reduce((sum, val) => {
+        const current = (currentValues as Datapoint[]).reduce((sum, val) => {
             sum.positive += val.positive;
             sum.tests += val.tests;
             return sum;
         }, {positive: 0, tests: 0});
-        const previous = previousValues.reduce((sum, val) => {
+        const previous = (previousValues as Datapoint[]).reduce((sum, val) => {
             sum.positive += val.positive;
             sum.tests += val.tests;
             return sum;

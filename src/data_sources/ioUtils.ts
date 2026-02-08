@@ -35,13 +35,13 @@ export async function loadAndParseTsv(filename: string) {
     return parseTsv(tsvContent);
 }
 
-export function parseCsv(csvContent: string) {
-    const lines = csvContent.split("\n").filter(line => line.trim() !== "");
+function parseDelimited(content: string, delimiter: string, label: string) {
+    const lines = content.split("\n").filter(line => line.trim() !== "");
 
     // Assume first line contains headers
-    const headers = lines[0].split(",").map(h => h.trim());
+    const headers = lines[0].split(delimiter).map(h => h.trim());
     const data = lines.slice(1).map(line => {
-        const values = line.split(",").map(v => v.trim());
+        const values = line.split(delimiter).map(v => v.trim());
         const row: Record<string, string> = {};
         headers.forEach((header, i) => {
             row[header] = values[i] || "";
@@ -49,26 +49,16 @@ export function parseCsv(csvContent: string) {
         return row;
     });
 
-    console.log("Parsed CSV data");
+    console.log(`Parsed ${label} data`);
     return data;
 }
 
+export function parseCsv(csvContent: string) {
+    return parseDelimited(csvContent, ",", "CSV");
+}
+
 export function parseTsv(tsvContent: string) {
-    const lines = tsvContent.split("\n").filter(line => line.trim() !== "");
-
-    // Assume first line contains headers
-    const headers = lines[0].split("\t").map(h => h.trim());
-    const data = lines.slice(1).map(line => {
-        const values = line.split("\t").map(v => v.trim());
-        const row: Record<string, string> = {};
-        headers.forEach((header, i) => {
-            row[header] = values[i] || "";
-        });
-        return row;
-    });
-
-    console.log("Parsed TSV data");
-    return data;
+    return parseDelimited(tsvContent, "\t", "TSV");
 }
 
 export async function downloadAndSaveCsv(url: string, filePath: string): Promise<void> {

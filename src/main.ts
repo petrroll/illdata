@@ -25,17 +25,12 @@ import { type UrlState, type UrlChartConfig, encodeUrlState, decodeUrlState, loa
 import { extractShiftFromLabel } from "./tooltip";
 import { adjustColorForTestBars } from "./color";
 
-const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
-const euPositivity = euPositivityImport as TimeseriesData;
-const deWastewater = deWastewaterImport as TimeseriesData;
-const nlInfectieradar = nlInfectieradarImport as TimeseriesData;
 const averagingWindows = [28];
 const extremesForWindow = 28;
 const extremeWindow = 3*28;
-const mzcrPositivityEnhanced = computeMovingAverageTimeseries(mzcrPositivity, averagingWindows);
-const euPositivityEnhanced = computeMovingAverageTimeseries(euPositivity, averagingWindows);
-const deWastewaterEnhanced = computeMovingAverageTimeseries(deWastewater, averagingWindows);
-const nlInfectieradarEnhanced = computeMovingAverageTimeseries(nlInfectieradar, averagingWindows);
+const dataSources = [mzcrPositivityImport, euPositivityImport, deWastewaterImport, nlInfectieradarImport] as const;
+const [mzcrPositivityEnhanced, euPositivityEnhanced, deWastewaterEnhanced, nlInfectieradarEnhanced] = 
+    dataSources.map(d => computeMovingAverageTimeseries(d as TimeseriesData, averagingWindows));
 
 // Constants for chart styling
 const SHIFTED_LINE_DASH_PATTERN = [15, 1]; // Dash pattern for shifted series: [dash length, gap length] - very subtle, almost solid pattern
@@ -845,19 +840,17 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
 
     // Calculate extremes only once and cache them
     if (!cfg.extremesCache) {
-        const localMaximaSeries = data.series
+        const averagedForExtremes = data.series
             .filter(series => series.type === 'averaged')
-            .filter(series => extremesForWindow == series.windowSizeInDays)
+            .filter(series => extremesForWindow == series.windowSizeInDays);
+        
+        const localMaximaSeries = averagedForExtremes
             .map(series => findLocalExtreme(series, extremeWindow, 'maxima'))
-        const localMinimaSeries = data.series
-            .filter(series => series.type === 'averaged')
-            .filter(series => extremesForWindow == series.windowSizeInDays)
+        const localMinimaSeries = averagedForExtremes
             .map(series => findLocalExtreme(series, extremeWindow, 'minima'))
         
         // Apply filtering as a separate step
-        const filteredExtremesResults = data.series
-            .filter(series => series.type === 'averaged')
-            .filter(series => extremesForWindow == series.windowSizeInDays)
+        const filteredExtremesResults = averagedForExtremes
             .map(series => filterExtremesByMedianThreshold(
                 series, 
                 localMaximaSeries.flat().filter(extreme => extreme.originalSeriesName === series.name),
@@ -1446,13 +1439,16 @@ function getSeriesColorIndex(series: DataSeries): number {
     return 0;
 }
 
+function getSeriesPalette(series: DataSeries, paletteMap: Map<string, number>, colorPalettes: string[][]): string[] {
+    const baseName = getColorBaseSeriesName(series.name);
+    const paletteIndex = paletteMap.get(baseName) ?? 0;
+    return colorPalettes[paletteIndex % colorPalettes.length];
+}
+
 function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number, paletteMap: Map<string, number>) {
     return sortedSeriesWithIndices.map(({ series, originalIndex }, sortedIndex) => {
-        // Use stable palette mapping based on base series name
-        const baseName = getColorBaseSeriesName(series.name);
-        const paletteIndex = paletteMap.get(baseName) ?? 0;
+        const selectedPalette = getSeriesPalette(series, paletteMap, colorPalettes);
         const colorIndex = getSeriesColorIndex(series);
-        const selectedPalette = colorPalettes[paletteIndex % colorPalettes.length];
         const borderColor = selectedPalette[colorIndex % selectedPalette.length];
 
         // Validate data based on type
@@ -1537,10 +1533,7 @@ function generateTestNumberBarDatasets(
     }
     
     return rawPositivitySeriesWithIndices.flatMap(({ series, originalIndex }, sortedIndex) => {
-        // Use stable palette mapping based on base series name
-        const baseName = getColorBaseSeriesName(series.name);
-        const paletteIndex = paletteMap.get(baseName) ?? 0;
-        const selectedPalette = colorPalettes[paletteIndex % colorPalettes.length];
+        const selectedPalette = getSeriesPalette(series, paletteMap, colorPalettes);
         
         // For test bars, use first two colors from the palette (with bounds checking)
         // Positive tests use the base color (index 0), negative tests use slightly lighter (index 1)
