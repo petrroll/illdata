@@ -1,13 +1,7 @@
 // Tooltip formatting utilities for Chart.js tooltips
 // Handles sorting tooltip items by type and value, and identifying the closest series
 
-import { 
-    isPositivitySeries, 
-    isShiftedSeries, 
-    isAveragedSeries, 
-    isPositiveTestSeries, 
-    isNegativeTestSeries 
-} from './series-utils';
+import { getSeriesTypePriority } from './series-priorities';
 
 /**
  * Tooltip item interface matching Chart.js structure
@@ -23,46 +17,6 @@ export interface TooltipItem {
     };
     datasetIndex: number;
     [key: string]: any;
-}
-
-/**
- * Gets the type priority for a series label.
- * Lower numbers appear first in the sorted order.
- * This mirrors the logic in utils.ts compareLabels but returns just the priority number.
- */
-function getSeriesTypePriority(label: string): number {
-    const PRIORITY_POSITIVITY = 0;
-    const PRIORITY_POSITIVITY_SHIFTED = 1;
-    const PRIORITY_POSITIVITY_AVERAGED = 2;
-    const PRIORITY_POSITIVE_TESTS = 3;
-    const PRIORITY_NEGATIVE_TESTS = 4;
-    const PRIORITY_POSITIVE_TESTS_SHIFTED = 5;
-    const PRIORITY_NEGATIVE_TESTS_SHIFTED = 6;
-    const PRIORITY_OTHER = 7;
-    
-    const isPositivity = isPositivitySeries(label);
-    const isShifted = isShiftedSeries(label);
-    const isAveraged = isAveragedSeries(label);
-    const isPositiveTest = isPositiveTestSeries(label);
-    const isNegativeTest = isNegativeTestSeries(label);
-    
-    if (isPositiveTest) {
-        return isShifted ? PRIORITY_POSITIVE_TESTS_SHIFTED : PRIORITY_POSITIVE_TESTS;
-    }
-    if (isNegativeTest) {
-        return isShifted ? PRIORITY_NEGATIVE_TESTS_SHIFTED : PRIORITY_NEGATIVE_TESTS;
-    }
-    if (isPositivity) {
-        if (isShifted) {
-            return PRIORITY_POSITIVITY_SHIFTED;
-        }
-        if (isAveraged) {
-            return PRIORITY_POSITIVITY_AVERAGED;
-        }
-        return PRIORITY_POSITIVITY;
-    }
-    
-    return PRIORITY_OTHER;
 }
 
 /**
