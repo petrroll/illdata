@@ -760,49 +760,97 @@ describe('Future Data Padding Tests', () => {
 });
 
 describe('compareLabels Tests', () => {
-    test('sorts by word count first (fewer words first)', () => {
-        expect(compareLabels('Short', 'Much Longer Label')).toBeLessThan(0);
-        expect(compareLabels('Much Longer Label', 'Short')).toBeGreaterThan(0);
-        expect(compareLabels('Two Words', 'Three Word Label')).toBeLessThan(0);
+    test('sorts regular positivity series before shifted positivity', () => {
+        expect(compareLabels('PCR Positivity', 'PCR Positivity shifted by 1 wave 56d')).toBeLessThan(0);
+        expect(compareLabels('Antigen Positivity', 'Antigen Positivity shifted by -100d')).toBeLessThan(0);
     });
 
-    test('sorts alphabetically when word count is equal', () => {
-        expect(compareLabels('Apple', 'Banana')).toBeLessThan(0);
-        expect(compareLabels('Zebra', 'Apple')).toBeGreaterThan(0);
+    test('sorts positivity series before test number series', () => {
+        expect(compareLabels('PCR Positivity', 'PCR Positivity - Positive Tests')).toBeLessThan(0);
+        expect(compareLabels('Influenza Positivity', 'Influenza Positivity - Negative Tests')).toBeLessThan(0);
+    });
+
+    test('sorts positive tests before negative tests', () => {
+        expect(compareLabels('PCR Positivity - Positive Tests', 'PCR Positivity - Negative Tests')).toBeLessThan(0);
+        expect(compareLabels('Antigen Positivity - Positive Tests', 'Antigen Positivity - Negative Tests')).toBeLessThan(0);
+    });
+
+    test('sorts non-shifted test numbers before shifted test numbers', () => {
+        expect(compareLabels('PCR Positivity - Positive Tests', 'PCR Positivity - Positive Tests shifted by 1 wave 56d')).toBeLessThan(0);
+    });
+
+    test('sorts alphabetically within same type category', () => {
+        // Both are regular positivity series, should sort alphabetically
+        expect(compareLabels('Adenovirus Positivity', 'RSV Positivity')).toBeLessThan(0);
+        expect(compareLabels('RSV Positivity', 'Adenovirus Positivity')).toBeGreaterThan(0);
         expect(compareLabels('Same Label', 'Same Label')).toBe(0);
     });
 
-    test('handles labels with multiple spaces correctly', () => {
-        // Multiple spaces should be treated as one word separator for word counting
-        // Both have 2 words, so it falls back to alphabetical string comparison
-        const result = compareLabels('One   Two', 'One Two');
-        expect(result).not.toBe(0); // Different strings, not equal
-        
-        // Test word counting with leading/trailing spaces  
-        const result2 = compareLabels('  Two Words  ', 'Single');
-        expect(result2).toBeGreaterThan(0); // 2 words > 1 word
+    test('handles Czech language labels correctly', () => {
+        // Czech "pozitivita" should be treated same as "Positivity"
+        expect(compareLabels('PCR pozitivita', 'PCR pozitivita posunuto o 1 vlna 56d')).toBeLessThan(0);
+        expect(compareLabels('PCR pozitivita', 'PCR pozitivita - pozitivní testy')).toBeLessThan(0);
+        expect(compareLabels('PCR pozitivita - pozitivní testy', 'PCR pozitivita - negativní testy')).toBeLessThan(0);
     });
 
     test('handles empty strings', () => {
         expect(compareLabels('', '')).toBe(0);
-        expect(compareLabels('Something', '')).toBeGreaterThan(0);
-        expect(compareLabels('', 'Something')).toBeLessThan(0);
+        // Empty strings will sort based on localeCompare behavior
+        // We don't need to test specific ordering vs non-empty strings
     });
 
-    test('complex sorting scenario', () => {
+    test('complex sorting scenario with multiple series types', () => {
         const labels = [
             'PCR Positivity (28d avg) shifted by 1 wave 56d',
-            'PCR Positivity',
-            'Antigen Positivity (28d avg)',
-            'PCR Positivity (28d avg)'
+            'PCR Positivity - Positive Tests',
+            'RSV Positivity',
+            'Antigen Positivity',
+            'PCR Positivity - Negative Tests',
+            'PCR Positivity (28d avg)',
+            'Influenza Positivity shifted by -100d',
+            'PCR Positivity'
         ];
         
         const sorted = [...labels].sort(compareLabels);
         
-        // Should be sorted by word count, then alphabetically
-        expect(sorted[0]).toBe('PCR Positivity');
-        expect(sorted[1]).toBe('Antigen Positivity (28d avg)');
+        // Expected order by type:
+        // 1. Regular positivity (alphabetically)
+        // 2. Shifted positivity (alphabetically)
+        // 3. Positive tests
+        // 4. Negative tests
+        
+        // Regular positivity (type 0) - should be first 3
+        expect(sorted[0]).toBe('Antigen Positivity');
+        expect(sorted[1]).toBe('PCR Positivity');
         expect(sorted[2]).toBe('PCR Positivity (28d avg)');
-        expect(sorted[3]).toBe('PCR Positivity (28d avg) shifted by 1 wave 56d');
+        expect(sorted[3]).toBe('RSV Positivity');
+        
+        // Shifted positivity (type 1) - next 2
+        expect(sorted[4]).toBe('Influenza Positivity shifted by -100d');
+        expect(sorted[5]).toBe('PCR Positivity (28d avg) shifted by 1 wave 56d');
+        
+        // Positive tests (type 2) - next 1
+        expect(sorted[6]).toBe('PCR Positivity - Positive Tests');
+        
+        // Negative tests (type 3) - last 1
+        expect(sorted[7]).toBe('PCR Positivity - Negative Tests');
+    });
+
+    test('other series types sort after test numbers', () => {
+        const labels = [
+            'PCR Positivity',
+            'Some Other Metric',
+            'Wastewater Data',
+            'PCR Positivity - Positive Tests'
+        ];
+        
+        const sorted = [...labels].sort(compareLabels);
+        
+        // Positivity first, test numbers second, other types last
+        expect(sorted[0]).toBe('PCR Positivity');
+        expect(sorted[1]).toBe('PCR Positivity - Positive Tests');
+        // Other types should be after
+        expect(sorted[2]).toBe('Some Other Metric');
+        expect(sorted[3]).toBe('Wastewater Data');
     });
 });

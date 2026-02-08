@@ -513,24 +513,62 @@ function calculateMedian(values: number[]): number {
 }
 
 /**
- * Compares two labels by word count first (fewer words first), then alphabetically.
+ * Compares two labels by series type first, then alphabetically within the same type.
  * Used for consistent sorting of series labels in charts and legends.
+ * 
+ * Series are sorted in this order:
+ * 1. Regular positivity series (non-shifted)
+ * 2. Shifted positivity series
+ * 3. Positive test number series
+ * 4. Negative test number series
+ * 5. Shifted test number series
+ * 6. Other types (min/max, scalar, etc.)
+ * 
+ * Within each type category, series are sorted alphabetically.
  * 
  * @param labelA - First label to compare
  * @param labelB - Second label to compare
  * @returns Negative if labelA comes first, positive if labelB comes first, 0 if equal
  */
 export function compareLabels(labelA: string, labelB: string): number {
-    // Count words (sections separated by whitespace)
-    const wordsA = labelA.trim().split(/\s+/).filter(word => word.length > 0).length;
-    const wordsB = labelB.trim().split(/\s+/).filter(word => word.length > 0).length;
+    /**
+     * Determines the type priority of a series label.
+     * Lower numbers appear first in the sorted order.
+     */
+    const getSeriesType = (label: string): number => {
+        const lower = label.toLowerCase();
+        
+        // Check for positivity series (includes "positivity" or "pozitivita")
+        const isPositivity = lower.includes('positivity') || lower.includes('pozitivita');
+        const isShifted = lower.includes('shifted') || lower.includes('posunuto');
+        
+        // Check for specific test types first (more specific checks)
+        const isPositiveTest = lower.includes(' - positive tests') || lower.includes(' - pozitivní testy');
+        const isNegativeTest = lower.includes(' - negative tests') || lower.includes(' - negativní testy');
+        
+        // Priority order (lower = appears first)
+        if (isPositiveTest) {
+            return isShifted ? 4 : 2; // Non-shifted positive tests = 2, shifted = 4
+        }
+        if (isNegativeTest) {
+            return isShifted ? 4 : 3; // Non-shifted negative tests = 3, shifted = 4
+        }
+        if (isPositivity) {
+            return isShifted ? 1 : 0; // Non-shifted positivity = 0, shifted = 1
+        }
+        
+        return 5; // Other types (min/max, scalar, wastewater, etc.)
+    };
     
-    // Sort by word count first
-    if (wordsA !== wordsB) {
-        return wordsA - wordsB; // fewer words first
+    const typeA = getSeriesType(labelA);
+    const typeB = getSeriesType(labelB);
+    
+    // Sort by type first
+    if (typeA !== typeB) {
+        return typeA - typeB;
     }
     
-    // If word count is the same, fall back to alphabetical
+    // Within same type, sort alphabetically
     return labelA.localeCompare(labelB);
 }
 
