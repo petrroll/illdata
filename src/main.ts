@@ -379,6 +379,7 @@ function createCustomGraphData(selections: CustomGraphSelection[]): TimeseriesDa
     // Collect all unique dates across selected series
     const allDatesSet = new Set<string>();
     const seriesDataMap = new Map<string, DataSeries>();
+    const processedCharts = new Set<number>();
     
     selections.forEach(selection => {
         const sourceChart = chartConfigs[selection.sourceChartIndex];
@@ -391,13 +392,18 @@ function createCustomGraphData(selections: CustomGraphSelection[]): TimeseriesDa
         const series = sourceData.series.find(s => normalizeSeriesName(s.name) === normalizedSeriesName);
         if (!series) return;
         
+        // Add dates from this source chart only once per chart
+        if (!processedCharts.has(selection.sourceChartIndex)) {
+            sourceData.dates.forEach(date => allDatesSet.add(date));
+            processedCharts.add(selection.sourceChartIndex);
+        }
+        
         // Add source suffix to distinguish series from different charts
         const seriesWithSuffix: DataSeries = {
             ...series,
             name: `${series.name} (${sourceChart.shortTitle})`
         };
         
-        sourceData.dates.forEach(date => allDatesSet.add(date));
         seriesDataMap.set(seriesWithSuffix.name, seriesWithSuffix);
     });
     
@@ -1028,6 +1034,32 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     }
 
     let data = cfg.data;
+    
+    // Handle empty custom graph - show message instead of chart
+    if (cfg.isCustomGraph && data.series.length === 0) {
+        const container = document.getElementById(cfg.containerId);
+        if (container) {
+            const canvas = document.getElementById(cfg.canvasId);
+            if (canvas) canvas.style.display = 'none';
+            
+            let messageDiv = document.getElementById('customGraphEmptyMessage');
+            if (!messageDiv) {
+                messageDiv = document.createElement('div');
+                messageDiv.id = 'customGraphEmptyMessage';
+                messageDiv.style.cssText = 'padding: 20px; text-align: center; color: #666; font-style: italic;';
+                container.appendChild(messageDiv);
+            }
+            messageDiv.textContent = translations.customGraphNoSeriesSelected;
+            messageDiv.style.display = 'block';
+        }
+        return undefined;
+    } else if (cfg.isCustomGraph) {
+        // Hide the empty message and show canvas
+        const messageDiv = document.getElementById('customGraphEmptyMessage');
+        if (messageDiv) messageDiv.style.display = 'none';
+        const canvas = document.getElementById(cfg.canvasId);
+        if (canvas) canvas.style.display = 'block';
+    }
     
     // Apply country filter if applicable
     // Note: "EU/EEA" is a valid country value in the data representing aggregate European data
