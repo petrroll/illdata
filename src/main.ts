@@ -1206,7 +1206,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                                 `Shifted Original: ${originalDateString} (${shiftDays > 0 ? '+' : ''}${shiftDays}d)`
                             ];
                         },
-                        beforeBody: function(tooltipItems) {
+                        beforeBody: function(tooltipItems): void {
                             // Sort tooltip items by their parsed y-value in descending order (highest to lowest)
                             tooltipItems.sort((a, b) => {
                                 const aValue = typeof a.parsed.y === 'number' ? a.parsed.y : 0;
