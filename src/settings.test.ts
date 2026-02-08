@@ -36,6 +36,7 @@ describe('Unified Settings Tests', () => {
             showShifted: true,
             showTestNumbers: true,
             showShiftedTestNumbers: false,
+            showNonAveragedSeries: true,
             shiftOverride: 1,
             alignByExtreme: 'maxima'
         };
@@ -115,6 +116,31 @@ describe('Unified Settings Tests', () => {
         expect(settings.showShiftedTestNumbers).toBe(false);
     });
 
+    test('showNonAveragedSeries defaults to false', () => {
+        const settings = loadAppSettings();
+        expect(settings.showNonAveragedSeries).toBe(false);
+    });
+
+    test('saves and loads showNonAveragedSeries correctly', () => {
+        const customSettings: AppSettings = {
+            timeRange: "365",
+            includeFuture: false,
+            showExtremes: true,
+            showShifted: true,
+            showTestNumbers: true,
+            showShiftedTestNumbers: false,
+            showNonAveragedSeries: false,  // Test with default value
+            shiftOverride: 1,
+            alignByExtreme: 'maxima'
+        };
+        
+        saveAppSettings(customSettings);
+        const loadedSettings = loadAppSettings();
+        
+        expect(loadedSettings.showNonAveragedSeries).toBe(false);
+        expect(loadedSettings).toEqual(customSettings);
+    });
+
     test('saves and loads showShiftedTestNumbers correctly', () => {
         const customSettings: AppSettings = {
             timeRange: "365",
@@ -123,6 +149,7 @@ describe('Unified Settings Tests', () => {
             showShifted: true,
             showTestNumbers: true,
             showShiftedTestNumbers: true,  // Enable the new setting
+            showNonAveragedSeries: true,
             shiftOverride: 1,
             alignByExtreme: 'maxima'
         };

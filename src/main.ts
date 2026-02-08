@@ -521,6 +521,7 @@ function renderPage(rootDiv: HTMLElement | null) {
                     appSettings.showShifted,
                     appSettings.showTestNumbers,
                     appSettings.showShiftedTestNumbers,
+                    appSettings.showNonAveragedSeries,
                     appSettings.shiftOverride,
                     appSettings.alignByExtreme,
                     countryFilter,
@@ -596,6 +597,16 @@ function renderPage(rootDiv: HTMLElement | null) {
         label: translations.showShiftedTestNumbers,
         container: rootDiv,
         settingKey: 'showShiftedTestNumbers',
+        settings: appSettings,
+        onChange: onSettingsChange
+    });
+
+    createUnifiedSettingsControl({
+        type: 'checkbox',
+        id: 'showNonAveragedSeriesCheckbox',
+        label: translations.showNonAveragedSeries,
+        container: rootDiv,
+        settingKey: 'showNonAveragedSeries',
         settings: appSettings,
         onChange: onSettingsChange
     });
@@ -874,7 +885,7 @@ function getSortedSeriesWithIndices(series: DataSeries[]): { series: DataSeries,
     return seriesWithIndices;
 }
 
-function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima', countryFilter?: string, survtypeFilter?: string) {
+function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false, showNonAveragedSeries: boolean = false, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima', countryFilter?: string, survtypeFilter?: string) {
     // Destroy existing chart if it exists
     if (cfg.chartHolder.chart) {
         cfg.chartHolder.chart.destroy();
@@ -1006,6 +1017,21 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         datasets = datasets.filter(ds => !isShiftedSeries(ds.label));
     }
 
+    // Filter non-averaged (raw) series based on showNonAveragedSeries setting
+    if (!showNonAveragedSeries) {
+        // Find the corresponding series for each dataset and filter by type
+        datasets = datasets.filter(ds => {
+            const normalizedLabel = normalizeSeriesName(ds.label);
+            // Find the series in sortedSeriesWithIndices that matches this dataset
+            const matchingSeries = sortedSeriesWithIndices.find(({series}) => {
+                const translatedName = translateSeriesName(series.name);
+                return translatedName === ds.label || normalizeSeriesName(series.name) === normalizedLabel;
+            });
+            // Keep the dataset if it's averaged or if we couldn't find the series (safety)
+            return !matchingSeries || matchingSeries.series.type !== 'raw';
+        });
+    }
+
     // Filter test number series based on showTestNumbers setting
     if (!showTestNumbers) {
         barDatasets = barDatasets.filter(ds => !isTestNumberSeries(ds.label));
@@ -1045,6 +1071,13 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         baseToCurrentSeriesMap.set(baseName, normalizedName);
     });
     
+    // Build a map from normalized series name to series type for getVisibilityDefault
+    const normalizedNameToType = new Map<string, 'raw' | 'averaged'>();
+    sortedSeriesWithIndices.forEach(({series}) => {
+        const normalizedName = normalizeSeriesName(series.name);
+        normalizedNameToType.set(normalizedName, series.type);
+    });
+    
     // Initialize visibility for new series, checking both exact name and base name for previous state
     // Always use normalized (English) names for storage
     // Check if we have any stored visibility (from URL or previous session)
@@ -1065,7 +1098,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                 // Preserve visibility from previous shift of the same series
                 // BUT: Always respect current filter settings - defaultState tells us what filters allow
                 const previousState = cfg.datasetVisibility[previousVisibility];
-                const defaultState = getVisibilityDefault(normalizedName, showShifted, showTestNumbers, showShiftedTestNumbers);
+                const seriesType = normalizedNameToType.get(normalizedName);
+                const defaultState = getVisibilityDefault(normalizedName, showShifted, showTestNumbers, showShiftedTestNumbers, showNonAveragedSeries, seriesType);
                 // If filters say it should be hidden (defaultState is false), hide it regardless of previous state
                 // If filters allow it (defaultState is true), preserve the previous user choice
                 cfg.datasetVisibility[normalizedName] = defaultState === false ? false : previousState;
@@ -1075,7 +1109,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                 if (hasStoredVisibility) {
                     cfg.datasetVisibility[normalizedName] = false;
                 } else {
-                    cfg.datasetVisibility[normalizedName] = getVisibilityDefault(normalizedName, showShifted, showTestNumbers, showShiftedTestNumbers);
+                    const seriesType = normalizedNameToType.get(normalizedName);
+                    cfg.datasetVisibility[normalizedName] = getVisibilityDefault(normalizedName, showShifted, showTestNumbers, showShiftedTestNumbers, showNonAveragedSeries, seriesType);
                 }
             }
         }
@@ -1089,14 +1124,14 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
             if (hasStoredVisibility) {
                 cfg.datasetVisibility[positiveTestsName] = false;
             } else {
-                cfg.datasetVisibility[positiveTestsName] = getVisibilityDefault(positiveTestsName, showShifted, showTestNumbers, showShiftedTestNumbers);
+                cfg.datasetVisibility[positiveTestsName] = getVisibilityDefault(positiveTestsName, showShifted, showTestNumbers, showShiftedTestNumbers, showNonAveragedSeries);
             }
         }
         if (cfg.datasetVisibility[negativeTestsName] === undefined) {
             if (hasStoredVisibility) {
                 cfg.datasetVisibility[negativeTestsName] = false;
             } else {
-                cfg.datasetVisibility[negativeTestsName] = getVisibilityDefault(negativeTestsName, showShifted, showTestNumbers, showShiftedTestNumbers);
+                cfg.datasetVisibility[negativeTestsName] = getVisibilityDefault(negativeTestsName, showShifted, showTestNumbers, showShiftedTestNumbers, showNonAveragedSeries);
             }
         }
     });

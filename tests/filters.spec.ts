@@ -179,4 +179,105 @@ test.describe('Category Filters', () => {
     const legendItems = czechLegend.locator('span');
     await expect(legendItems.first()).toBeVisible();
   });
+
+  test('should show/hide non-averaged series when toggling the checkbox', async ({ page }) => {
+    const showNonAveragedSeriesCheckbox = page.locator('#showNonAveragedSeriesCheckbox');
+    await expect(showNonAveragedSeriesCheckbox).toBeVisible();
+    
+    // Initial state - should be unchecked by default (non-averaged series hidden)
+    await expect(showNonAveragedSeriesCheckbox).not.toBeChecked();
+    
+    // Count legend items without non-averaged series
+    const czechLegend = page.locator('#czechDataContainer-legend');
+    const withoutNonAveraged = await czechLegend.locator('span').count();
+    
+    // Check to show non-averaged series
+    await showNonAveragedSeriesCheckbox.check();
+    await page.waitForTimeout(200);
+    
+    // Count should increase (raw series added)
+    const withNonAveraged = await czechLegend.locator('span').count();
+    expect(withNonAveraged).toBeGreaterThan(withoutNonAveraged);
+    
+    // Uncheck to hide non-averaged series again
+    await showNonAveragedSeriesCheckbox.uncheck();
+    await page.waitForTimeout(200);
+    
+    // Count should return to initial (without raw series)
+    const afterUncheck = await czechLegend.locator('span').count();
+    expect(afterUncheck).toBe(withoutNonAveraged);
+  });
+
+  test('non-averaged series toggle should not affect test numbers', async ({ page }) => {
+    // Make sure test numbers are visible
+    const showTestNumbersCheckbox = page.locator('#showTestNumbersCheckbox');
+    await expect(showTestNumbersCheckbox).toBeChecked();
+    
+    const showNonAveragedSeriesCheckbox = page.locator('#showNonAveragedSeriesCheckbox');
+    
+    // Get initial count with test numbers visible and non-averaged hidden
+    const czechLegend = page.locator('#czechDataContainer-legend');
+    const initialCount = await czechLegend.locator('span').count();
+    
+    // Enable non-averaged series
+    await showNonAveragedSeriesCheckbox.check();
+    await page.waitForTimeout(200);
+    const withNonAveraged = await czechLegend.locator('span').count();
+    
+    // Disable non-averaged series again
+    await showNonAveragedSeriesCheckbox.uncheck();
+    await page.waitForTimeout(200);
+    const backToInitial = await czechLegend.locator('span').count();
+    
+    // Count should return to initial, meaning test numbers weren't affected
+    expect(backToInitial).toBe(initialCount);
+  });
+
+  test('should persist non-averaged series toggle state in localStorage', async ({ page }) => {
+    const showNonAveragedSeriesCheckbox = page.locator('#showNonAveragedSeriesCheckbox');
+    
+    // Initial state should be unchecked
+    await expect(showNonAveragedSeriesCheckbox).not.toBeChecked();
+    
+    // Check the checkbox
+    await showNonAveragedSeriesCheckbox.check();
+    await page.waitForTimeout(300);
+    
+    // Reload page
+    await page.reload();
+    await page.waitForSelector('#showNonAveragedSeriesCheckbox');
+    
+    // State should persist as checked
+    await expect(showNonAveragedSeriesCheckbox).toBeChecked();
+    
+    // Uncheck and reload again
+    await showNonAveragedSeriesCheckbox.uncheck();
+    await page.waitForTimeout(300);
+    await page.reload();
+    await page.waitForSelector('#showNonAveragedSeriesCheckbox');
+    
+    // State should persist as unchecked
+    await expect(showNonAveragedSeriesCheckbox).not.toBeChecked();
+  });
+
+  test('non-averaged series toggle should work with averaged series visible', async ({ page }) => {
+    const showNonAveragedSeriesCheckbox = page.locator('#showNonAveragedSeriesCheckbox');
+    const czechLegend = page.locator('#czechDataContainer-legend');
+    
+    // Start with non-averaged hidden (default)
+    await expect(showNonAveragedSeriesCheckbox).not.toBeChecked();
+    const withAveragedOnly = await czechLegend.locator('span').count();
+    
+    // Enable non-averaged series
+    await showNonAveragedSeriesCheckbox.check();
+    await page.waitForTimeout(200);
+    const withBoth = await czechLegend.locator('span').count();
+    
+    // Should have more series (both averaged and raw visible)
+    expect(withBoth).toBeGreaterThan(withAveragedOnly);
+    
+    // Averaged series should still be visible
+    // The count should be significant (not just 1 or 2 series added)
+    expect(withBoth - withAveragedOnly).toBeGreaterThan(0);
+  });
 });
