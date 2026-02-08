@@ -533,6 +533,11 @@ function calculateMedian(values: number[]): number {
  */
 export function compareLabels(labelA: string, labelB: string): number {
     // Priority constants (lower numbers appear first in sorted order)
+    // Note: Priority 4 is intentionally skipped to maintain logical grouping:
+    // - Priorities 0-1 are for positivity series
+    // - Priorities 2-3 are for non-shifted test numbers
+    // - Priorities 5-6 are for shifted test numbers
+    // - Priority 7 is for other types
     const PRIORITY_POSITIVITY = 0;
     const PRIORITY_POSITIVITY_SHIFTED = 1;
     const PRIORITY_POSITIVE_TESTS = 2;

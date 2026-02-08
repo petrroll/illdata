@@ -800,9 +800,15 @@ describe('compareLabels Tests', () => {
     });
 
     test('handles empty strings', () => {
+        // Empty strings are equal to each other
         expect(compareLabels('', '')).toBe(0);
-        // Empty strings will sort based on localeCompare behavior
-        // We don't need to test specific ordering vs non-empty strings
+        
+        // Empty strings sort using localeCompare's behavior
+        // In most locales, empty strings sort before non-empty strings
+        const result1 = compareLabels('PCR Positivity', '');
+        const result2 = compareLabels('', 'PCR Positivity');
+        // Verify they have opposite signs (one positive, one negative)
+        expect(result1 * result2).toBeLessThan(0);
     });
 
     test('complex sorting scenario with multiple series types', () => {
