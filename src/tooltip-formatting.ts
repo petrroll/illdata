@@ -1,0 +1,141 @@
+// Tooltip formatting utilities for Chart.js tooltips
+// Handles sorting tooltip items by type and value, and identifying the closest series
+
+import { 
+    isPositivitySeries, 
+    isShiftedSeries, 
+    isAveragedSeries, 
+    isPositiveTestSeries, 
+    isNegativeTestSeries 
+} from './series-utils';
+
+/**
+ * Tooltip item interface matching Chart.js structure
+ */
+export interface TooltipItem {
+    dataset: {
+        label?: string;
+        [key: string]: any;
+    };
+    parsed: {
+        x: number;
+        y: number;
+    };
+    datasetIndex: number;
+    [key: string]: any;
+}
+
+/**
+ * Gets the type priority for a series label.
+ * Lower numbers appear first in the sorted order.
+ * This mirrors the logic in utils.ts compareLabels but returns just the priority number.
+ */
+function getSeriesTypePriority(label: string): number {
+    const PRIORITY_POSITIVITY = 0;
+    const PRIORITY_POSITIVITY_SHIFTED = 1;
+    const PRIORITY_POSITIVITY_AVERAGED = 2;
+    const PRIORITY_POSITIVE_TESTS = 3;
+    const PRIORITY_NEGATIVE_TESTS = 4;
+    const PRIORITY_POSITIVE_TESTS_SHIFTED = 5;
+    const PRIORITY_NEGATIVE_TESTS_SHIFTED = 6;
+    const PRIORITY_OTHER = 7;
+    
+    const isPositivity = isPositivitySeries(label);
+    const isShifted = isShiftedSeries(label);
+    const isAveraged = isAveragedSeries(label);
+    const isPositiveTest = isPositiveTestSeries(label);
+    const isNegativeTest = isNegativeTestSeries(label);
+    
+    if (isPositiveTest) {
+        return isShifted ? PRIORITY_POSITIVE_TESTS_SHIFTED : PRIORITY_POSITIVE_TESTS;
+    }
+    if (isNegativeTest) {
+        return isShifted ? PRIORITY_NEGATIVE_TESTS_SHIFTED : PRIORITY_NEGATIVE_TESTS;
+    }
+    if (isPositivity) {
+        if (isShifted) {
+            return PRIORITY_POSITIVITY_SHIFTED;
+        }
+        if (isAveraged) {
+            return PRIORITY_POSITIVITY_AVERAGED;
+        }
+        return PRIORITY_POSITIVITY;
+    }
+    
+    return PRIORITY_OTHER;
+}
+
+/**
+ * Sorts tooltip items by:
+ * 1. Type/category (positivity, shifted positivity, averaged, tests, etc.)
+ * 2. Value within each type (highest first)
+ * 
+ * @param items - Array of tooltip items to sort
+ * @returns Sorted array of tooltip items
+ */
+export function sortTooltipItems(items: TooltipItem[]): TooltipItem[] {
+    return [...items].sort((a, b) => {
+        const labelA = a.dataset.label || '';
+        const labelB = b.dataset.label || '';
+        
+        // First, compare by type/category
+        const priorityA = getSeriesTypePriority(labelA);
+        const priorityB = getSeriesTypePriority(labelB);
+        
+        if (priorityA !== priorityB) {
+            return priorityA - priorityB;
+        }
+        
+        // Within same type, sort by value (highest first)
+        const valueA = a.parsed.y;
+        const valueB = b.parsed.y;
+        
+        // Handle NaN values (put them at the end)
+        if (isNaN(valueA) && isNaN(valueB)) return 0;
+        if (isNaN(valueA)) return 1;
+        if (isNaN(valueB)) return -1;
+        
+        // Sort descending (highest first)
+        return valueB - valueA;
+    });
+}
+
+/**
+ * Finds the closest tooltip item to the cursor position.
+ * In Chart.js with mode: 'index', all items share the same x position,
+ * so we find the one with y value closest to the cursor's y position.
+ * 
+ * @param items - Array of tooltip items
+ * @param cursorY - The y-coordinate of the cursor (in pixel space)
+ * @param chart - The Chart.js chart instance
+ * @returns Index of the closest item, or -1 if none found
+ */
+export function findClosestItem(items: TooltipItem[], cursorY: number, chart: any): number {
+    if (items.length === 0) return -1;
+    
+    let closestIndex = -1;
+    let closestDistance = Infinity;
+    
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const value = item.parsed.y;
+        
+        // Skip items with NaN values
+        if (isNaN(value)) continue;
+        
+        // Get the pixel y-coordinate for this value
+        // Chart.js stores scale information in the chart's scales
+        const yScale = chart.scales.y || chart.scales.y1;
+        if (!yScale) continue;
+        
+        const pixelY = yScale.getPixelForValue(value);
+        const distance = Math.abs(pixelY - cursorY);
+        
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closestIndex = i;
+        }
+    }
+    
+    return closestIndex;
+}

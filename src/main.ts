@@ -24,6 +24,7 @@ import { type AppSettings, type AlignByExtreme, DEFAULT_APP_SETTINGS, APP_SETTIN
 import { type UrlState, type UrlChartConfig, encodeUrlState, decodeUrlState, loadStateFromUrl, applyUrlState } from "./urlstate";
 import { extractShiftFromLabel } from "./tooltip";
 import { adjustColorForTestBars } from "./color";
+import { sortTooltipItems, findClosestItem, type TooltipItem } from "./tooltip-formatting";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -1172,6 +1173,18 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
             labels,
             datasets: allVisibleDatasets,
         },
+        plugins: [{
+            id: 'tooltipSorter',
+            beforeTooltipDraw: function(chart: any, args: any, options: any) {
+                const tooltip = args.tooltip;
+                if (tooltip && tooltip.dataPoints && tooltip.dataPoints.length > 1) {
+                    // Sort the tooltip items
+                    const sorted = sortTooltipItems(tooltip.dataPoints as TooltipItem[]);
+                    tooltip.dataPoints.length = 0;
+                    tooltip.dataPoints.push(...sorted);
+                }
+            }
+        }],
         options: {
             responsive: true,
             maintainAspectRatio: false,
@@ -1198,6 +1211,59 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     intersect: false,
                     axis: 'x',
                     callbacks: {
+                        label: function(context: any) {
+                            const chart = context.chart;
+                            const tooltip = chart.tooltip;
+                            
+                            // Find the closest item to cursor based on y-distance
+                            let closestDatasetIndex = -1;
+                            let closestDistance = Infinity;
+                            
+                            if (tooltip && tooltip.caretY !== undefined && tooltip.dataPoints) {
+                                const cursorY = tooltip.caretY;
+                                
+                                for (const item of tooltip.dataPoints) {
+                                    const value = item.parsed.y;
+                                    if (isNaN(value)) continue;
+                                    
+                                    // Get the y-scale (try both 'y' and 'y1')
+                                    const yScale = chart.scales.y || chart.scales.y1;
+                                    if (!yScale) continue;
+                                    
+                                    const pixelY = yScale.getPixelForValue(value);
+                                    const distance = Math.abs(pixelY - cursorY);
+                                    
+                                    if (distance < closestDistance) {
+                                        closestDistance = distance;
+                                        closestDatasetIndex = item.datasetIndex;
+                                    }
+                                }
+                            }
+                            
+                            // Get the label and value
+                            const label = context.dataset.label || '';
+                            const value = context.parsed.y;
+                            
+                            // Format the value based on series type
+                            let formattedValue: string;
+                            if (isNaN(value)) {
+                                formattedValue = 'N/A';
+                            } else if (isScalarSeries(context.dataset)) {
+                                // For scalar series (e.g., wastewater), use scientific notation
+                                formattedValue = value.toExponential(3);
+                            } else {
+                                // For positivity data, show as percentage with more precision
+                                formattedValue = value.toFixed(3);
+                            }
+                            
+                            // Check if this is the closest item
+                            const isClosest = context.datasetIndex === closestDatasetIndex;
+                            
+                            // Add marker for closest item (using bullet point)
+                            const marker = isClosest ? '● ' : '  ';
+                            
+                            return `${marker}${label}: ${formattedValue}`;
+                        },
                         title: function(context) {
                             if (context.length === 0) return '';
                             
