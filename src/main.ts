@@ -1020,6 +1020,28 @@ function createChartContainerAndCanvas(containerId: string, canvasId: string): H
         console.error(`Container not found: ${containerId}`);
         return null;
     }
+    
+    // For custom graph, create a wrapper for chart and legend to keep them separate from controls
+    const isCustomGraph = containerId === 'customGraphContainer';
+    if (isCustomGraph) {
+        let chartWrapper = document.getElementById('customGraphChartWrapper');
+        if (!chartWrapper) {
+            chartWrapper = document.createElement('div');
+            chartWrapper.id = 'customGraphChartWrapper';
+            chartWrapper.style.cssText = 'width: 100vw; height: 40vh;';
+            container.appendChild(chartWrapper);
+        }
+        
+        let canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
+        if (!canvas) {
+            canvas = document.createElement("canvas");
+            canvas.id = canvasId;
+            chartWrapper.appendChild(canvas);
+        }
+        return canvas;
+    }
+    
+    // For regular charts, use the existing approach
     container.style.width = "100vw";
     container.style.height = "40vh";
     let canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
@@ -1099,8 +1121,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     
     // Handle empty custom graph - show message instead of chart
     if (cfg.isCustomGraph && data.series.length === 0) {
-        const container = document.getElementById(cfg.containerId);
-        if (container) {
+        const chartWrapper = document.getElementById('customGraphChartWrapper');
+        if (chartWrapper) {
             const canvas = document.getElementById(cfg.canvasId);
             if (canvas) canvas.style.display = 'none';
             
@@ -1109,7 +1131,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                 messageDiv = document.createElement('div');
                 messageDiv.id = 'customGraphEmptyMessage';
                 messageDiv.style.cssText = 'padding: 20px; text-align: center; color: #666; font-style: italic;';
-                container.appendChild(messageDiv);
+                chartWrapper.appendChild(messageDiv);
             }
             messageDiv.textContent = translations.customGraphNoSeriesSelected;
             messageDiv.style.display = 'block';
@@ -1566,10 +1588,19 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
             justify-content: center;
         `;
         
-        // Insert legend after the chart container
-        const chartContainer = document.getElementById(containerId);
-        if (chartContainer && chartContainer.parentNode) {
-            chartContainer.parentNode.insertBefore(legendContainer, chartContainer.nextSibling);
+        // For custom graph, insert legend inside the chart wrapper
+        // For other charts, insert after the chart container
+        const isCustomGraph = containerId === 'customGraphContainer';
+        if (isCustomGraph) {
+            const chartWrapper = document.getElementById('customGraphChartWrapper');
+            if (chartWrapper) {
+                chartWrapper.appendChild(legendContainer);
+            }
+        } else {
+            const chartContainer = document.getElementById(containerId);
+            if (chartContainer && chartContainer.parentNode) {
+                chartContainer.parentNode.insertBefore(legendContainer, chartContainer.nextSibling);
+            }
         }
     }
     
