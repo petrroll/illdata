@@ -616,6 +616,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         'czechDataContainer',
         'euDataContainer',
         'deWastewaterContainer',
+        'nlInfectieradarContainer',
         'hideAllButton'
     ];
     
