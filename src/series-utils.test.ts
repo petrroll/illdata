@@ -4,7 +4,9 @@ import {
     getVisibilityDefault,
     isShiftedSeries,
     isTestNumberSeries,
-    isMinMaxSeries
+    isMinMaxSeries,
+    stripShiftAndExtremeSuffixes,
+    shouldIncludeShiftedSeries
 } from './series-utils';
 
 describe('isNonAveragedSeries Tests', () => {
@@ -163,5 +165,25 @@ describe('getVisibilityDefault with showNonAveragedSeries Tests', () => {
             'raw'  // seriesType
         );
         expect(resultHidden).toBe(false);
+    });
+});
+
+describe('stripShiftAndExtremeSuffixes Tests', () => {
+    test('removes shift and extreme suffixes', () => {
+        expect(stripShiftAndExtremeSuffixes('PCR Positivity (28d avg) shifted by 1 wave -347d')).toBe('PCR Positivity (28d avg)');
+        expect(stripShiftAndExtremeSuffixes('PCR Positivity minima over 84d')).toBe('PCR Positivity');
+        expect(stripShiftAndExtremeSuffixes('RSV Wastewater shifted by 1 wave NaNd')).toBe('RSV Wastewater');
+    });
+});
+
+describe('shouldIncludeShiftedSeries Tests', () => {
+    test('respects showShifted and showShiftedTestNumbers settings', () => {
+        const shiftedLabel = 'PCR Positivity shifted by -300d';
+        const regularLabel = 'PCR Positivity';
+        
+        expect(shouldIncludeShiftedSeries(shiftedLabel, false)).toBe(false);
+        expect(shouldIncludeShiftedSeries(shiftedLabel, true, false)).toBe(false);
+        expect(shouldIncludeShiftedSeries(shiftedLabel, true, true)).toBe(true);
+        expect(shouldIncludeShiftedSeries(regularLabel, false)).toBe(true);
     });
 });

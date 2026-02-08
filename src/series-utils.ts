@@ -165,6 +165,14 @@ function replaceShiftPatterns(label: string, replacement: string): string {
 }
 
 /**
+ * Removes all shift and extreme suffixes from a label.
+ * This applies shift-related patterns regardless of whether the label is shifted.
+ */
+export function stripShiftAndExtremeSuffixes(label: string): string {
+    return replaceShiftPatterns(label, '');
+}
+
+/**
  * Extracts the base series name without ANY shift information.
  * Completely removes the shift suffix to get the original series name.
  * 
@@ -262,5 +270,26 @@ export function getVisibilityDefault(
     }
 
     // Show all other datasets by default
+    return true;
+}
+
+/**
+ * Determines whether a series label should be included based on shift settings.
+ */
+export function shouldIncludeShiftedSeries(
+    label: string,
+    showShifted: boolean,
+    showShiftedTestNumbers: boolean = true
+): boolean {
+    const shifted = isShiftedSeries(label);
+
+    if (!showShifted && shifted) {
+        return false;
+    }
+
+    if (!showShiftedTestNumbers && shifted) {
+        return false;
+    }
+
     return true;
 }

@@ -1,4 +1,4 @@
-import { downloadAndSaveCsv, getAbsolutePath, toFloat } from "./ioUtils";
+import { downloadAndSaveCsv, getAbsolutePath, parseDelimited } from "./ioUtils";
 import type { TimeseriesData, PositivitySeries } from "../utils";
 
 export async function downloadNlInfectieradarData(filename: string = "data_pathogens.csv") {
@@ -12,20 +12,7 @@ export async function downloadNlInfectieradarData(filename: string = "data_patho
  * The NL data uses semicolons as delimiters and commas as decimal separators.
  */
 export function parseSemicolonCsv(csvContent: string): Record<string, string>[] {
-    const lines = csvContent.split("\n").filter(line => line.trim() !== "");
-
-    const headers = lines[0].split(";").map(h => h.trim());
-    const data = lines.slice(1).map(line => {
-        const values = line.split(";").map(v => v.trim());
-        const row: Record<string, string> = {};
-        headers.forEach((header, i) => {
-            row[header] = values[i] || "";
-        });
-        return row;
-    });
-
-    console.log("Parsed semicolon-separated CSV data");
-    return data;
+    return parseDelimited(csvContent, ";", "semicolon-separated CSV");
 }
 
 /**

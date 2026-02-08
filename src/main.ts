@@ -15,10 +15,10 @@ import {
     isPositiveTestSeries,
     isNegativeTestSeries,
     getTestPairBaseName,
-    isShiftedTestNumberSeries,
     getBaseSeriesName,
     getBaseSeriesNameWithoutShift,
-    getVisibilityDefault
+    getVisibilityDefault,
+    shouldIncludeShiftedSeries
 } from "./series-utils";
 import { type AppSettings, type AlignByExtreme, DEFAULT_APP_SETTINGS, APP_SETTINGS_KEY, loadAppSettings, saveAppSettings, migrateOldSettings } from "./settings";
 import { type UrlState, type UrlChartConfig, encodeUrlState, decodeUrlState, loadStateFromUrl, applyUrlState } from "./urlstate";
@@ -946,9 +946,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     let barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, paletteMap, showShifted, showShiftedTestNumbers);
 
     // Filter shifted series based on showShifted setting
-    if (!showShifted) {
-        datasets = datasets.filter(ds => !isShiftedSeries(ds.label));
-    }
+    datasets = datasets.filter(ds => shouldIncludeShiftedSeries(ds.label, showShifted));
 
     // Filter non-averaged (raw) series based on showNonAveragedSeries setting
     if (!showNonAveragedSeries) {
@@ -971,13 +969,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     }
 
     // Filter shifted test number series based on showShiftedTestNumbers setting
-    // Only apply if the general filters haven't already removed them
-    if (!showShiftedTestNumbers) {
-        barDatasets = barDatasets.filter(ds => {
-            // Filter out datasets that are both test numbers AND shifted
-            return !isShiftedTestNumberSeries(ds.label);
-        });
-    }
+    barDatasets = barDatasets.filter(ds => shouldIncludeShiftedSeries(ds.label, showShifted, showShiftedTestNumbers));
 
     const localExtremeDatasets = [
         ...generateLocalExtremeDataset([filteredMaximaSeries], data, cutoffDateString, "red", includeFuture, cfg), 
@@ -1513,24 +1505,9 @@ function generateTestNumberBarDatasets(
     
     // Filter out shifted series if showShifted is false or showShiftedTestNumbers is false
     // We need to check the series name BEFORE creating test number datasets
-    if (!showShifted || !showShiftedTestNumbers) {
-        rawPositivitySeriesWithIndices = rawPositivitySeriesWithIndices.filter(({ series }) => {
-            const shifted = isShiftedSeries(series.name);
-            
-            // If shifted series are completely disabled, filter out all shifted series
-            if (!showShifted && shifted) {
-                return false;
-            }
-            
-            // If shifted test numbers are disabled (but regular shifted might be ok),
-            // filter out shifted series since they will become test number bars
-            if (!showShiftedTestNumbers && shifted) {
-                return false;
-            }
-            
-            return true;
-        });
-    }
+    rawPositivitySeriesWithIndices = rawPositivitySeriesWithIndices.filter(({ series }) =>
+        shouldIncludeShiftedSeries(series.name, showShifted, showShiftedTestNumbers)
+    );
     
     return rawPositivitySeriesWithIndices.flatMap(({ series, originalIndex }, sortedIndex) => {
         const selectedPalette = getSeriesPalette(series, paletteMap, colorPalettes);
@@ -1762,4 +1739,3 @@ function updateRatioTable() {
 
 // Expose chart configs for E2E testing
 (window as any).__chartConfigs = chartConfigs;
-
