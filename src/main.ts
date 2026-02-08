@@ -424,14 +424,53 @@ function createCustomGraphData(selections: CustomGraphSelection[]): TimeseriesDa
             dateToIndexMap.set(date, idx);
         });
         
-        // Create aligned values array
-        const alignedValues = allDates.map(date => {
+        // Create aligned values array with linear interpolation for missing dates
+        const alignedValues = allDates.map((date, idx) => {
             const sourceIndex = dateToIndexMap.get(date);
             if (sourceIndex !== undefined && sourceIndex < series.values.length) {
                 return series.values[sourceIndex];
             }
-            // Return null for missing dates so Chart.js skips them (creating gaps in the line)
-            // This prevents showing 0% values where data doesn't exist
+            
+            // Interpolate for missing dates
+            // Find the nearest previous and next dates with actual data
+            let prevIdx = idx - 1;
+            let nextIdx = idx + 1;
+            
+            while (prevIdx >= 0 && !dateToIndexMap.has(allDates[prevIdx])) {
+                prevIdx--;
+            }
+            while (nextIdx < allDates.length && !dateToIndexMap.has(allDates[nextIdx])) {
+                nextIdx++;
+            }
+            
+            // If we have both prev and next data points, interpolate
+            if (prevIdx >= 0 && nextIdx < allDates.length) {
+                const prevSourceIdx = dateToIndexMap.get(allDates[prevIdx])!;
+                const nextSourceIdx = dateToIndexMap.get(allDates[nextIdx])!;
+                const prevValue = series.values[prevSourceIdx];
+                const nextValue = series.values[nextSourceIdx];
+                
+                if (prevValue && nextValue) {
+                    const ratio = (idx - prevIdx) / (nextIdx - prevIdx);
+                    
+                    if (isScalarSeries(series)) {
+                        const prevScalar = prevValue as ScalarDatapoint;
+                        const nextScalar = nextValue as ScalarDatapoint;
+                        return {
+                            virusLoad: prevScalar.virusLoad + (nextScalar.virusLoad - prevScalar.virusLoad) * ratio
+                        } as ScalarDatapoint;
+                    } else {
+                        const prevPositivity = prevValue as Datapoint;
+                        const nextPositivity = nextValue as Datapoint;
+                        return {
+                            positive: prevPositivity.positive + (nextPositivity.positive - prevPositivity.positive) * ratio,
+                            tests: prevPositivity.tests + (nextPositivity.tests - prevPositivity.tests) * ratio
+                        } as Datapoint;
+                    }
+                }
+            }
+            
+            // If we can't interpolate, return null
             return null;
         });
         
