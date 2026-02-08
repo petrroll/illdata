@@ -532,6 +532,15 @@ function calculateMedian(values: number[]): number {
  * @returns Negative if labelA comes first, positive if labelB comes first, 0 if equal
  */
 export function compareLabels(labelA: string, labelB: string): number {
+    // Priority constants (lower numbers appear first in sorted order)
+    const PRIORITY_POSITIVITY = 0;
+    const PRIORITY_POSITIVITY_SHIFTED = 1;
+    const PRIORITY_POSITIVE_TESTS = 2;
+    const PRIORITY_NEGATIVE_TESTS = 3;
+    const PRIORITY_POSITIVE_TESTS_SHIFTED = 5;
+    const PRIORITY_NEGATIVE_TESTS_SHIFTED = 6;
+    const PRIORITY_OTHER = 7;
+    
     /**
      * Determines the type priority of a series label.
      * Lower numbers appear first in the sorted order.
@@ -547,18 +556,18 @@ export function compareLabels(labelA: string, labelB: string): number {
         const isPositiveTest = lower.includes(' - positive tests') || lower.includes(' - pozitivní testy');
         const isNegativeTest = lower.includes(' - negative tests') || lower.includes(' - negativní testy');
         
-        // Priority order (lower = appears first)
+        // Determine priority based on series type
         if (isPositiveTest) {
-            return isShifted ? 5 : 2; // Non-shifted positive tests = 2, shifted = 5
+            return isShifted ? PRIORITY_POSITIVE_TESTS_SHIFTED : PRIORITY_POSITIVE_TESTS;
         }
         if (isNegativeTest) {
-            return isShifted ? 6 : 3; // Non-shifted negative tests = 3, shifted = 6
+            return isShifted ? PRIORITY_NEGATIVE_TESTS_SHIFTED : PRIORITY_NEGATIVE_TESTS;
         }
         if (isPositivity) {
-            return isShifted ? 1 : 0; // Non-shifted positivity = 0, shifted = 1
+            return isShifted ? PRIORITY_POSITIVITY_SHIFTED : PRIORITY_POSITIVITY;
         }
         
-        return 7; // Other types (min/max, scalar, wastewater, etc.)
+        return PRIORITY_OTHER;
     };
     
     const typeA = getSeriesType(labelA);
