@@ -563,5 +563,8 @@ export function getColorBaseSeriesName(label: string): string {
     // Remove extreme indicators like "maxima over 84d" or "minima over 84d"
     baseName = baseName.replace(/\s+(maxima|minima)\s+over\s+\d+d/, '');
     
+    // Remove surveillance type suffixes like "(Sentinel)" and "(Non-Sentinel)"
+    baseName = baseName.replace(/\s*\((Non-)?Sentinel\)/, '');
+    
     return baseName.trim();
 }

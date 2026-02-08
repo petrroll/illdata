@@ -993,7 +993,15 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         // Reds palette
         ["#d62728", "#e74c3c", "#f16c6c", "#f78b8b", "#fdaaaa"],
         // Purples palette
-        ["#9467bd", "#a569d4", "#b86beb", "#cb8dff", "#deadff"]
+        ["#9467bd", "#a569d4", "#b86beb", "#cb8dff", "#deadff"],
+        // Oranges palette
+        ["#ff7f0e", "#ff9933", "#ffad5c", "#ffc285", "#ffd6ae"],
+        // Browns palette
+        ["#8b4513", "#a0522d", "#b8734d", "#cd9575", "#e4b89d"],
+        // Pinks palette
+        ["#e377c2", "#f48fb1", "#f7a8cc", "#fabfe6", "#fdd7f0"],
+        // Grays palette
+        ["#7f7f7f", "#969696", "#adadad", "#c4c4c4", "#dbdbdb"]
     ];
     // Sort series and calculate color assignments
     const sortedSeriesWithIndices = getSortedSeriesWithIndices(data.series);
@@ -1503,6 +1511,14 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
  * Each base series is assigned to a palette, and different variations (raw, averaged, shifted)
  * get different colors within that palette.
  * 
+ * Priority assignments ensure consistent colors:
+ * - Antigen: Blues palette (index 0) - Czech data
+ * - PCR: Greens palette (index 1) - Czech data
+ * - SARS-CoV-2: Reds palette (index 2) - all data sources
+ * - RSV: Blues palette (index 0) - EU/NL/DE data sources
+ * - Influenza: Greens palette (index 1) - EU/NL/DE data sources
+ * - Netherlands-specific pathogens: Each gets unique color family (Purples, Oranges, Browns, Pinks, Grays)
+ * 
  * @param series - Array of all series in the dataset
  * @param numPalettes - Number of available color palettes
  * @returns A map from base series name to palette index
@@ -1515,9 +1531,45 @@ function createStablePaletteMapping(series: DataSeries[], numPalettes: number): 
         new Set(series.map(s => getColorBaseSeriesName(s.name)))
     ).sort((a, b) => compareLabels(a, b));
     
-    // Assign each base series to a palette index (cycling through available palettes)
-    uniqueBaseNames.forEach((baseName, index) => {
-        paletteMap.set(baseName, index % numPalettes);
+    // Priority mappings to ensure consistent and distinct colors
+    // Palette indices: [0: Blues, 1: Greens, 2: Reds, 3: Purples, 4: Oranges, 5: Browns, 6: Pinks, 7: Grays]
+    const priorityMappings: Record<string, number> = {
+        // Czech MZCR data - preserve original alphabetical assignment
+        'Antigen Positivity': 0,                  // Blues (first alphabetically)
+        'PCR Positivity': 1,                      // Greens (second alphabetically)
+        
+        // SARS-CoV-2 across all sources - always Red
+        'SARS-CoV-2 Positivity': 2,               // Reds
+        'SARS-CoV-2 Wastewater': 2,               // Reds
+        
+        // Standard respiratory viruses across EU/NL/DE
+        'RSV Positivity': 0,                      // Blues
+        'RSV Wastewater': 0,                      // Blues
+        'Influenza Positivity': 1,                // Greens
+        'Influenza Wastewater': 1,                // Greens
+        
+        // Netherlands-specific pathogens - each gets unique color family
+        'Adenovirus Positivity': 3,               // Purples
+        'Humaan metapneumovirus Positivity': 4,   // Oranges (unique, distinct from Adenovirus)
+        'Parainfluenza Positivity': 5,            // Browns (unique, distinct from RSV Blues)
+        'Rhino-/enterovirus Positivity': 6,       // Pinks (unique, distinct from Influenza Greens)
+        'Seizoenscoronavirussen Positivity': 7,   // Grays (unique, distinct from SARS-CoV-2 Reds)
+    };
+    
+    // Check for priority series and assign them first
+    const priorityNames = new Set<string>();
+    uniqueBaseNames.forEach(baseName => {
+        if (baseName in priorityMappings) {
+            paletteMap.set(baseName, priorityMappings[baseName]);
+            priorityNames.add(baseName);
+        }
+    });
+    
+    // Assign remaining series to available palettes in round-robin fashion
+    const remainingNames = uniqueBaseNames.filter(name => !priorityNames.has(name));
+    remainingNames.forEach((baseName, index) => {
+        const paletteIndex = index % numPalettes;
+        paletteMap.set(baseName, paletteIndex);
     });
     
     return paletteMap;
