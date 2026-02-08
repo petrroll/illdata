@@ -43,6 +43,8 @@ const EU_COUNTRY_FILTER_KEY = "euCountryFilter";
 const EU_SURVTYPE_FILTER_KEY = "euSurvtypeFilter";
 const DE_WASTEWATER_VISIBILITY_KEY = "deWastewaterVisibility";
 const NL_INFECTIERADAR_VISIBILITY_KEY = "nlInfectieradarVisibility";
+const CUSTOM_GRAPH_VISIBILITY_KEY = "customGraphVisibility";
+const CUSTOM_GRAPH_SELECTIONS_KEY = "customGraphSelections";
 
 interface ChartConfig {
     containerId: string;
@@ -65,6 +67,7 @@ interface ChartConfig {
     countryFilterKey?: string;
     hasSurvtypeFilter?: boolean;
     survtypeFilterKey?: string;
+    isCustomGraph?: boolean;
 }
 
 // Global chart holders for hideAllSeries
@@ -112,6 +115,17 @@ const chartConfigs : ChartConfig[] = [
         visibilityKey: NL_INFECTIERADAR_VISIBILITY_KEY,
         chartHolder: { chart: undefined as Chart | undefined },
         datasetVisibility: { }
+    },
+    {
+        containerId: "customGraphContainer",
+        canvasId: "customGraphChart",
+        data: { dates: [], series: [] }, // Start with empty data
+        title: "Custom Graph",
+        shortTitle: "Custom",
+        visibilityKey: CUSTOM_GRAPH_VISIBILITY_KEY,
+        chartHolder: { chart: undefined as Chart | undefined },
+        datasetVisibility: { },
+        isCustomGraph: true
     }
 ];
 
@@ -145,6 +159,7 @@ function updateAllUITexts() {
     chartConfigs[1].title = t.chartTitleEuViruses;
     chartConfigs[2].title = t.chartTitleDeWastewater;
     chartConfigs[3].title = t.chartTitleNlInfectieradar;
+    chartConfigs[4].title = t.chartTitleCustomGraph;
 }
 
 // Initialize UI texts
@@ -330,6 +345,175 @@ function createSurvtypeSelector(cfg: ChartConfig, survtypeFilters: Map<string, s
     createFilterSelector(cfg, 'survtype', survtypeFilters, options, currentTranslations.survtypeLabel, "both", cfg.survtypeFilterKey, onSettingsChange, `${cfg.containerId}-country-selector`);
 }
 
+// Custom graph management functions
+interface CustomGraphSelection {
+    sourceChartIndex: number;
+    seriesName: string; // Normalized (English) series name
+}
+
+function loadCustomGraphSelections(): CustomGraphSelection[] {
+    try {
+        const stored = localStorage.getItem(CUSTOM_GRAPH_SELECTIONS_KEY);
+        if (stored) {
+            return JSON.parse(stored);
+        }
+    } catch (error) {
+        console.error("Error loading custom graph selections:", error);
+    }
+    return [];
+}
+
+function saveCustomGraphSelections(selections: CustomGraphSelection[]): void {
+    try {
+        localStorage.setItem(CUSTOM_GRAPH_SELECTIONS_KEY, JSON.stringify(selections));
+    } catch (error) {
+        console.error("Error saving custom graph selections:", error);
+    }
+}
+
+function createCustomGraphData(selections: CustomGraphSelection[]): TimeseriesData {
+    if (selections.length === 0) {
+        return { dates: [], series: [] };
+    }
+    
+    // Collect all unique dates across selected series
+    const allDatesSet = new Set<string>();
+    const seriesDataMap = new Map<string, DataSeries>();
+    
+    selections.forEach(selection => {
+        const sourceChart = chartConfigs[selection.sourceChartIndex];
+        if (!sourceChart || sourceChart.isCustomGraph) return;
+        
+        const sourceData = sourceChart.data;
+        const normalizedSeriesName = selection.seriesName;
+        
+        // Find the series by normalized name
+        const series = sourceData.series.find(s => normalizeSeriesName(s.name) === normalizedSeriesName);
+        if (!series) return;
+        
+        // Add source suffix to distinguish series from different charts
+        const seriesWithSuffix: DataSeries = {
+            ...series,
+            name: `${series.name} (${sourceChart.shortTitle})`
+        };
+        
+        sourceData.dates.forEach(date => allDatesSet.add(date));
+        seriesDataMap.set(seriesWithSuffix.name, seriesWithSuffix);
+    });
+    
+    // Convert set to sorted array
+    const allDates = Array.from(allDatesSet).sort();
+    
+    // Convert series map to array
+    const allSeries = Array.from(seriesDataMap.values());
+    
+    return {
+        dates: allDates,
+        series: allSeries
+    };
+}
+
+function createCustomGraphSeriesSelector(customGraphConfig: ChartConfig, onSelectionChange: () => void): HTMLElement {
+    const container = document.createElement('div');
+    container.id = 'customGraphSeriesSelector';
+    container.style.cssText = 'margin: 10px 0; padding: 10px; border: 1px solid #ddd; background: #f9f9f9;';
+    
+    const title = document.createElement('h4');
+    title.textContent = translations.customGraphSelectSeries;
+    title.style.margin = '0 0 10px 0';
+    container.appendChild(title);
+    
+    const clearButton = document.createElement('button');
+    clearButton.textContent = translations.customGraphClearAll;
+    clearButton.style.cssText = 'margin-bottom: 10px;';
+    clearButton.onclick = () => {
+        saveCustomGraphSelections([]);
+        onSelectionChange();
+    };
+    container.appendChild(clearButton);
+    
+    // Get current selections
+    const currentSelections = loadCustomGraphSelections();
+    const selectionSet = new Set(
+        currentSelections.map(s => `${s.sourceChartIndex}:${s.seriesName}`)
+    );
+    
+    // Create checkboxes for each source chart and its series
+    chartConfigs.forEach((sourceChart, chartIndex) => {
+        if (sourceChart.isCustomGraph) return; // Skip the custom graph itself
+        
+        const chartSection = document.createElement('div');
+        chartSection.style.cssText = 'margin: 10px 0;';
+        
+        const chartTitle = document.createElement('strong');
+        chartTitle.textContent = `${sourceChart.shortTitle}:`;
+        chartTitle.style.display = 'block';
+        chartTitle.style.marginBottom = '5px';
+        chartSection.appendChild(chartTitle);
+        
+        // Get available series from this chart
+        const availableSeries = sourceChart.data.series
+            .filter(s => s.type === 'averaged') // Only show averaged series to keep it simple
+            .sort((a, b) => compareLabels(a.name, b.name));
+        
+        // Deduplicate series by normalized name to avoid showing duplicates
+        const seenNormalizedNames = new Set<string>();
+        const uniqueSeries = availableSeries.filter(series => {
+            const normalizedName = normalizeSeriesName(series.name);
+            if (seenNormalizedNames.has(normalizedName)) {
+                return false;
+            }
+            seenNormalizedNames.add(normalizedName);
+            return true;
+        });
+        
+        uniqueSeries.forEach(series => {
+            const normalizedName = normalizeSeriesName(series.name);
+            const selectionKey = `${chartIndex}:${normalizedName}`;
+            const isSelected = selectionSet.has(selectionKey);
+            
+            const checkboxWrapper = document.createElement('label');
+            checkboxWrapper.style.cssText = 'display: block; margin-left: 15px; margin-bottom: 3px;';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = isSelected;
+            checkbox.style.marginRight = '5px';
+            checkbox.onchange = () => {
+                const selections = loadCustomGraphSelections();
+                if (checkbox.checked) {
+                    // Add selection
+                    selections.push({
+                        sourceChartIndex: chartIndex,
+                        seriesName: normalizedName
+                    });
+                } else {
+                    // Remove selection
+                    const index = selections.findIndex(
+                        s => s.sourceChartIndex === chartIndex && s.seriesName === normalizedName
+                    );
+                    if (index >= 0) {
+                        selections.splice(index, 1);
+                    }
+                }
+                saveCustomGraphSelections(selections);
+                onSelectionChange();
+            };
+            
+            const label = document.createElement('span');
+            label.textContent = translateSeriesName(series.name);
+            
+            checkboxWrapper.appendChild(checkbox);
+            checkboxWrapper.appendChild(label);
+            chartSection.appendChild(checkboxWrapper);
+        });
+        
+        container.appendChild(chartSection);
+    });
+    
+    return container;
+}
+
 // Refactored renderPage to use unified control creation and callback
 function renderPage(rootDiv: HTMLElement | null) {
     if (!rootDiv) {
@@ -354,6 +538,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         'euDataContainer',
         'deWastewaterContainer',
         'nlInfectieradarContainer',
+        'customGraphContainer',
         'hideAllButton'
     ];
     
@@ -453,6 +638,15 @@ function renderPage(rootDiv: HTMLElement | null) {
         if (key && value !== undefined) {
             (appSettings as any)[key] = value;
             saveAppSettings(appSettings);
+        }
+        
+        // Update custom graph data based on current selections
+        const customGraphConfig = chartConfigs.find(cfg => cfg.isCustomGraph);
+        if (customGraphConfig) {
+            const selections = loadCustomGraphSelections();
+            customGraphConfig.data = createCustomGraphData(selections);
+            // Clear extremes cache when data changes
+            customGraphConfig.extremesCache = undefined;
         }
                 
         chartConfigs.forEach(cfg => {
@@ -646,6 +840,20 @@ function renderPage(rootDiv: HTMLElement | null) {
             createSurvtypeSelector(cfg, survtypeFilters, onSettingsChange);
         }
     });
+    
+    // Create series selector for custom graph
+    const customGraphConfig = chartConfigs.find(cfg => cfg.isCustomGraph);
+    if (customGraphConfig) {
+        const customGraphContainer = document.getElementById(customGraphConfig.containerId);
+        if (customGraphContainer) {
+            const existingSelector = document.getElementById('customGraphSeriesSelector');
+            if (existingSelector) {
+                existingSelector.remove();
+            }
+            const seriesSelector = createCustomGraphSeriesSelector(customGraphConfig, onSettingsChange);
+            customGraphContainer.insertBefore(seriesSelector, customGraphContainer.firstChild);
+        }
+    }
 
     // Initial render
     onSettingsChange();

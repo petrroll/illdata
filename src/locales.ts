@@ -38,11 +38,15 @@ export interface Translations {
     chartTitleEuViruses: string;
     chartTitleDeWastewater: string;
     chartTitleNlInfectieradar: string;
+    chartTitleCustomGraph: string;
     countryLabel: string;
     survtypeLabel: string;
     survtypeBoth: string;
     survtypeSentinel: string;
     survtypeNonSentinel: string;
+    customGraphSelectSeries: string;
+    customGraphNoSeriesSelected: string;
+    customGraphClearAll: string;
     
     // Trends table
     trendsTableTitle: string;
@@ -234,11 +238,15 @@ const en: Translations = {
     chartTitleEuViruses: 'EU ECDC Respiratory Viruses',
     chartTitleDeWastewater: 'Germany Wastewater Surveillance (AMELAG)',
     chartTitleNlInfectieradar: 'Netherlands Infectieradar Pathogens',
+    chartTitleCustomGraph: 'Custom Graph',
     countryLabel: 'Country:',
     survtypeLabel: 'Surveillance Type:',
     survtypeBoth: 'Both',
     survtypeSentinel: 'Sentinel',
     survtypeNonSentinel: 'Non-Sentinel',
+    customGraphSelectSeries: 'Select series to display:',
+    customGraphNoSeriesSelected: 'No series selected. Use checkboxes above to add series to this graph.',
+    customGraphClearAll: 'Clear All',
     
     // Trends table
     trendsTableTitle: 'Current Trends',
@@ -398,11 +406,15 @@ const cs: Translations = {
     chartTitleEuViruses: 'Respirační viry EU ECDC',
     chartTitleDeWastewater: 'Sledování odpadních vod v Německu (AMELAG)',
     chartTitleNlInfectieradar: 'Patogeny Infectieradar Nizozemsko',
+    chartTitleCustomGraph: 'Vlastní graf',
     countryLabel: 'Země:',
     survtypeLabel: 'Typ sledování:',
     survtypeBoth: 'Obě',
     survtypeSentinel: 'Sentinelové',
     survtypeNonSentinel: 'Non-sentinelové',
+    customGraphSelectSeries: 'Vyberte série k zobrazení:',
+    customGraphNoSeriesSelected: 'Nejsou vybrány žádné série. Použijte zaškrtávací políčka výše pro přidání sérií do tohoto grafu.',
+    customGraphClearAll: 'Vymazat vše',
     
     // Trends table
     trendsTableTitle: 'Aktuální trendy',
