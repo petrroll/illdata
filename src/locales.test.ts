@@ -98,6 +98,11 @@ describe('Series Name Translation Tests', () => {
                 'PCR Positivity shifted by 370d',
                 'PCR Positivity (28d avg) shifted by 1 wave -347d',
                 'Antigen Positivity shifted by -180d',
+                'Rhino-/enterovirus Positivity',
+                'Seizoenscoronavirussen Positivity',
+                'Adenovirus Positivity',
+                'Humaan metapneumovirus Positivity',
+                'Parainfluenza Positivity',
             ];
 
             originalNames.forEach(original => {
