@@ -5,7 +5,7 @@ import nlInfectieradarImport from "../data_processed/nl_infectieradar/positivity
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, datapointToPercentage, compareLabels, getColorBaseSeriesName, isScalarSeries } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, type ScalarSeries, type Datapoint, type ScalarDatapoint, datapointToPercentage, compareLabels, getColorBaseSeriesName, isScalarSeries } from "./utils";
 import { getLanguage, setLanguage, getTranslations, translateSeriesName, normalizeSeriesName, type Language } from "./locales";
 import { createRegularLegendButton, createSplitTestPill, createSplitShiftedPill, type ChartConfig as LegendChartConfig } from "./ui/legend-utils";
 import { 
@@ -378,7 +378,11 @@ function createCustomGraphData(selections: CustomGraphSelection[]): TimeseriesDa
     
     // Collect all unique dates across selected series
     const allDatesSet = new Set<string>();
-    const seriesDataMap = new Map<string, DataSeries>();
+    const seriesWithMeta: Array<{
+        series: DataSeries;
+        sourceData: TimeseriesData;
+        newName: string;
+    }> = [];
     const processedCharts = new Set<number>();
     
     selections.forEach(selection => {
@@ -398,20 +402,52 @@ function createCustomGraphData(selections: CustomGraphSelection[]): TimeseriesDa
             processedCharts.add(selection.sourceChartIndex);
         }
         
-        // Add source suffix to distinguish series from different charts
-        const seriesWithSuffix: DataSeries = {
-            ...series,
-            name: `${series.name} (${sourceChart.shortTitle})`
-        };
-        
-        seriesDataMap.set(seriesWithSuffix.name, seriesWithSuffix);
+        // Store series with metadata for later processing
+        seriesWithMeta.push({
+            series,
+            sourceData,
+            newName: `${series.name} (${sourceChart.shortTitle})`
+        });
     });
     
     // Convert set to sorted array
     const allDates = Array.from(allDatesSet).sort();
     
-    // Convert series map to array
-    const allSeries = Array.from(seriesDataMap.values());
+    // Now align each series' values with the merged dates array
+    const allSeries: DataSeries[] = seriesWithMeta.map(({ series, sourceData, newName }) => {
+        // Create a map from date to value index in the source data
+        const dateToIndexMap = new Map<string, number>();
+        sourceData.dates.forEach((date, idx) => {
+            dateToIndexMap.set(date, idx);
+        });
+        
+        // Create aligned values array
+        const alignedValues = allDates.map(date => {
+            const sourceIndex = dateToIndexMap.get(date);
+            if (sourceIndex !== undefined && sourceIndex < series.values.length) {
+                return series.values[sourceIndex];
+            }
+            // Return placeholder for missing dates
+            return isScalarSeries(series)
+                ? { virusLoad: 0 }
+                : { positive: 0, tests: NaN };
+        });
+        
+        // Return series with aligned values and new name
+        if (isScalarSeries(series)) {
+            return {
+                ...series,
+                name: newName,
+                values: alignedValues as ScalarDatapoint[]
+            } as ScalarSeries;
+        } else {
+            return {
+                ...series,
+                name: newName,
+                values: alignedValues as Datapoint[]
+            } as PositivitySeries;
+        }
+    });
     
     return {
         dates: allDates,
@@ -856,8 +892,34 @@ function renderPage(rootDiv: HTMLElement | null) {
             if (existingSelector) {
                 existingSelector.remove();
             }
+            
+            const existingToggleButton = document.getElementById('customGraphToggleButton');
+            if (existingToggleButton) {
+                existingToggleButton.remove();
+            }
+            
+            // Create toggle button for showing/hiding the selector
+            const toggleButton = document.createElement('button');
+            toggleButton.id = 'customGraphToggleButton';
+            toggleButton.textContent = translations.customGraphSelectSeries;
+            toggleButton.style.cssText = 'margin: 10px 0; padding: 8px 12px;';
+            customGraphContainer.insertBefore(toggleButton, customGraphContainer.firstChild);
+            
+            // Create the selector (hidden by default)
             const seriesSelector = createCustomGraphSeriesSelector(customGraphConfig, onSettingsChange);
-            customGraphContainer.insertBefore(seriesSelector, customGraphContainer.firstChild);
+            seriesSelector.style.display = 'none'; // Start hidden
+            customGraphContainer.insertBefore(seriesSelector, toggleButton.nextSibling);
+            
+            // Toggle functionality
+            toggleButton.onclick = () => {
+                if (seriesSelector.style.display === 'none') {
+                    seriesSelector.style.display = 'block';
+                    toggleButton.textContent = `${translations.customGraphSelectSeries} ▼`;
+                } else {
+                    seriesSelector.style.display = 'none';
+                    toggleButton.textContent = translations.customGraphSelectSeries;
+                }
+            };
         }
     }
 
