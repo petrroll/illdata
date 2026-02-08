@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { sortTooltipItems, type TooltipItem } from "./tooltip-formatting";
+import { sortTooltipItems, compareTooltipItems, type TooltipItem } from "./tooltip-formatting";
 
 describe("sortTooltipItems", () => {
     test("sorts by type first, then by value within type", () => {
@@ -221,5 +221,41 @@ describe("sortTooltipItems - Czech test series bug", () => {
         // Next two should be test series (positive tests before negative tests)
         expect(sorted[2].dataset.label).toBe("Antigenní pozitivita - pozitivní testy");
         expect(sorted[3].dataset.label).toBe("Antigenní pozitivita - negativní testy");
+    });
+});
+
+describe("compareTooltipItems", () => {
+    test("compares by type priority first", () => {
+        const positivity: TooltipItem = {
+            dataset: { label: "PCR Positivity" },
+            parsed: { x: 0, y: 5.0 },
+            datasetIndex: 0
+        };
+        const testNumber: TooltipItem = {
+            dataset: { label: "PCR Positivity - Positive Tests" },
+            parsed: { x: 0, y: 100.0 },
+            datasetIndex: 1
+        };
+        
+        // Positivity should come before test numbers
+        expect(compareTooltipItems(positivity, testNumber)).toBeLessThan(0);
+        expect(compareTooltipItems(testNumber, positivity)).toBeGreaterThan(0);
+    });
+    
+    test("compares by value within same type", () => {
+        const higher: TooltipItem = {
+            dataset: { label: "PCR Positivity" },
+            parsed: { x: 0, y: 10.0 },
+            datasetIndex: 0
+        };
+        const lower: TooltipItem = {
+            dataset: { label: "Antigen Positivity" },
+            parsed: { x: 0, y: 5.0 },
+            datasetIndex: 1
+        };
+        
+        // Higher value should come first (negative comparison result)
+        expect(compareTooltipItems(higher, lower)).toBeLessThan(0);
+        expect(compareTooltipItems(lower, higher)).toBeGreaterThan(0);
     });
 });

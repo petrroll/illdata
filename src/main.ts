@@ -24,7 +24,7 @@ import { type AppSettings, type AlignByExtreme, DEFAULT_APP_SETTINGS, APP_SETTIN
 import { type UrlState, type UrlChartConfig, encodeUrlState, decodeUrlState, loadStateFromUrl, applyUrlState } from "./urlstate";
 import { extractShiftFromLabel } from "./tooltip";
 import { adjustColorForTestBars } from "./color";
-import { sortTooltipItems, findClosestItem, type TooltipItem } from "./tooltip-formatting";
+import { sortTooltipItems, findClosestItem, compareTooltipItems, type TooltipItem } from "./tooltip-formatting";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -1202,22 +1202,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     intersect: false,
                     axis: 'x',
                     itemSort: function(a: any, b: any) {
-                        // Convert to TooltipItem format for our sorting function
-                        const itemA: TooltipItem = {
-                            dataset: a.dataset,
-                            parsed: a.parsed,
-                            datasetIndex: a.datasetIndex
-                        };
-                        const itemB: TooltipItem = {
-                            dataset: b.dataset,
-                            parsed: b.parsed,
-                            datasetIndex: b.datasetIndex
-                        };
-                        
-                        // Use our sorting logic
-                        const items = sortTooltipItems([itemA, itemB]);
-                        // Return -1 if a should come before b, 1 if b should come before a
-                        return items[0] === itemA ? -1 : 1;
+                        // Use direct comparison function for pairwise sorting
+                        return compareTooltipItems(a as TooltipItem, b as TooltipItem);
                     },
                     callbacks: {
                         label: function(context: any) {
