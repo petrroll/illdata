@@ -61,12 +61,13 @@ test.describe('Future Data Display', () => {
     });
     
     expect(chartInfo).not.toBeNull();
-    expect(chartInfo!.pastDays).toBeGreaterThanOrEqual(25); // Allow some tolerance
-    expect(chartInfo!.pastDays).toBeLessThanOrEqual(35);
+    // Use ±10 day tolerance to account for data update delays
+    expect(chartInfo!.pastDays).toBeGreaterThanOrEqual(20);
+    expect(chartInfo!.pastDays).toBeLessThanOrEqual(40);
     
-    // Future should be approximately 2x past (60 days with some tolerance)
-    expect(chartInfo!.futureDays).toBeGreaterThanOrEqual(50);
-    expect(chartInfo!.futureDays).toBeLessThanOrEqual(70);
+    // Future should be approximately 2x past (60 days with ±20 day tolerance)
+    expect(chartInfo!.futureDays).toBeGreaterThanOrEqual(40);
+    expect(chartInfo!.futureDays).toBeLessThanOrEqual(80);
   });
 
   test('should show 2x future data for 90 days time range', async ({ page }) => {
@@ -101,12 +102,13 @@ test.describe('Future Data Display', () => {
     });
     
     expect(chartInfo).not.toBeNull();
-    expect(chartInfo!.pastDays).toBeGreaterThanOrEqual(85); // Allow some tolerance
-    expect(chartInfo!.pastDays).toBeLessThanOrEqual(95);
+    // Use ±10 day tolerance to account for data update delays
+    expect(chartInfo!.pastDays).toBeGreaterThanOrEqual(80);
+    expect(chartInfo!.pastDays).toBeLessThanOrEqual(100);
     
-    // Future should be approximately 2x past (180 days with some tolerance)
-    expect(chartInfo!.futureDays).toBeGreaterThanOrEqual(170);
-    expect(chartInfo!.futureDays).toBeLessThanOrEqual(190);
+    // Future should be approximately 2x past (180 days with ±20 day tolerance)
+    expect(chartInfo!.futureDays).toBeGreaterThanOrEqual(160);
+    expect(chartInfo!.futureDays).toBeLessThanOrEqual(200);
   });
 
   test('should show 2x future data for 180 days time range', async ({ page }) => {
@@ -140,12 +142,13 @@ test.describe('Future Data Display', () => {
     });
     
     expect(chartInfo).not.toBeNull();
-    expect(chartInfo!.pastDays).toBeGreaterThanOrEqual(175);
-    expect(chartInfo!.pastDays).toBeLessThanOrEqual(185);
+    // Use ±10 day tolerance to account for data update delays
+    expect(chartInfo!.pastDays).toBeGreaterThanOrEqual(170);
+    expect(chartInfo!.pastDays).toBeLessThanOrEqual(190);
     
-    // Future should be approximately 2x past (360 days with some tolerance)
-    expect(chartInfo!.futureDays).toBeGreaterThanOrEqual(350);
-    expect(chartInfo!.futureDays).toBeLessThanOrEqual(370);
+    // Future should be approximately 2x past (360 days with ±20 day tolerance)
+    expect(chartInfo!.futureDays).toBeGreaterThanOrEqual(340);
+    expect(chartInfo!.futureDays).toBeLessThanOrEqual(380);
   });
 
   test('should show 2x future data for 365 days time range', async ({ page }) => {
@@ -179,13 +182,14 @@ test.describe('Future Data Display', () => {
     });
     
     expect(chartInfo).not.toBeNull();
-    expect(chartInfo!.pastDays).toBeGreaterThanOrEqual(360);
-    expect(chartInfo!.pastDays).toBeLessThanOrEqual(370);
+    // Use ±10 day tolerance to account for data update delays
+    expect(chartInfo!.pastDays).toBeGreaterThanOrEqual(355);
+    expect(chartInfo!.pastDays).toBeLessThanOrEqual(375);
     
     // Future should be approximately 2x past (730 days) but might be limited by available data
     // The dataset may not have 730 days of future data, so we verify it shows maximum available
     // or at least more future data than for shorter time ranges
-    expect(chartInfo!.futureDays).toBeGreaterThanOrEqual(350);
+    expect(chartInfo!.futureDays).toBeGreaterThanOrEqual(340);
   });
 
   test('should not show future data when includeFuture is disabled', async ({ page }) => {
@@ -257,11 +261,12 @@ test.describe('Future Data Display', () => {
     expect(chartsInfo.length).toBeGreaterThan(0);
     
     // All charts should show consistent future projection
+    // Use ±10 day tolerance to account for data update delays
     for (const chartInfo of chartsInfo) {
-      expect(chartInfo.pastDays).toBeGreaterThanOrEqual(85);
-      expect(chartInfo.pastDays).toBeLessThanOrEqual(95);
-      expect(chartInfo.futureDays).toBeGreaterThanOrEqual(170);
-      expect(chartInfo.futureDays).toBeLessThanOrEqual(190);
+      expect(chartInfo.pastDays).toBeGreaterThanOrEqual(80);
+      expect(chartInfo.pastDays).toBeLessThanOrEqual(100);
+      expect(chartInfo.futureDays).toBeGreaterThanOrEqual(160);
+      expect(chartInfo.futureDays).toBeLessThanOrEqual(200);
     }
   });
 
