@@ -1216,28 +1216,13 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             const tooltip = chart.tooltip;
                             
                             // Find the closest item to cursor based on y-distance
-                            let closestDatasetIndex = -1;
-                            let closestDistance = Infinity;
-                            
+                            let closestIndex = -1;
                             if (tooltip && tooltip.caretY !== undefined && tooltip.dataPoints) {
-                                const cursorY = tooltip.caretY;
-                                
-                                for (const item of tooltip.dataPoints) {
-                                    const value = item.parsed.y;
-                                    if (isNaN(value)) continue;
-                                    
-                                    // Get the y-scale (try both 'y' and 'y1')
-                                    const yScale = chart.scales.y || chart.scales.y1;
-                                    if (!yScale) continue;
-                                    
-                                    const pixelY = yScale.getPixelForValue(value);
-                                    const distance = Math.abs(pixelY - cursorY);
-                                    
-                                    if (distance < closestDistance) {
-                                        closestDistance = distance;
-                                        closestDatasetIndex = item.datasetIndex;
-                                    }
-                                }
+                                closestIndex = findClosestItem(
+                                    tooltip.dataPoints as TooltipItem[], 
+                                    tooltip.caretY, 
+                                    chart
+                                );
                             }
                             
                             // Get the label and value
@@ -1252,12 +1237,19 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                                 // For scalar series (e.g., wastewater), use scientific notation
                                 formattedValue = value.toExponential(3);
                             } else {
-                                // For positivity data, show as percentage with more precision
+                                // For positivity data, show as decimal (values are percentages like 5.123 meaning 5.123%)
                                 formattedValue = value.toFixed(3);
                             }
                             
                             // Check if this is the closest item
-                            const isClosest = context.datasetIndex === closestDatasetIndex;
+                            // Find the index of the current item in the tooltip.dataPoints array
+                            let currentIndex = -1;
+                            if (tooltip && tooltip.dataPoints) {
+                                currentIndex = tooltip.dataPoints.findIndex(
+                                    (item: any) => item.datasetIndex === context.datasetIndex
+                                );
+                            }
+                            const isClosest = currentIndex !== -1 && currentIndex === closestIndex;
                             
                             // Add marker for closest item (using bullet point)
                             const marker = isClosest ? '● ' : '  ';
