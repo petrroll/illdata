@@ -17,11 +17,12 @@ const SHIFT_PATTERNS = [
 ];
 
 /**
- * Helper: checks if a normalized series label includes the given identifier (case-insensitive)
+ * Helper: checks if a normalized series label includes the given identifier.
+ * By default, comparison is case-insensitive. Set caseInsensitive=false for exact case matching.
  */
-function normalizedLabelIncludes(label: string, identifier: string, caseSensitive = false): boolean {
+function normalizedLabelIncludes(label: string, identifier: string, caseInsensitive = true): boolean {
     const normalized = normalizeSeriesName(label);
-    return caseSensitive ? normalized.includes(identifier) : normalized.toLowerCase().includes(identifier);
+    return caseInsensitive ? normalized.toLowerCase().includes(identifier) : normalized.includes(identifier);
 }
 
 /**
@@ -70,7 +71,7 @@ export function isPositivitySeries(label: string): boolean {
  * @returns True if the series is averaged
  */
 export function isAveragedSeries(label: string): boolean {
-    return normalizedLabelIncludes(label, 'd avg)', true);
+    return normalizedLabelIncludes(label, 'd avg)', false);
 }
 
 /**
@@ -79,7 +80,7 @@ export function isAveragedSeries(label: string): boolean {
  * @returns True if the series represents positive tests
  */
 export function isPositiveTestSeries(label: string): boolean {
-    return normalizedLabelIncludes(label, ' - Positive Tests', true);
+    return normalizedLabelIncludes(label, ' - Positive Tests', false);
 }
 
 /**
@@ -88,7 +89,7 @@ export function isPositiveTestSeries(label: string): boolean {
  * @returns True if the series represents negative tests
  */
 export function isNegativeTestSeries(label: string): boolean {
-    return normalizedLabelIncludes(label, ' - Negative Tests', true);
+    return normalizedLabelIncludes(label, ' - Negative Tests', false);
 }
 
 /**
