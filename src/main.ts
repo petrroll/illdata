@@ -1213,12 +1213,35 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             // Find the closest item to cursor based on y-distance (with hysteresis)
                             // Only calculate once per tooltip render by checking if this is the first item
                             let closestDatasetIndex = -1;
-                            if (tooltip && tooltip.y !== undefined && tooltip.dataPoints) {
+                            if (tooltip && tooltip.dataPoints) {
                                 // Store in tooltip object to calculate only once
                                 if (tooltip._closestDatasetIndex === undefined) {
+                                    // For mode:'index' tooltips, use the average Y position of all data points
+                                    // as a proxy for cursor position, since Chart.js doesn't expose mouse coords directly
+                                    let cursorY: number;
+                                    if (tooltip.caretY !== undefined) {
+                                        // caretY is where the tooltip arrow points, closer to the data
+                                        cursorY = tooltip.caretY;
+                                    } else if (tooltip.y !== undefined) {
+                                        // Fallback to tooltip box position
+                                        cursorY = tooltip.y;
+                                    } else {
+                                        // Calculate average Y position of all visible points as fallback
+                                        const yPositions = tooltip.dataPoints
+                                            .map((item: any) => {
+                                                const yAxisID = item.dataset.yAxisID || 'y';
+                                                const scale = chart.scales[yAxisID];
+                                                return scale ? scale.getPixelForValue(item.parsed.y) : null;
+                                            })
+                                            .filter((y: number | null) => y !== null) as number[];
+                                        cursorY = yPositions.length > 0 
+                                            ? yPositions.reduce((sum, y) => sum + y, 0) / yPositions.length
+                                            : chart.chartArea.top + chart.chartArea.height / 2;
+                                    }
+                                    
                                     closestDatasetIndex = findClosestItem(
                                         tooltip.dataPoints as TooltipItem[], 
-                                        tooltip.y,  // Use tooltip.y (tooltip position) instead of tooltip.caretY
+                                        cursorY,
                                         chart,
                                         previousClosestDatasetIndex
                                     );
