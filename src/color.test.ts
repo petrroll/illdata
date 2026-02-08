@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { getColorBaseSeriesName } from "./utils";
+import { adjustColorForTestBars } from "./color";
 
 describe("Color Base Series Name Extraction Tests", () => {
     test("extracts base name from raw series", () => {
@@ -74,5 +75,31 @@ describe("Color Base Series Name Extraction Tests", () => {
             "Antigen Positivity",
             "Influenza Positivity",
         ]);
+    });
+});
+
+describe("adjustColorForTestBars Tests", () => {
+    test("returns a valid hex color for positive tests", () => {
+        const result = adjustColorForTestBars("#1f77b4", true);
+        expect(result).toMatch(/^#[0-9a-f]{6}$/);
+    });
+
+    test("returns a valid hex color for negative tests", () => {
+        const result = adjustColorForTestBars("#1f77b4", false);
+        expect(result).toMatch(/^#[0-9a-f]{6}$/);
+    });
+
+    test("positive and negative produce different colors", () => {
+        const positive = adjustColorForTestBars("#1f77b4", true);
+        const negative = adjustColorForTestBars("#1f77b4", false);
+        expect(positive).not.toBe(negative);
+    });
+
+    test("handles different input colors", () => {
+        const colors = ["#d62728", "#2ca02c", "#9467bd"];
+        colors.forEach(color => {
+            const result = adjustColorForTestBars(color, true);
+            expect(result).toMatch(/^#[0-9a-f]{6}$/);
+        });
     });
 });

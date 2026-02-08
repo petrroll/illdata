@@ -1,4 +1,6 @@
 import { describe, test, expect, beforeEach } from 'bun:test';
+import { encodeUrlState, decodeUrlState, type UrlChartConfig } from './urlstate';
+import { DEFAULT_APP_SETTINGS, type AppSettings, type AlignByExtreme } from './settings';
 
 // Mock localStorage for testing
 const mockLocalStorage = (() => {
@@ -17,124 +19,6 @@ Object.defineProperty(global, 'localStorage', {
     writable: true
 });
 
-// Type definitions for URL state
-type AlignByExtreme = 'days' | 'maxima' | 'minima';
-
-interface AppSettings {
-    timeRange: string;
-    includeFuture: boolean;
-    showExtremes: boolean;
-    showShifted: boolean;
-    showTestNumbers: boolean;
-    showShiftedTestNumbers: boolean;
-    shiftOverride: number | null;
-    alignByExtreme: AlignByExtreme;
-}
-
-interface UrlState {
-    settings: AppSettings;
-    visibility: {
-        [key: string]: { [seriesName: string]: boolean };
-    };
-    countryFilters: {
-        [key: string]: string;
-    };
-    language?: string; // Optional for backward compatibility
-}
-
-interface ChartConfig {
-    containerId: string;
-    visibilityKey: string;
-    datasetVisibility: { [key: string]: boolean };
-    countryFilterKey?: string;
-}
-
-const DEFAULT_APP_SETTINGS: AppSettings = {
-    timeRange: "365",
-    includeFuture: false,
-    showExtremes: false,
-    showShifted: true,
-    showTestNumbers: true,
-    showShiftedTestNumbers: false,
-    shiftOverride: 1,
-    alignByExtreme: 'maxima'
-};
-
-// Mock language functions for testing
-function getLanguage(): string {
-    return mockLocalStorage.getItem('illmeter-language') || 'en';
-}
-
-function setLanguage(lang: string): void {
-    mockLocalStorage.setItem('illmeter-language', lang);
-}
-
-// Implementation functions for testing
-function encodeUrlState(appSettings: AppSettings, chartConfigs: ChartConfig[], countryFilters: Map<string, string>): string {
-    // Collect visibility state from all charts, storing only 'true' values to reduce size
-    const compactVisibility: { [key: string]: { [seriesName: string]: boolean } } = {};
-    chartConfigs.forEach(cfg => {
-        const trueOnly: { [seriesName: string]: boolean } = {};
-        Object.entries(cfg.datasetVisibility).forEach(([seriesName, isVisible]) => {
-            if (isVisible === true) {
-                trueOnly[seriesName] = true;
-            }
-        });
-        if (Object.keys(trueOnly).length > 0) {
-            compactVisibility[cfg.visibilityKey] = trueOnly;
-        }
-    });
-    
-    // Collect country filters
-    const compactCountryFilters: { [key: string]: string } = {};
-    countryFilters.forEach((country, containerId) => {
-        const cfg = chartConfigs.find(c => c.containerId === containerId);
-        if (cfg && cfg.countryFilterKey) {
-            compactCountryFilters[cfg.countryFilterKey] = country;
-        }
-    });
-    
-    // Use short keys to minimize URL length
-    const compactState = {
-        s: appSettings,
-        v: compactVisibility,
-        c: compactCountryFilters,
-        l: getLanguage() // Include current language in shared link
-    };
-    
-    // Encode state to base64 URL parameter
-    const jsonStr = JSON.stringify(compactState);
-    const base64 = btoa(jsonStr);
-    return base64;
-}
-
-function decodeUrlState(encoded: string): UrlState | null {
-    try {
-        const jsonStr = atob(encoded);
-        const parsed = JSON.parse(jsonStr) as any;
-        
-        // Handle both compact format (new) and full format (old) for backward compatibility
-        let state: UrlState;
-        if ('s' in parsed || 'v' in parsed || 'c' in parsed || 'l' in parsed) {
-            // New compact format with short keys
-            state = {
-                settings: parsed.s || {},
-                visibility: parsed.v || {},
-                countryFilters: parsed.c || {},
-                language: parsed.l
-            };
-        } else {
-            // Old format with full keys
-            state = parsed as UrlState;
-        }
-        
-        return state;
-    } catch (error) {
-        console.error("Error decoding URL state:", error);
-        return null;
-    }
-}
-
 describe('URL State Management Tests', () => {
     beforeEach(() => {
         mockLocalStorage.clear();
@@ -152,7 +36,7 @@ describe('URL State Management Tests', () => {
             alignByExtreme: 'minima'
         };
         
-        const chartConfigs: ChartConfig[] = [];
+        const chartConfigs: UrlChartConfig[] = [];
         const countryFilters = new Map<string, string>();
         
         const encoded = encodeUrlState(settings, chartConfigs, countryFilters);
@@ -164,7 +48,7 @@ describe('URL State Management Tests', () => {
 
     test('encodes and decodes dataset visibility correctly', () => {
         const settings = DEFAULT_APP_SETTINGS;
-        const chartConfigs: ChartConfig[] = [
+        const chartConfigs: UrlChartConfig[] = [
             {
                 containerId: "czechDataContainer",
                 visibilityKey: "datasetVisibility",
@@ -201,7 +85,7 @@ describe('URL State Management Tests', () => {
 
     test('encodes and decodes country filters correctly', () => {
         const settings = DEFAULT_APP_SETTINGS;
-        const chartConfigs: ChartConfig[] = [
+        const chartConfigs: UrlChartConfig[] = [
             {
                 containerId: "euDataContainer",
                 visibilityKey: "euDatasetVisibility",
@@ -232,7 +116,7 @@ describe('URL State Management Tests', () => {
             alignByExtreme: 'days'
         };
         
-        const chartConfigs: ChartConfig[] = [
+        const chartConfigs: UrlChartConfig[] = [
             {
                 containerId: "czechDataContainer",
                 visibilityKey: "datasetVisibility",
@@ -273,7 +157,7 @@ describe('URL State Management Tests', () => {
 
     test('handles empty visibility and country filters', () => {
         const settings = DEFAULT_APP_SETTINGS;
-        const chartConfigs: ChartConfig[] = [
+        const chartConfigs: UrlChartConfig[] = [
             {
                 containerId: "czechDataContainer",
                 visibilityKey: "datasetVisibility",
@@ -315,7 +199,7 @@ describe('URL State Management Tests', () => {
             alignByExtreme: 'maxima'
         };
         
-        const chartConfigs: ChartConfig[] = [
+        const chartConfigs: UrlChartConfig[] = [
             {
                 containerId: "czechDataContainer",
                 visibilityKey: "datasetVisibility",
@@ -347,7 +231,7 @@ describe('URL State Management Tests', () => {
                 shiftOverride: mode === 'days' ? 0 : 2
             };
             
-            const chartConfigs: ChartConfig[] = [];
+            const chartConfigs: UrlChartConfig[] = [];
             const countryFilters = new Map<string, string>();
             
             const encoded = encodeUrlState(settings, chartConfigs, countryFilters);
@@ -365,7 +249,7 @@ describe('URL State Management Tests', () => {
             shiftOverride: null
         };
         
-        const chartConfigs: ChartConfig[] = [];
+        const chartConfigs: UrlChartConfig[] = [];
         const countryFilters = new Map<string, string>();
         
         const encoded = encodeUrlState(settings, chartConfigs, countryFilters);
@@ -377,7 +261,7 @@ describe('URL State Management Tests', () => {
 
     test('encodes and decodes language correctly', () => {
         const settings = DEFAULT_APP_SETTINGS;
-        const chartConfigs: ChartConfig[] = [];
+        const chartConfigs: UrlChartConfig[] = [];
         const countryFilters = new Map<string, string>();
         
         // Set language to Czech in localStorage
@@ -415,7 +299,7 @@ describe('URL State Management Tests', () => {
 
     test('compact format significantly reduces URL size', () => {
         const settings = DEFAULT_APP_SETTINGS;
-        const chartConfigs: ChartConfig[] = [
+        const chartConfigs: UrlChartConfig[] = [
             {
                 containerId: "czechDataContainer",
                 visibilityKey: "czechDataChart-visibility",
