@@ -494,8 +494,9 @@ function createCustomGraphSeriesSelector(customGraphConfig: ChartConfig, onSelec
         chartSection.appendChild(chartTitle);
         
         // Get available series from this chart
+        // Only show averaged positivity series (not scalar/wastewater) to keep scales compatible
         const availableSeries = sourceChart.data.series
-            .filter(s => s.type === 'averaged') // Only show averaged series to keep it simple
+            .filter(s => s.type === 'averaged' && s.dataType === 'positivity')
             .sort((a, b) => compareLabels(a.name, b.name));
         
         // Deduplicate series by normalized name to avoid showing duplicates
@@ -1028,7 +1029,7 @@ function createChartContainerAndCanvas(containerId: string, canvasId: string): H
         if (!chartWrapper) {
             chartWrapper = document.createElement('div');
             chartWrapper.id = 'customGraphChartWrapper';
-            chartWrapper.style.cssText = 'width: 100vw; height: 40vh;';
+            chartWrapper.style.cssText = 'width: 100vw; height: 40vh; margin-bottom: 60px;';
             container.appendChild(chartWrapper);
         }
         
