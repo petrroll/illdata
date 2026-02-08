@@ -1468,11 +1468,12 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
  * Each base series is assigned to a palette, and different variations (raw, averaged, shifted)
  * get different colors within that palette.
  * 
- * Priority assignments ensure standard respiratory viruses have consistent colors:
- * - RSV: Blues palette (index 0)
- * - Influenza: Greens palette (index 1)
- * - SARS-CoV-2: Reds palette (index 2)
- * - Other viruses: Purples palette (index 3) or cycling through remaining palettes
+ * Priority assignments ensure consistent colors:
+ * - PCR: Blues palette (index 0) - Czech data
+ * - Antigen: Greens palette (index 1) - Czech data
+ * - SARS-CoV-2: Reds palette (index 2) - all data sources
+ * - Influenza/RSV across EU/NL/DE: Use palettes that work well with Czech data
+ * - Other pathogens: Distributed across palettes to maximize distinctiveness
  * 
  * @param series - Array of all series in the dataset
  * @param numPalettes - Number of available color palettes
@@ -1486,16 +1487,30 @@ function createStablePaletteMapping(series: DataSeries[], numPalettes: number): 
         new Set(series.map(s => getColorBaseSeriesName(s.name)))
     ).sort((a, b) => compareLabels(a, b));
     
-    // Priority mappings for standard respiratory viruses to ensure consistency across all data sources
-    // These must match the palette indices defined in the colorPalettes array:
-    // [0: Blues, 1: Greens, 2: Reds, 3: Purples]
+    // Priority mappings to ensure consistent and distinct colors
+    // Palette indices: [0: Blues, 1: Greens, 2: Reds, 3: Purples]
     const priorityMappings: Record<string, number> = {
-        'RSV Positivity': 0,           // Blues palette
-        'RSV Wastewater': 0,           // Blues palette
-        'Influenza Positivity': 1,     // Greens palette
-        'Influenza Wastewater': 1,     // Greens palette
-        'SARS-CoV-2 Positivity': 2,    // Reds palette
-        'SARS-CoV-2 Wastewater': 2,    // Reds palette
+        // Czech MZCR data - keep original alphabetical colors
+        'PCR Positivity': 1,                      // Greens (was originally second alphabetically after Antigen)
+        'Antigen Positivity': 0,                  // Blues (was originally first alphabetically)
+        
+        // SARS-CoV-2 across all sources - always Red
+        'SARS-CoV-2 Positivity': 2,               // Reds
+        'SARS-CoV-2 Wastewater': 2,               // Reds
+        
+        // Standard respiratory viruses across EU/NL/DE
+        'RSV Positivity': 0,                      // Blues
+        'RSV Wastewater': 0,                      // Blues
+        'Influenza Positivity': 1,                // Greens
+        'Influenza Wastewater': 1,                // Greens
+        
+        // Netherlands-specific pathogens - distribute across palettes for distinctiveness
+        // Avoid: Adenovirus & HMPV same color, Parainfluenza & RSV same, Flu & Rhino same, Seizoens & SARS same
+        'Adenovirus Positivity': 3,               // Purples (distinct from HMPV)
+        'Humaan metapneumovirus Positivity': 0,   // Blues (distinct from Adenovirus)
+        'Parainfluenza Positivity': 2,            // Reds (distinct from RSV which is Blues)
+        'Rhino-/enterovirus Positivity': 3,       // Purples (distinct from Influenza which is Greens)
+        'Seizoenscoronavirussen Positivity': 1,   // Greens (distinct from SARS-CoV-2 which is Reds)
     };
     
     // Check for priority series and assign them first
@@ -1507,12 +1522,10 @@ function createStablePaletteMapping(series: DataSeries[], numPalettes: number): 
         }
     });
     
-    // Assign remaining series to available palettes, preferring palette 3 (Purples) for non-priority series
-    // to avoid conflicts with the standard viruses
+    // Assign remaining series to available palettes in round-robin fashion
     const remainingNames = uniqueBaseNames.filter(name => !priorityNames.has(name));
     remainingNames.forEach((baseName, index) => {
-        // Start from palette 3 (Purples) for other viruses
-        const paletteIndex = (3 + index) % numPalettes;
+        const paletteIndex = index % numPalettes;
         paletteMap.set(baseName, paletteIndex);
     });
     
