@@ -943,6 +943,17 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     if (!includeFuture) {
         const futureIdx = data.dates.findIndex(d => d > todayString);
         if (futureIdx >= 0) endIdx = futureIdx;
+    } else {
+        // When includeFuture is true, show 2x the past time range as future
+        // For "all" time range, show all available future data
+        if (timeRange !== "all") {
+            const days = parseInt(timeRange);
+            const futureCutoffDate = new Date();
+            futureCutoffDate.setDate(futureCutoffDate.getDate() + (2 * days));
+            const futureCutoffString = futureCutoffDate.toISOString().split('T')[0];
+            const futureIdx = data.dates.findIndex(d => d > futureCutoffString);
+            if (futureIdx >= 0) endIdx = futureIdx;
+        }
     }
     const labels = data.dates.slice(startIdx, endIdx);
 
@@ -1809,4 +1820,7 @@ function updateRatioTable() {
         ratioTableBody.appendChild(row);
     });
 }
+
+// Expose chart configs for E2E testing
+(window as any).__chartConfigs = chartConfigs;
 
