@@ -396,6 +396,9 @@ function createCustomGraphData(selections: CustomGraphSelection[]): TimeseriesDa
         const series = sourceData.series.find(s => normalizeSeriesName(s.name) === normalizedSeriesName);
         if (!series) return;
         
+        // Skip scalar/wastewater series to maintain scale compatibility
+        if (series.dataType !== 'positivity') return;
+        
         // Add dates from this source chart only once per chart
         if (!processedCharts.has(selection.sourceChartIndex)) {
             sourceData.dates.forEach(date => allDatesSet.add(date));
