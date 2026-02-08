@@ -1213,12 +1213,12 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             // Find the closest item to cursor based on y-distance (with hysteresis)
                             // Only calculate once per tooltip render by checking if this is the first item
                             let closestDatasetIndex = -1;
-                            if (tooltip && tooltip.caretY !== undefined && tooltip.dataPoints) {
+                            if (tooltip && tooltip.y !== undefined && tooltip.dataPoints) {
                                 // Store in tooltip object to calculate only once
                                 if (tooltip._closestDatasetIndex === undefined) {
                                     closestDatasetIndex = findClosestItem(
                                         tooltip.dataPoints as TooltipItem[], 
-                                        tooltip.caretY, 
+                                        tooltip.y,  // Use tooltip.y (tooltip position) instead of tooltip.caretY
                                         chart,
                                         previousClosestDatasetIndex
                                     );
