@@ -282,12 +282,7 @@ export function shouldIncludeShiftedSeries(
     showShiftedTestNumbers: boolean = true
 ): boolean {
     const shifted = isShiftedSeries(label);
-
-    if (!showShifted && shifted) {
-        return false;
-    }
-
-    if (!showShiftedTestNumbers && shifted) {
+    if (shifted && (!showShifted || !showShiftedTestNumbers)) {
         return false;
     }
 
