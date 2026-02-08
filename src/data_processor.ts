@@ -13,38 +13,37 @@ const DE_WASTEWATER_AMELAG = "./data_processed/de_wastewater_amelag/wastewater_d
 const NL_INFECTIERADAR_POSITIVITY = "./data_processed/nl_infectieradar/positivity_data.json";
 const TIMESTAMP_FILE = "./data_processed/timestamp.json";
 
-await downloadCzCovPositivity("testy-pcr-antigenni.csv")
-let data = await loadAndParseCsv("testy-pcr-antigenni.csv");
-let positivityData = computeCzCovPositivityData(data);
+// Common pipeline: download → load → compute → save
+async function processSource(
+    downloadFn: (file: string) => Promise<void>,
+    file: string,
+    loaderFn: (file: string) => Promise<Record<string, string>[]>,
+    computeFn: (data: Record<string, string>[]) => unknown,
+    outputPath: string
+) {
+    await downloadFn(file);
+    const data = await loaderFn(file);
+    const result = computeFn(data);
+    await saveData(result, outputPath);
+}
 
-await saveData(positivityData, CR_COV_MZCR_POSITIVITY);
+await processSource(downloadCzCovPositivity, "testy-pcr-antigenni.csv", loadAndParseCsv, computeCzCovPositivityData, CR_COV_MZCR_POSITIVITY);
 
-// Download both sentinel and non-sentinel data files
+// EU ECDC: download both sentinel and non-sentinel, combine, then process
 await Promise.all([
     downloadEuEcdcData("sentinelTestsDetectionsPositivity.csv"),
     downloadEuEcdcData("nonSentinelTestsDetections.csv")
 ]);
-
-// Load both data sources
 const sentinelData = await loadAndParseCsv("sentinelTestsDetectionsPositivity.csv");
 const nonSentinelData = await loadAndParseCsv("nonSentinelTestsDetections.csv");
-
-// Combine the data and process with survtype preserved
 const combinedEuData = [...sentinelData, ...nonSentinelData];
-let euPositivityData = computeEuEcdcData(combinedEuData, true); // true = preserve survtype
+await saveData(computeEuEcdcData(combinedEuData, true), EU_ALLSENTINEL_ERVIS_POSITIVITY);
 
-await saveData(euPositivityData, EU_ALLSENTINEL_ERVIS_POSITIVITY);
+await processSource(downloadDeWastewaterData, "amelag_aggregierte_kurve.tsv", loadAndParseTsv, computeDeWastewaterData, DE_WASTEWATER_AMELAG);
 
-await downloadDeWastewaterData("amelag_aggregierte_kurve.tsv");
-let tsvData = await loadAndParseTsv("amelag_aggregierte_kurve.tsv");
-let deWastewaterData = computeDeWastewaterData(tsvData);
-
-await saveData(deWastewaterData, DE_WASTEWATER_AMELAG);
-
+// NL Infectieradar: uses custom semicolon CSV parser
 await downloadNlInfectieradarData("data_pathogens.csv");
 const nlCsvContent = await fs.readFile(getAbsolutePath("./data/data_pathogens.csv"), "utf-8");
-let nlData = parseSemicolonCsv(nlCsvContent);
-let nlPositivityData = computeNlInfectieradarData(nlData);
+await saveData(computeNlInfectieradarData(parseSemicolonCsv(nlCsvContent)), NL_INFECTIERADAR_POSITIVITY);
 
-await saveData(nlPositivityData, NL_INFECTIERADAR_POSITIVITY);
 await saveTimeStamp(TIMESTAMP_FILE);
