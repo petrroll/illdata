@@ -1477,8 +1477,8 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
  * get different colors within that palette.
  * 
  * Priority assignments ensure consistent colors:
- * - PCR: Greens palette (index 1) - Czech data
  * - Antigen: Blues palette (index 0) - Czech data
+ * - PCR: Greens palette (index 1) - Czech data
  * - SARS-CoV-2: Reds palette (index 2) - all data sources
  * - RSV: Blues palette (index 0) - EU/NL/DE data sources
  * - Influenza: Greens palette (index 1) - EU/NL/DE data sources
