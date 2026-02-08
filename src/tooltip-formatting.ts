@@ -105,16 +105,23 @@ export function sortTooltipItems(items: TooltipItem[]): TooltipItem[] {
  * In Chart.js with mode: 'index', all items share the same x position,
  * so we find the one with y value closest to the cursor's y position.
  * 
+ * Uses hysteresis to prevent flickering when cursor is between two close values.
+ * The new closest item must be at least 5 pixels closer to become selected.
+ * 
  * @param items - Array of tooltip items
  * @param cursorY - The y-coordinate of the cursor (in pixel space)
  * @param chart - The Chart.js chart instance
+ * @param previousClosest - The previously selected datasetIndex (for hysteresis)
  * @returns datasetIndex of the closest item, or -1 if none found
  */
-export function findClosestItem(items: TooltipItem[], cursorY: number, chart: any): number {
+export function findClosestItem(items: TooltipItem[], cursorY: number, chart: any, previousClosest: number = -1): number {
     if (items.length === 0) return -1;
+    
+    const HYSTERESIS_PIXELS = 5; // Minimum pixel difference to switch selection
     
     let closestDatasetIndex = -1;
     let closestDistance = Infinity;
+    let previousDistance = Infinity;
     
     for (let i = 0; i < items.length; i++) {
         const item = items[i];
@@ -131,9 +138,22 @@ export function findClosestItem(items: TooltipItem[], cursorY: number, chart: an
         const pixelY = yScale.getPixelForValue(value);
         const distance = Math.abs(pixelY - cursorY);
         
+        // Track distance to the previously selected item
+        if (item.datasetIndex === previousClosest) {
+            previousDistance = distance;
+        }
+        
         if (distance < closestDistance) {
             closestDistance = distance;
             closestDatasetIndex = item.datasetIndex;
+        }
+    }
+    
+    // Apply hysteresis: only switch if new item is significantly closer
+    if (previousClosest !== -1 && previousDistance !== Infinity) {
+        // If previous selection is still reasonably close, keep it
+        if (previousDistance - closestDistance < HYSTERESIS_PIXELS) {
+            return previousClosest;
         }
     }
     

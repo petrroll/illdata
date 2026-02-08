@@ -1167,6 +1167,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         dataset.hidden = !cfg.datasetVisibility[normalizedLabel];
     });
 
+    // Track the previous closest item for tooltip hysteresis
+    let previousClosestDatasetIndex = -1;
+
     const newChart = new Chart(cfg.canvas as HTMLCanvasElement, {
         type: "line",
         data: {
@@ -1221,14 +1224,17 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             const chart = context.chart;
                             const tooltip = chart.tooltip;
                             
-                            // Find the closest item to cursor based on y-distance
+                            // Find the closest item to cursor based on y-distance (with hysteresis)
                             let closestDatasetIndex = -1;
                             if (tooltip && tooltip.caretY !== undefined && tooltip.dataPoints) {
                                 closestDatasetIndex = findClosestItem(
                                     tooltip.dataPoints as TooltipItem[], 
                                     tooltip.caretY, 
-                                    chart
+                                    chart,
+                                    previousClosestDatasetIndex
                                 );
+                                // Update the tracked value for next time
+                                previousClosestDatasetIndex = closestDatasetIndex;
                             }
                             
                             // Get the label and value
