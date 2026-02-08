@@ -1173,18 +1173,6 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
             labels,
             datasets: allVisibleDatasets,
         },
-        plugins: [{
-            id: 'tooltipSorter',
-            beforeTooltipDraw: function(chart: any, args: any, options: any) {
-                const tooltip = args.tooltip;
-                if (tooltip && tooltip.dataPoints && tooltip.dataPoints.length > 1) {
-                    // Sort the tooltip items
-                    const sorted = sortTooltipItems(tooltip.dataPoints as TooltipItem[]);
-                    tooltip.dataPoints.length = 0;
-                    tooltip.dataPoints.push(...sorted);
-                }
-            }
-        }],
         options: {
             responsive: true,
             maintainAspectRatio: false,
@@ -1210,6 +1198,24 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     mode: 'index', // Snap tooltip to vertical line
                     intersect: false,
                     axis: 'x',
+                    itemSort: function(a: any, b: any) {
+                        // Convert to TooltipItem format for our sorting function
+                        const itemA: TooltipItem = {
+                            dataset: a.dataset,
+                            parsed: a.parsed,
+                            datasetIndex: a.datasetIndex
+                        };
+                        const itemB: TooltipItem = {
+                            dataset: b.dataset,
+                            parsed: b.parsed,
+                            datasetIndex: b.datasetIndex
+                        };
+                        
+                        // Use our sorting logic
+                        const items = sortTooltipItems([itemA, itemB]);
+                        // Return -1 if a should come before b, 1 if b should come before a
+                        return items[0] === itemA ? -1 : 1;
+                    },
                     callbacks: {
                         label: function(context: any) {
                             const chart = context.chart;

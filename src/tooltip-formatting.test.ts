@@ -184,3 +184,42 @@ describe("sortTooltipItems", () => {
         expect(sorted[3].parsed.y).toBe(0.212); // Adenovirus
     });
 });
+
+describe("sortTooltipItems - Czech test series bug", () => {
+    test("separates positivity series from test number series", () => {
+        const items: TooltipItem[] = [
+            {
+                dataset: { label: "Antigenní pozitivita (28d prům.)" },
+                parsed: { x: 0, y: 2.783 },
+                datasetIndex: 0
+            },
+            {
+                dataset: { label: "PCR pozitivita (28d prům.)" },
+                parsed: { x: 0, y: 2.453 },
+                datasetIndex: 1
+            },
+            {
+                dataset: { label: "Antigenní pozitivita - pozitivní testy" },
+                parsed: { x: 0, y: 70.0 },
+                datasetIndex: 2
+            },
+            {
+                dataset: { label: "Antigenní pozitivita - negativní testy" },
+                parsed: { x: 0, y: 2228.0 },
+                datasetIndex: 3
+            }
+        ];
+        
+        const sorted = sortTooltipItems(items);
+        
+        // First two should be positivity series (sorted by value)
+        expect(sorted[0].dataset.label).toBe("Antigenní pozitivita (28d prům.)");
+        expect(sorted[0].parsed.y).toBe(2.783);
+        expect(sorted[1].dataset.label).toBe("PCR pozitivita (28d prům.)");
+        expect(sorted[1].parsed.y).toBe(2.453);
+        
+        // Next two should be test series (positive tests before negative tests)
+        expect(sorted[2].dataset.label).toBe("Antigenní pozitivita - pozitivní testy");
+        expect(sorted[3].dataset.label).toBe("Antigenní pozitivita - negativní testy");
+    });
+});
