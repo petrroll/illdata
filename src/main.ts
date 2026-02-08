@@ -1222,9 +1222,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             const tooltip = chart.tooltip;
                             
                             // Find the closest item to cursor based on y-distance
-                            let closestIndex = -1;
+                            let closestDatasetIndex = -1;
                             if (tooltip && tooltip.caretY !== undefined && tooltip.dataPoints) {
-                                closestIndex = findClosestItem(
+                                closestDatasetIndex = findClosestItem(
                                     tooltip.dataPoints as TooltipItem[], 
                                     tooltip.caretY, 
                                     chart
@@ -1247,15 +1247,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                                 formattedValue = value.toFixed(3);
                             }
                             
-                            // Check if this is the closest item
-                            // Find the index of the current item in the tooltip.dataPoints array
-                            let currentIndex = -1;
-                            if (tooltip && tooltip.dataPoints) {
-                                currentIndex = tooltip.dataPoints.findIndex(
-                                    (item: any) => item.datasetIndex === context.datasetIndex
-                                );
-                            }
-                            const isClosest = currentIndex !== -1 && currentIndex === closestIndex;
+                            // Check if this is the closest item by comparing datasetIndex
+                            const isClosest = context.datasetIndex === closestDatasetIndex;
                             
                             // Add marker for closest item (using bullet point)
                             const marker = isClosest ? '● ' : '  ';

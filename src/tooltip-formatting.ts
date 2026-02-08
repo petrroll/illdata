@@ -108,12 +108,12 @@ export function sortTooltipItems(items: TooltipItem[]): TooltipItem[] {
  * @param items - Array of tooltip items
  * @param cursorY - The y-coordinate of the cursor (in pixel space)
  * @param chart - The Chart.js chart instance
- * @returns Index of the closest item, or -1 if none found
+ * @returns datasetIndex of the closest item, or -1 if none found
  */
 export function findClosestItem(items: TooltipItem[], cursorY: number, chart: any): number {
     if (items.length === 0) return -1;
     
-    let closestIndex = -1;
+    let closestDatasetIndex = -1;
     let closestDistance = Infinity;
     
     for (let i = 0; i < items.length; i++) {
@@ -133,9 +133,9 @@ export function findClosestItem(items: TooltipItem[], cursorY: number, chart: an
         
         if (distance < closestDistance) {
             closestDistance = distance;
-            closestIndex = i;
+            closestDatasetIndex = item.datasetIndex;
         }
     }
     
-    return closestIndex;
+    return closestDatasetIndex;
 }
