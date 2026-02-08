@@ -1,5 +1,13 @@
 // Chart.js is used elsewhere in the project
 
+import { 
+    isPositivitySeries, 
+    isShiftedSeries, 
+    isAveragedSeries,
+    isPositiveTestSeries,
+    isNegativeTestSeries
+} from './series-utils';
+
 export type DataSeries = PositivitySeries | ScalarSeries;
 
 export interface TimeseriesData {
@@ -550,18 +558,15 @@ export function compareLabels(labelA: string, labelB: string): number {
     /**
      * Determines the type priority of a series label.
      * Lower numbers appear first in the sorted order.
+     * Uses language-neutral helper functions from series-utils.ts
      */
     const getSeriesType = (label: string): number => {
-        const lower = label.toLowerCase();
-        
-        // Check for positivity series (includes "positivity" or "pozitivita")
-        const isPositivity = lower.includes('positivity') || lower.includes('pozitivita');
-        const isShifted = lower.includes('shifted') || lower.includes('posunuto');
-        const isAveraged = lower.includes('d avg)') || lower.includes('d prům.)');
-        
-        // Check for specific test types first (more specific checks)
-        const isPositiveTest = lower.includes(' - positive tests') || lower.includes(' - pozitivní testy');
-        const isNegativeTest = lower.includes(' - negative tests') || lower.includes(' - negativní testy');
+        // Use language-neutral helper functions that normalize the label internally
+        const isPositivity = isPositivitySeries(label);
+        const isShifted = isShiftedSeries(label);
+        const isAveraged = isAveragedSeries(label);
+        const isPositiveTest = isPositiveTestSeries(label);
+        const isNegativeTest = isNegativeTestSeries(label);
         
         // Determine priority based on series type
         if (isPositiveTest) {
