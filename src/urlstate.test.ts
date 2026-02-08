@@ -47,6 +47,22 @@ describe('URL State Management Tests', () => {
         expect(decoded!.settings).toEqual(settings);
     });
 
+    test('encodes and decodes default settings with showNonAveragedSeries false', () => {
+        const settings: AppSettings = {
+            ...DEFAULT_APP_SETTINGS,
+            showNonAveragedSeries: false  // Explicit default value
+        };
+        
+        const chartConfigs: UrlChartConfig[] = [];
+        const countryFilters = new Map<string, string>();
+        
+        const encoded = encodeUrlState(settings, chartConfigs, countryFilters);
+        const decoded = decodeUrlState(encoded);
+        
+        expect(decoded).not.toBeNull();
+        expect(decoded!.settings.showNonAveragedSeries).toBe(false);
+    });
+
     test('encodes and decodes dataset visibility correctly', () => {
         const settings = DEFAULT_APP_SETTINGS;
         const chartConfigs: UrlChartConfig[] = [
