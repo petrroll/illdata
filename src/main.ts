@@ -1490,9 +1490,9 @@ function createStablePaletteMapping(series: DataSeries[], numPalettes: number): 
     // Priority mappings to ensure consistent and distinct colors
     // Palette indices: [0: Blues, 1: Greens, 2: Reds, 3: Purples]
     const priorityMappings: Record<string, number> = {
-        // Czech MZCR data - keep original alphabetical colors
-        'PCR Positivity': 1,                      // Greens (was originally second alphabetically after Antigen)
-        'Antigen Positivity': 0,                  // Blues (was originally first alphabetically)
+        // Czech MZCR data - preserve original alphabetical assignment
+        'Antigen Positivity': 0,                  // Blues (first alphabetically)
+        'PCR Positivity': 1,                      // Greens (second alphabetically)
         
         // SARS-CoV-2 across all sources - always Red
         'SARS-CoV-2 Positivity': 2,               // Reds
@@ -1504,13 +1504,13 @@ function createStablePaletteMapping(series: DataSeries[], numPalettes: number): 
         'Influenza Positivity': 1,                // Greens
         'Influenza Wastewater': 1,                // Greens
         
-        // Netherlands-specific pathogens - distribute across palettes for distinctiveness
-        // Avoid: Adenovirus & HMPV same color, Parainfluenza & RSV same, Flu & Rhino same, Seizoens & SARS same
-        'Adenovirus Positivity': 3,               // Purples (distinct from HMPV)
-        'Humaan metapneumovirus Positivity': 0,   // Blues (distinct from Adenovirus)
-        'Parainfluenza Positivity': 2,            // Reds (distinct from RSV which is Blues)
-        'Rhino-/enterovirus Positivity': 3,       // Purples (distinct from Influenza which is Greens)
-        'Seizoenscoronavirussen Positivity': 1,   // Greens (distinct from SARS-CoV-2 which is Reds)
+        // Netherlands-specific pathogens - distribute across palettes for maximum distinctiveness
+        // Ensure: HMPV≠Adenovirus, Parainfluenza≠RSV, Influenza≠Rhino, Seizoens≠SARS
+        'Adenovirus Positivity': 3,               // Purples (distinct from HMPV below)
+        'Humaan metapneumovirus Positivity': 2,   // Reds (distinct from Adenovirus, shares with SARS but different virus context)
+        'Parainfluenza Positivity': 3,            // Purples (distinct from RSV Blues)
+        'Rhino-/enterovirus Positivity': 0,       // Blues (distinct from Influenza Greens)
+        'Seizoenscoronavirussen Positivity': 3,   // Purples (distinct from SARS-CoV-2 Reds)
     };
     
     // Check for priority series and assign them first
