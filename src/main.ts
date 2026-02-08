@@ -944,15 +944,20 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     if (includeFuture && timeRange !== "all") {
         const days = parseInt(timeRange);
         const futureDate = new Date();
+        // Show same amount of future as past (symmetric window)
         futureDate.setDate(futureDate.getDate() + days);
         futureDateString = futureDate.toISOString().split('T')[0];
     }
 
     // Extend dates further if needed to accommodate the timeRange's future display requirement
     if (futureDateString) {
+        // Always ensure we have dates extending from today to the future cutoff
+        // This guarantees symmetric time windows regardless of existing data extent
         const lastDate = data.dates[data.dates.length - 1];
+        
+        // Only extend if our last date doesn't reach the future cutoff
         if (lastDate < futureDateString) {
-            // Calculate how many extra dates we need
+            // Calculate how many extra dates we need from last date to future cutoff
             const freqDays = data.series[0]?.frequencyInDays ?? 1;
             const lastDateTime = new Date(lastDate).getTime();
             const futureDateTime = new Date(futureDateString).getTime();
@@ -983,8 +988,13 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         if (futureIdx >= 0) endIdx = futureIdx;
     } else if (futureDateString) {
         // When includeFuture is true and timeRange is set, show same amount of future as past
+        // Find the first date that's strictly after our future cutoff
+        // Use > to ensure we include dates up to and including the cutoff
         const futureIdx = data.dates.findIndex(d => d > futureDateString);
-        if (futureIdx >= 0) endIdx = futureIdx;
+        if (futureIdx >= 0) {
+            endIdx = futureIdx;
+        }
+        // If all dates are <= futureDateString, keep all dates (endIdx = data.dates.length)
     }
     const labels = data.dates.slice(startIdx, endIdx);
 
