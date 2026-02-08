@@ -519,10 +519,11 @@ function calculateMedian(values: number[]): number {
  * Series are sorted in this order:
  * 1. Regular positivity series (non-shifted)
  * 2. Shifted positivity series
- * 3. Positive test number series
- * 4. Negative test number series
- * 5. Shifted test number series
- * 6. Other types (min/max, scalar, etc.)
+ * 3. Positive test number series (non-shifted)
+ * 4. Negative test number series (non-shifted)
+ * 5. Shifted positive test number series
+ * 6. Shifted negative test number series
+ * 7. Other types (min/max, scalar, etc.)
  * 
  * Within each type category, series are sorted alphabetically.
  * 
@@ -548,16 +549,16 @@ export function compareLabels(labelA: string, labelB: string): number {
         
         // Priority order (lower = appears first)
         if (isPositiveTest) {
-            return isShifted ? 4 : 2; // Non-shifted positive tests = 2, shifted = 4
+            return isShifted ? 5 : 2; // Non-shifted positive tests = 2, shifted = 5
         }
         if (isNegativeTest) {
-            return isShifted ? 4 : 3; // Non-shifted negative tests = 3, shifted = 4
+            return isShifted ? 6 : 3; // Non-shifted negative tests = 3, shifted = 6
         }
         if (isPositivity) {
             return isShifted ? 1 : 0; // Non-shifted positivity = 0, shifted = 1
         }
         
-        return 5; // Other types (min/max, scalar, wastewater, etc.)
+        return 7; // Other types (min/max, scalar, wastewater, etc.)
     };
     
     const typeA = getSeriesType(labelA);

@@ -773,6 +773,12 @@ describe('compareLabels Tests', () => {
     test('sorts positive tests before negative tests', () => {
         expect(compareLabels('PCR Positivity - Positive Tests', 'PCR Positivity - Negative Tests')).toBeLessThan(0);
         expect(compareLabels('Antigen Positivity - Positive Tests', 'Antigen Positivity - Negative Tests')).toBeLessThan(0);
+        
+        // Shifted test numbers should also maintain positive before negative ordering
+        expect(compareLabels(
+            'PCR Positivity - Positive Tests shifted by 1 wave 56d',
+            'PCR Positivity - Negative Tests shifted by 1 wave 56d'
+        )).toBeLessThan(0);
     });
 
     test('sorts non-shifted test numbers before shifted test numbers', () => {
@@ -808,7 +814,9 @@ describe('compareLabels Tests', () => {
             'PCR Positivity - Negative Tests',
             'PCR Positivity (28d avg)',
             'Influenza Positivity shifted by -100d',
-            'PCR Positivity'
+            'PCR Positivity',
+            'PCR Positivity - Positive Tests shifted by 1 wave 56d',
+            'PCR Positivity - Negative Tests shifted by 1 wave 56d'
         ];
         
         const sorted = [...labels].sort(compareLabels);
@@ -816,10 +824,12 @@ describe('compareLabels Tests', () => {
         // Expected order by type:
         // 1. Regular positivity (alphabetically)
         // 2. Shifted positivity (alphabetically)
-        // 3. Positive tests
-        // 4. Negative tests
+        // 3. Positive tests (non-shifted)
+        // 4. Negative tests (non-shifted)
+        // 5. Shifted positive tests
+        // 6. Shifted negative tests
         
-        // Regular positivity (type 0) - should be first 3
+        // Regular positivity (type 0) - should be first 4
         expect(sorted[0]).toBe('Antigen Positivity');
         expect(sorted[1]).toBe('PCR Positivity');
         expect(sorted[2]).toBe('PCR Positivity (28d avg)');
@@ -829,11 +839,17 @@ describe('compareLabels Tests', () => {
         expect(sorted[4]).toBe('Influenza Positivity shifted by -100d');
         expect(sorted[5]).toBe('PCR Positivity (28d avg) shifted by 1 wave 56d');
         
-        // Positive tests (type 2) - next 1
+        // Positive tests non-shifted (type 2) - next 1
         expect(sorted[6]).toBe('PCR Positivity - Positive Tests');
         
-        // Negative tests (type 3) - last 1
+        // Negative tests non-shifted (type 3) - next 1
         expect(sorted[7]).toBe('PCR Positivity - Negative Tests');
+        
+        // Shifted positive tests (type 5) - next 1
+        expect(sorted[8]).toBe('PCR Positivity - Positive Tests shifted by 1 wave 56d');
+        
+        // Shifted negative tests (type 6) - last 1
+        expect(sorted[9]).toBe('PCR Positivity - Negative Tests shifted by 1 wave 56d');
     });
 
     test('other series types sort after test numbers', () => {
