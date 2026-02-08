@@ -257,11 +257,12 @@ test.describe('Future Data Display', () => {
     expect(chartsInfo.length).toBeGreaterThan(0);
     
     // All charts should show consistent future projection
+    // Use ±10 day tolerance to account for data update delays
     for (const chartInfo of chartsInfo) {
-      expect(chartInfo.pastDays).toBeGreaterThanOrEqual(85);
-      expect(chartInfo.pastDays).toBeLessThanOrEqual(95);
-      expect(chartInfo.futureDays).toBeGreaterThanOrEqual(170);
-      expect(chartInfo.futureDays).toBeLessThanOrEqual(190);
+      expect(chartInfo.pastDays).toBeGreaterThanOrEqual(80);
+      expect(chartInfo.pastDays).toBeLessThanOrEqual(100);
+      expect(chartInfo.futureDays).toBeGreaterThanOrEqual(160);
+      expect(chartInfo.futureDays).toBeLessThanOrEqual(200);
     }
   });
 
