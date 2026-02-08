@@ -125,9 +125,16 @@ function extendDatesIfNeeded(dates: string[], extraCount: number, freqDays: numb
 }
 
 function buildBaseSeries(series: DataSeries, padding: number): DataSeries {
-    const paddedValues = padding > 0
-        ? [...series.values, ...Array(padding).fill(NaN)]
-        : series.values;
+    if (padding <= 0) {
+        return series;
+    }
+    
+    // Use proper placeholder objects based on series type
+    const paddingValues = isScalarSeries(series)
+        ? Array.from({ length: padding }, () => SCALAR_PLACEHOLDER())
+        : Array.from({ length: padding }, () => POSITIVITY_PLACEHOLDER());
+    const paddedValues = [...series.values, ...paddingValues];
+    
     return { ...series, values: paddedValues } as DataSeries;
 }
 
