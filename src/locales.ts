@@ -188,9 +188,13 @@ const seriesNameMap: SeriesNameMap = {
         en: 'Parainfluenza Positivity',
         cs: 'Parainfluenza pozitivita'
     },
-    'Rhinovirus/Enterovirus Positivity': {
+    'Rhino-/enterovirus Positivity': {
         en: 'Rhinovirus/Enterovirus Positivity',
         cs: 'Rhinovirus/Enterovirus pozitivita'
+    },
+    'Seizoenscoronavirussen Positivity': {
+        en: 'Seasonal Coronavirus Positivity',
+        cs: 'Sezónní koronavirus pozitivita'
     }
 };
 
@@ -680,6 +684,11 @@ export function normalizeSeriesName(seriesName: string): string {
         .replace(/chřipka pozitivita/g, 'Influenza Positivity')
         .replace(/RSV pozitivita/g, 'RSV Positivity')
         .replace(/SARS-CoV-2 pozitivita/g, 'SARS-CoV-2 Positivity')
+        .replace(/Adenovirus pozitivita/g, 'Adenovirus Positivity')
+        .replace(/HMPV pozitivita/g, 'Humaan metapneumovirus Positivity')
+        .replace(/Parainfluenza pozitivita/g, 'Parainfluenza Positivity')
+        .replace(/Rhinovirus\/Enterovirus pozitivita/g, 'Rhino-/enterovirus Positivity')
+        .replace(/Sezónní koronavirus pozitivita/g, 'Seizoenscoronavirussen Positivity')
         .replace(/Chřipka odpadní vody/g, 'Influenza Wastewater')
         .replace(/chřipka odpadní vody/g, 'Influenza Wastewater')
         .replace(/RSV odpadní vody/g, 'RSV Wastewater')
