@@ -1,5 +1,13 @@
 // Chart.js is used elsewhere in the project
 
+import { 
+    isPositivitySeries, 
+    isShiftedSeries, 
+    isAveragedSeries,
+    isPositiveTestSeries,
+    isNegativeTestSeries
+} from './series-utils';
+
 export type DataSeries = PositivitySeries | ScalarSeries;
 
 export interface TimeseriesData {
@@ -513,24 +521,83 @@ function calculateMedian(values: number[]): number {
 }
 
 /**
- * Compares two labels by word count first (fewer words first), then alphabetically.
+ * Compares two labels by series type first, then alphabetically within the same type.
  * Used for consistent sorting of series labels in charts and legends.
+ * 
+ * Series are sorted in this order:
+ * 1. Regular positivity series (non-shifted, non-averaged)
+ * 2. Shifted positivity series
+ * 3. Averaged positivity series
+ * 4. Positive test number series (non-shifted)
+ * 5. Negative test number series (non-shifted)
+ * 6. Shifted positive test number series
+ * 7. Shifted negative test number series
+ * 8. Other types (min/max, scalar, etc.)
+ * 
+ * Within each type category, series are sorted alphabetically.
  * 
  * @param labelA - First label to compare
  * @param labelB - Second label to compare
  * @returns Negative if labelA comes first, positive if labelB comes first, 0 if equal
  */
 export function compareLabels(labelA: string, labelB: string): number {
-    // Count words (sections separated by whitespace)
-    const wordsA = labelA.trim().split(/\s+/).filter(word => word.length > 0).length;
-    const wordsB = labelB.trim().split(/\s+/).filter(word => word.length > 0).length;
+    // Priority constants (lower numbers appear first in sorted order)
+    // - Priorities 0-2 are for positivity series (regular, shifted, averaged)
+    // - Priorities 3-4 are for non-shifted test numbers
+    // - Priorities 5-6 are for shifted test numbers
+    // - Priority 7 is for other types
+    const PRIORITY_POSITIVITY = 0;
+    const PRIORITY_POSITIVITY_SHIFTED = 1;
+    const PRIORITY_POSITIVITY_AVERAGED = 2;
+    const PRIORITY_POSITIVE_TESTS = 3;
+    const PRIORITY_NEGATIVE_TESTS = 4;
+    const PRIORITY_POSITIVE_TESTS_SHIFTED = 5;
+    const PRIORITY_NEGATIVE_TESTS_SHIFTED = 6;
+    const PRIORITY_OTHER = 7;
     
-    // Sort by word count first
-    if (wordsA !== wordsB) {
-        return wordsA - wordsB; // fewer words first
+    /**
+     * Determines the type priority of a series label.
+     * Lower numbers appear first in the sorted order.
+     * Uses language-neutral helper functions from series-utils.ts
+     */
+    const getSeriesType = (label: string): number => {
+        // Use language-neutral helper functions that normalize the label internally
+        const isPositivity = isPositivitySeries(label);
+        const isShifted = isShiftedSeries(label);
+        const isAveraged = isAveragedSeries(label);
+        const isPositiveTest = isPositiveTestSeries(label);
+        const isNegativeTest = isNegativeTestSeries(label);
+        
+        // Determine priority based on series type
+        if (isPositiveTest) {
+            return isShifted ? PRIORITY_POSITIVE_TESTS_SHIFTED : PRIORITY_POSITIVE_TESTS;
+        }
+        if (isNegativeTest) {
+            return isShifted ? PRIORITY_NEGATIVE_TESTS_SHIFTED : PRIORITY_NEGATIVE_TESTS;
+        }
+        if (isPositivity) {
+            // Shifted positivity takes precedence over averaged
+            if (isShifted) {
+                return PRIORITY_POSITIVITY_SHIFTED;
+            }
+            if (isAveraged) {
+                return PRIORITY_POSITIVITY_AVERAGED;
+            }
+            return PRIORITY_POSITIVITY;
+        }
+        
+        return PRIORITY_OTHER;
+    };
+    
+    const typeA = getSeriesType(labelA);
+    const typeB = getSeriesType(labelB);
+    
+    // Sort by type first
+    if (typeA !== typeB) {
+        return typeA - typeB;
     }
     
-    // If word count is the same, fall back to alphabetical
+    // Within same type, sort alphabetically
     return labelA.localeCompare(labelB);
 }
 

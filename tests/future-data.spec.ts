@@ -61,11 +61,10 @@ test.describe('Future Data Display', () => {
     });
     
     expect(chartInfo).not.toBeNull();
-    // Use ±10 day tolerance to account for data update delays
-    expect(chartInfo!.pastDays).toBeGreaterThanOrEqual(20);
+    expect(chartInfo!.pastDays).toBeGreaterThanOrEqual(20); // Allow tolerance for data update delays
     expect(chartInfo!.pastDays).toBeLessThanOrEqual(40);
     
-    // Future should be approximately 2x past (60 days with ±20 day tolerance)
+    // Future should be approximately 2x past (60 days with some tolerance)
     expect(chartInfo!.futureDays).toBeGreaterThanOrEqual(40);
     expect(chartInfo!.futureDays).toBeLessThanOrEqual(80);
   });

@@ -54,6 +54,16 @@ export function isPositivitySeries(label: string): boolean {
 }
 
 /**
+ * Checks if a series is an averaged series based on its label
+ * @param label - Series label (in any language)
+ * @returns True if the series is averaged
+ */
+export function isAveragedSeries(label: string): boolean {
+    const normalizedLabel = normalizeSeriesName(label);
+    return normalizedLabel.includes('d avg)');
+}
+
+/**
  * Checks if a series is a positive test series based on its label
  * @param label - Series label (in any language)
  * @returns True if the series represents positive tests

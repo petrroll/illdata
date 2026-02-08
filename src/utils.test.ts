@@ -760,49 +760,137 @@ describe('Future Data Padding Tests', () => {
 });
 
 describe('compareLabels Tests', () => {
-    test('sorts by word count first (fewer words first)', () => {
-        expect(compareLabels('Short', 'Much Longer Label')).toBeLessThan(0);
-        expect(compareLabels('Much Longer Label', 'Short')).toBeGreaterThan(0);
-        expect(compareLabels('Two Words', 'Three Word Label')).toBeLessThan(0);
+    test('sorts regular positivity series before shifted positivity', () => {
+        expect(compareLabels('PCR Positivity', 'PCR Positivity shifted by 1 wave 56d')).toBeLessThan(0);
+        expect(compareLabels('Antigen Positivity', 'Antigen Positivity shifted by -100d')).toBeLessThan(0);
     });
 
-    test('sorts alphabetically when word count is equal', () => {
-        expect(compareLabels('Apple', 'Banana')).toBeLessThan(0);
-        expect(compareLabels('Zebra', 'Apple')).toBeGreaterThan(0);
+    test('sorts positivity series before test number series', () => {
+        expect(compareLabels('PCR Positivity', 'PCR Positivity - Positive Tests')).toBeLessThan(0);
+        expect(compareLabels('Influenza Positivity', 'Influenza Positivity - Negative Tests')).toBeLessThan(0);
+    });
+
+    test('sorts averaged series after shifted positivity and before test numbers', () => {
+        // Averaged positivity should come after shifted positivity but before test numbers
+        expect(compareLabels('PCR Positivity (28d avg)', 'PCR Positivity - Positive Tests')).toBeLessThan(0);
+        expect(compareLabels('PCR Positivity shifted by 1 wave 56d', 'PCR Positivity (28d avg)')).toBeLessThan(0);
+        
+        // Averaged series should sort alphabetically within their type
+        expect(compareLabels('Antigen Positivity (28d avg)', 'PCR Positivity (28d avg)')).toBeLessThan(0);
+        
+        // Czech averaged series should work too
+        expect(compareLabels('PCR pozitivita (28d prům.)', 'PCR pozitivita - pozitivní testy')).toBeLessThan(0);
+        expect(compareLabels('PCR pozitivita posunuto o 1 vlna 56d', 'PCR pozitivita (28d prům.)')).toBeLessThan(0);
+    });
+
+    test('sorts positive tests before negative tests', () => {
+        expect(compareLabels('PCR Positivity - Positive Tests', 'PCR Positivity - Negative Tests')).toBeLessThan(0);
+        expect(compareLabels('Antigen Positivity - Positive Tests', 'Antigen Positivity - Negative Tests')).toBeLessThan(0);
+        
+        // Shifted test numbers should also maintain positive before negative ordering
+        expect(compareLabels(
+            'PCR Positivity - Positive Tests shifted by 1 wave 56d',
+            'PCR Positivity - Negative Tests shifted by 1 wave 56d'
+        )).toBeLessThan(0);
+    });
+
+    test('sorts non-shifted test numbers before shifted test numbers', () => {
+        expect(compareLabels('PCR Positivity - Positive Tests', 'PCR Positivity - Positive Tests shifted by 1 wave 56d')).toBeLessThan(0);
+    });
+
+    test('sorts alphabetically within same type category', () => {
+        // Both are regular positivity series, should sort alphabetically
+        expect(compareLabels('Adenovirus Positivity', 'RSV Positivity')).toBeLessThan(0);
+        expect(compareLabels('RSV Positivity', 'Adenovirus Positivity')).toBeGreaterThan(0);
         expect(compareLabels('Same Label', 'Same Label')).toBe(0);
     });
 
-    test('handles labels with multiple spaces correctly', () => {
-        // Multiple spaces should be treated as one word separator for word counting
-        // Both have 2 words, so it falls back to alphabetical string comparison
-        const result = compareLabels('One   Two', 'One Two');
-        expect(result).not.toBe(0); // Different strings, not equal
-        
-        // Test word counting with leading/trailing spaces  
-        const result2 = compareLabels('  Two Words  ', 'Single');
-        expect(result2).toBeGreaterThan(0); // 2 words > 1 word
+    test('handles Czech language labels correctly', () => {
+        // Czech "pozitivita" should be treated same as "Positivity"
+        expect(compareLabels('PCR pozitivita', 'PCR pozitivita posunuto o 1 vlna 56d')).toBeLessThan(0);
+        expect(compareLabels('PCR pozitivita', 'PCR pozitivita - pozitivní testy')).toBeLessThan(0);
+        expect(compareLabels('PCR pozitivita - pozitivní testy', 'PCR pozitivita - negativní testy')).toBeLessThan(0);
     });
 
     test('handles empty strings', () => {
+        // Empty strings are equal to each other
         expect(compareLabels('', '')).toBe(0);
-        expect(compareLabels('Something', '')).toBeGreaterThan(0);
-        expect(compareLabels('', 'Something')).toBeLessThan(0);
+        
+        // Empty strings sort using localeCompare's behavior
+        // In most locales, empty strings sort before non-empty strings
+        const result1 = compareLabels('PCR Positivity', '');
+        const result2 = compareLabels('', 'PCR Positivity');
+        // Verify they have opposite signs (one positive, one negative)
+        expect(result1 * result2).toBeLessThan(0);
     });
 
-    test('complex sorting scenario', () => {
+    test('complex sorting scenario with multiple series types', () => {
         const labels = [
             'PCR Positivity (28d avg) shifted by 1 wave 56d',
+            'PCR Positivity - Positive Tests',
+            'RSV Positivity',
+            'Antigen Positivity',
+            'PCR Positivity - Negative Tests',
+            'PCR Positivity (28d avg)',
+            'Influenza Positivity shifted by -100d',
             'PCR Positivity',
-            'Antigen Positivity (28d avg)',
-            'PCR Positivity (28d avg)'
+            'PCR Positivity - Positive Tests shifted by 1 wave 56d',
+            'PCR Positivity - Negative Tests shifted by 1 wave 56d',
+            'Antigen Positivity (28d avg)'
         ];
         
         const sorted = [...labels].sort(compareLabels);
         
-        // Should be sorted by word count, then alphabetically
+        // Expected order by type:
+        // 1. Regular positivity (non-shifted, non-averaged) (alphabetically)
+        // 2. Shifted positivity (alphabetically)
+        // 3. Averaged positivity (alphabetically)
+        // 4. Positive tests (non-shifted)
+        // 5. Negative tests (non-shifted)
+        // 6. Shifted positive tests
+        // 7. Shifted negative tests
+        
+        // Regular positivity (type 0) - should be first 3
+        expect(sorted[0]).toBe('Antigen Positivity');
+        expect(sorted[1]).toBe('PCR Positivity');
+        expect(sorted[2]).toBe('RSV Positivity');
+        
+        // Shifted positivity (type 1) - next 2
+        expect(sorted[3]).toBe('Influenza Positivity shifted by -100d');
+        expect(sorted[4]).toBe('PCR Positivity (28d avg) shifted by 1 wave 56d');
+        
+        // Averaged positivity (type 2) - next 2
+        expect(sorted[5]).toBe('Antigen Positivity (28d avg)');
+        expect(sorted[6]).toBe('PCR Positivity (28d avg)');
+        
+        // Positive tests non-shifted (type 3) - next 1
+        expect(sorted[7]).toBe('PCR Positivity - Positive Tests');
+        
+        // Negative tests non-shifted (type 4) - next 1
+        expect(sorted[8]).toBe('PCR Positivity - Negative Tests');
+        
+        // Shifted positive tests (type 5) - next 1
+        expect(sorted[9]).toBe('PCR Positivity - Positive Tests shifted by 1 wave 56d');
+        
+        // Shifted negative tests (type 6) - last 1
+        expect(sorted[10]).toBe('PCR Positivity - Negative Tests shifted by 1 wave 56d');
+    });
+
+    test('other series types sort after test numbers', () => {
+        const labels = [
+            'PCR Positivity',
+            'Some Other Metric',
+            'Wastewater Data',
+            'PCR Positivity - Positive Tests'
+        ];
+        
+        const sorted = [...labels].sort(compareLabels);
+        
+        // Positivity first, test numbers second, other types last
         expect(sorted[0]).toBe('PCR Positivity');
-        expect(sorted[1]).toBe('Antigen Positivity (28d avg)');
-        expect(sorted[2]).toBe('PCR Positivity (28d avg)');
-        expect(sorted[3]).toBe('PCR Positivity (28d avg) shifted by 1 wave 56d');
+        expect(sorted[1]).toBe('PCR Positivity - Positive Tests');
+        // Other types should be after
+        expect(sorted[2]).toBe('Some Other Metric');
+        expect(sorted[3]).toBe('Wastewater Data');
     });
 });
