@@ -132,6 +132,8 @@ export function findClosestItem(items: TooltipItem[], cursorY: number, chart: an
     // Log debug information
     console.log('Closest item detection:', {
         cursorY: cursorY.toFixed(1),
+        chartAreaTop: chart.chartArea.top.toFixed(1),
+        chartAreaBottom: chart.chartArea.bottom.toFixed(1),
         items: debugData,
         selected: closestDatasetIndex,
         closestDist: closestDistance.toFixed(1),
