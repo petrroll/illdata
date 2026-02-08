@@ -137,6 +137,9 @@ export function findClosestItem(items: TooltipItem[], cursorY: number, chart: an
     let closestDistance = Infinity;
     let previousDistance = Infinity;
     
+    // Debug logging
+    const debugData: any[] = [];
+    
     for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const value = item.parsed.y;
@@ -153,6 +156,14 @@ export function findClosestItem(items: TooltipItem[], cursorY: number, chart: an
         const pixelY = yScale.getPixelForValue(value);
         const distance = Math.abs(pixelY - cursorY);
         
+        debugData.push({
+            label: item.dataset.label?.substring(0, 30),
+            value: value.toFixed(3),
+            pixelY: pixelY.toFixed(1),
+            distance: distance.toFixed(1),
+            datasetIndex: item.datasetIndex
+        });
+        
         // Track distance to the previously selected item
         if (item.datasetIndex === previousClosest) {
             previousDistance = distance;
@@ -163,6 +174,16 @@ export function findClosestItem(items: TooltipItem[], cursorY: number, chart: an
             closestDatasetIndex = item.datasetIndex;
         }
     }
+    
+    // Log debug information
+    console.log('Closest item detection:', {
+        cursorY: cursorY.toFixed(1),
+        items: debugData,
+        selected: closestDatasetIndex,
+        closestDist: closestDistance.toFixed(1),
+        prevClosest: previousClosest,
+        prevDist: previousDistance === Infinity ? 'Infinity' : previousDistance.toFixed(1)
+    });
     
     // Apply hysteresis: only switch if new item is significantly closer
     if (previousClosest !== -1 && previousDistance !== Infinity) {
