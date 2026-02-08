@@ -1205,6 +1205,14 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                                 `Date: ${currentDate}`,
                                 `Shifted Original: ${originalDateString} (${shiftDays > 0 ? '+' : ''}${shiftDays}d)`
                             ];
+                        },
+                        beforeBody: function(tooltipItems) {
+                            // Sort tooltip items by their parsed y-value in descending order (highest to lowest)
+                            tooltipItems.sort((a, b) => {
+                                const aValue = typeof a.parsed.y === 'number' ? a.parsed.y : 0;
+                                const bValue = typeof b.parsed.y === 'number' ? b.parsed.y : 0;
+                                return bValue - aValue; // Descending order
+                            });
                         }
                     }
                 },
