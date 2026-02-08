@@ -5,7 +5,8 @@ import {
     isShiftedSeries, 
     isAveragedSeries,
     isPositiveTestSeries,
-    isNegativeTestSeries
+    isNegativeTestSeries,
+    stripShiftAndExtremeSuffixes
 } from './series-utils';
 
 export type DataSeries = PositivitySeries | ScalarSeries;
@@ -597,18 +598,10 @@ export function compareLabels(labelA: string, labelB: string): number {
  * @returns The base series name without shift or averaging information
  */
 export function getColorBaseSeriesName(label: string): string {
-    let baseName = label;
-    
-    // Remove shift information (both wave-based and custom)
-    baseName = baseName
-        .replace(/ shifted by \d+ waves? -?\d+d/, '')
-        .replace(/ shifted by -?\d+d/, '');
+    let baseName = stripShiftAndExtremeSuffixes(label);
     
     // Remove averaging window information like "(28d avg)"
     baseName = baseName.replace(/\s*\(\d+d avg\)/, '');
-    
-    // Remove extreme indicators like "maxima over 84d" or "minima over 84d"
-    baseName = baseName.replace(/\s+(maxima|minima)\s+over\s+\d+d/, '');
     
     // Remove surveillance type suffixes like "(Sentinel)" and "(Non-Sentinel)"
     baseName = baseName.replace(/\s*\((Non-)?Sentinel\)/, '');

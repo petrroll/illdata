@@ -35,7 +35,7 @@ export async function loadAndParseTsv(filename: string) {
     return parseTsv(tsvContent);
 }
 
-function parseDelimited(content: string, delimiter: string, label: string) {
+export function parseDelimited(content: string, delimiter: string, label: string) {
     const lines = content.split("\n").filter(line => line.trim() !== "");
 
     // Assume first line contains headers
