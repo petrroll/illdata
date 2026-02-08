@@ -8,6 +8,22 @@ export const SHIFTED_SERIES_IDENTIFIER = 'shifted';
 export const TEST_NUMBERS_IDENTIFIER = 'tests';
 export const MIN_MAX_IDENTIFIER = ['min', 'max'];
 
+// Shared shift-related regex patterns used by getBaseSeriesName and getBaseSeriesNameWithoutShift
+const SHIFT_PATTERNS = [
+    / shifted by \d+ waves? (?:-?\d+|NaN)d/,
+    / shifted by -?\d+d/,
+    / maxima over \d+d/,
+    / minima over \d+d/,
+];
+
+/**
+ * Helper: checks if a normalized series label includes the given identifier (case-insensitive)
+ */
+function normalizedLabelIncludes(label: string, identifier: string, caseSensitive = false): boolean {
+    const normalized = normalizeSeriesName(label);
+    return caseSensitive ? normalized.includes(identifier) : normalized.toLowerCase().includes(identifier);
+}
+
 /**
  * Series metadata and classification functions
  */
@@ -18,8 +34,7 @@ export const MIN_MAX_IDENTIFIER = ['min', 'max'];
  * @returns True if the series is shifted
  */
 export function isShiftedSeries(label: string): boolean {
-    const normalizedLabel = normalizeSeriesName(label);
-    return normalizedLabel.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER);
+    return normalizedLabelIncludes(label, SHIFTED_SERIES_IDENTIFIER);
 }
 
 /**
@@ -28,8 +43,7 @@ export function isShiftedSeries(label: string): boolean {
  * @returns True if the series is a test number series
  */
 export function isTestNumberSeries(label: string): boolean {
-    const normalizedLabel = normalizeSeriesName(label);
-    return normalizedLabel.toLowerCase().includes(TEST_NUMBERS_IDENTIFIER);
+    return normalizedLabelIncludes(label, TEST_NUMBERS_IDENTIFIER);
 }
 
 /**
@@ -38,9 +52,7 @@ export function isTestNumberSeries(label: string): boolean {
  * @returns True if the series is a min/max series
  */
 export function isMinMaxSeries(label: string): boolean {
-    const normalizedLabel = normalizeSeriesName(label);
-    const lowerLabel = normalizedLabel.toLowerCase();
-    return MIN_MAX_IDENTIFIER.some(id => lowerLabel.includes(id));
+    return MIN_MAX_IDENTIFIER.some(id => normalizedLabelIncludes(label, id));
 }
 
 /**
@@ -49,8 +61,7 @@ export function isMinMaxSeries(label: string): boolean {
  * @returns True if the series is a positivity series
  */
 export function isPositivitySeries(label: string): boolean {
-    const normalizedLabel = normalizeSeriesName(label);
-    return normalizedLabel.toLowerCase().includes('positivity');
+    return normalizedLabelIncludes(label, 'positivity');
 }
 
 /**
@@ -59,8 +70,7 @@ export function isPositivitySeries(label: string): boolean {
  * @returns True if the series is averaged
  */
 export function isAveragedSeries(label: string): boolean {
-    const normalizedLabel = normalizeSeriesName(label);
-    return normalizedLabel.includes('d avg)');
+    return normalizedLabelIncludes(label, 'd avg)', true);
 }
 
 /**
@@ -69,8 +79,7 @@ export function isAveragedSeries(label: string): boolean {
  * @returns True if the series represents positive tests
  */
 export function isPositiveTestSeries(label: string): boolean {
-    const normalizedLabel = normalizeSeriesName(label);
-    return normalizedLabel.includes(' - Positive Tests');
+    return normalizedLabelIncludes(label, ' - Positive Tests', true);
 }
 
 /**
@@ -79,8 +88,7 @@ export function isPositiveTestSeries(label: string): boolean {
  * @returns True if the series represents negative tests
  */
 export function isNegativeTestSeries(label: string): boolean {
-    const normalizedLabel = normalizeSeriesName(label);
-    return normalizedLabel.includes(' - Negative Tests');
+    return normalizedLabelIncludes(label, ' - Negative Tests', true);
 }
 
 /**
@@ -144,6 +152,18 @@ export function extractShiftSuffix(label: string): string {
 }
 
 /**
+ * Applies shift-related regex replacements to a label.
+ * Used by both getBaseSeriesNameWithoutShift and getBaseSeriesName.
+ */
+function replaceShiftPatterns(label: string, replacement: string): string {
+    let result = label;
+    for (const pattern of SHIFT_PATTERNS) {
+        result = result.replace(pattern, replacement);
+    }
+    return result.trim();
+}
+
+/**
  * Extracts the base series name without ANY shift information.
  * Completely removes the shift suffix to get the original series name.
  * 
@@ -154,22 +174,10 @@ export function extractShiftSuffix(label: string): string {
  * - "Influenza Positivity" -> "Influenza Positivity" (unchanged, no shift info)
  */
 export function getBaseSeriesNameWithoutShift(label: string): string {
-    // Normalize to English first for consistent identifier matching across languages
-    const normalizedLabel = normalizeSeriesName(label);
-    
-    // Only process if the label contains the shifted series identifier
-    if (!normalizedLabel.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER)) {
+    if (!isShiftedSeries(label)) {
         return label;
     }
-    
-    // Remove shift suffix completely to get the base series name
-    // Updated patterns to handle NaN days as well as numeric days
-    return label
-        .replace(/ shifted by \d+ waves? (?:-?\d+|NaN)d/, '')
-        .replace(/ shifted by -?\d+d/, '')
-        .replace(/ maxima over \d+d/, '')
-        .replace(/ minima over \d+d/, '')
-        .trim();
+    return replaceShiftPatterns(label, '');
 }
 
 /**
@@ -191,28 +199,10 @@ export function getBaseSeriesNameWithoutShift(label: string): string {
  * - "Influenza Positivity (28d avg)" -> "Influenza Positivity (28d avg)" (unchanged, no shift info)
  */
 export function getBaseSeriesName(label: string): string {
-    // Normalize to English first for consistent identifier matching across languages
-    const normalizedLabel = normalizeSeriesName(label);
-    
-    // Only process if the label contains the shifted series identifier
-    // This prevents collision with non-shifted series
-    if (!normalizedLabel.toLowerCase().includes(SHIFTED_SERIES_IDENTIFIER)) {
+    if (!isShiftedSeries(label)) {
         return label;
     }
-    
-    // Normalize ALL shifted series to the same base name pattern "shifted"
-    // This works across both wave-based shifts, custom day shifts, and maxima/minima alignment
-    // Pattern matches:
-    // - "shifted by X wave(s) -XXXd" or "shifted by X wave(s) XXXd" (wave-based)
-    // - "shifted by -XXXd" or "shifted by XXXd" (custom days)
-    // - "maxima over XXXd" or "minima over XXXd" (extreme alignment modes)
-    // And normalizes to just "shifted" to enable cross-mode visibility preservation
-    return label
-        .replace(/ shifted by \d+ waves? -?\d+d/, ' shifted')
-        .replace(/ shifted by -?\d+d/, ' shifted')
-        .replace(/ maxima over \d+d/, ' shifted')
-        .replace(/ minima over \d+d/, ' shifted')
-        .trim();
+    return replaceShiftPatterns(label, ' shifted');
 }
 
 /**

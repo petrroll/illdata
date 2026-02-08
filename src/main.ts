@@ -123,37 +123,26 @@ const chartConfigs : ChartConfig[] = [
 function updateAllUITexts() {
     const t = translations;
     
-    // Update page title
-    const pageTitle = document.getElementById("pageTitle");
-    if (pageTitle) pageTitle.textContent = t.pageTitle;
+    // Helper to set text content by element ID
+    const setText = (id: string, text: string) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    };
     
-    // Update footer
+    setText("pageTitle", t.pageTitle);
+    setText("footerGithubLink", t.footerGithub);
+    setText("getLinkButton", t.footerGetLink);
+    setText("footerLastUpdateLabel", t.footerLastUpdate);
+    setText("trendsTableTitle", t.trendsTableTitle);
+    setText("trendPeriodHeader", t.trendsTablePeriodLabel);
+    setText("hideAllButton", t.hideAllButton);
+    
+    // Update footer about link (also needs href update)
     const footerAboutLink = document.getElementById("footerAboutLink") as HTMLAnchorElement;
     if (footerAboutLink) {
         footerAboutLink.textContent = t.footerAbout;
-        // Update href to point to correct language version
         footerAboutLink.href = currentLanguage === 'cs' ? 'about-cs.html' : 'about.html';
     }
-    
-    const footerGithubLink = document.getElementById("footerGithubLink");
-    if (footerGithubLink) footerGithubLink.textContent = t.footerGithub;
-    
-    const footerGetLinkButton = document.getElementById("getLinkButton");
-    if (footerGetLinkButton) footerGetLinkButton.textContent = t.footerGetLink;
-    
-    const footerLastUpdateLabel = document.getElementById("footerLastUpdateLabel");
-    if (footerLastUpdateLabel) footerLastUpdateLabel.textContent = t.footerLastUpdate;
-    
-    // Update trends table title
-    const trendsTableTitle = document.getElementById("trendsTableTitle");
-    if (trendsTableTitle) trendsTableTitle.textContent = t.trendsTableTitle;
-    
-    const trendPeriodHeader = document.getElementById("trendPeriodHeader");
-    if (trendPeriodHeader) trendPeriodHeader.textContent = t.trendsTablePeriodLabel;
-    
-    // Update hide all button
-    const hideAllButton = document.getElementById("hideAllButton");
-    if (hideAllButton) hideAllButton.textContent = t.hideAllButton;
     
     // Update chart titles (these will be updated when charts are re-rendered)
     chartConfigs[0].title = t.chartTitleCzechCovid;
@@ -263,52 +252,55 @@ function createUnifiedSettingsControl<K extends keyof AppSettings>(options: {
     return currentValue;
 }
 
-function createCountrySelector(cfg: ChartConfig, countryFilters: Map<string, string>, onSettingsChange: () => void) {
+function createFilterSelector(
+    cfg: ChartConfig,
+    filterType: 'country' | 'survtype',
+    filters: Map<string, string>,
+    options: { value: string; label: string }[],
+    labelText: string,
+    defaultValue: string,
+    filterKey: string | undefined,
+    onSettingsChange: () => void,
+    insertAfterSelector?: string
+) {
     const container = document.getElementById(cfg.containerId);
     if (!container) {
         console.error(`Container not found: ${cfg.containerId}`);
         return;
     }
 
-    // Get available countries from the data
-    const countries = getAvailableCountries(cfg.data);
-    if (countries.length === 0) {
-        console.warn(`No countries found in data for ${cfg.containerId}`);
+    if (options.length === 0) {
         return;
     }
 
-    // Create a wrapper div for the selector with minimal styling
     const selectorWrapper = document.createElement('div');
-    selectorWrapper.id = `${cfg.containerId}-country-selector`;
+    selectorWrapper.id = `${cfg.containerId}-${filterType}-selector`;
     selectorWrapper.style.marginBottom = '10px';
 
-    // Create label
     const label = document.createElement('label');
-    label.htmlFor = `${cfg.containerId}-country-select`;
-    label.textContent = translations.countryLabel;
+    label.htmlFor = `${cfg.containerId}-${filterType}-select`;
+    label.textContent = labelText;
+    if (filterType === 'survtype') {
+        label.style.marginRight = '5px';
+    }
 
-    // Create select element with minimal styling
     const select = document.createElement('select');
-    select.id = `${cfg.containerId}-country-select`;
+    select.id = `${cfg.containerId}-${filterType}-select`;
 
-    // Add options
-    countries.forEach(country => {
+    options.forEach(opt => {
         const option = document.createElement('option');
-        option.value = country;
-        option.textContent = country;
+        option.value = opt.value;
+        option.textContent = opt.label;
         select.appendChild(option);
     });
 
-    // Set current value
-    const currentCountry = countryFilters.get(cfg.containerId) || "EU/EEA";
-    select.value = currentCountry;
+    select.value = filters.get(cfg.containerId) || defaultValue;
 
-    // Add change handler
     select.addEventListener('change', () => {
-        const newCountry = select.value;
-        countryFilters.set(cfg.containerId, newCountry);
-        if (cfg.countryFilterKey) {
-            saveCountryFilter(cfg.countryFilterKey, newCountry);
+        const newValue = select.value;
+        filters.set(cfg.containerId, newValue);
+        if (filterKey) {
+            saveFilter(filterKey, newValue);
         }
         onSettingsChange();
     });
@@ -316,72 +308,30 @@ function createCountrySelector(cfg: ChartConfig, countryFilters: Map<string, str
     selectorWrapper.appendChild(label);
     selectorWrapper.appendChild(select);
 
-    // Insert the selector at the beginning of the container (above the chart)
+    if (insertAfterSelector) {
+        const prevSelector = document.getElementById(insertAfterSelector);
+        if (prevSelector && prevSelector.nextSibling) {
+            container.insertBefore(selectorWrapper, prevSelector.nextSibling);
+            return;
+        }
+    }
     container.insertBefore(selectorWrapper, container.firstChild);
 }
 
+function createCountrySelector(cfg: ChartConfig, countryFilters: Map<string, string>, onSettingsChange: () => void) {
+    const countries = getAvailableCountries(cfg.data);
+    const options = countries.map(c => ({ value: c, label: c }));
+    createFilterSelector(cfg, 'country', countryFilters, options, translations.countryLabel, "EU/EEA", cfg.countryFilterKey, onSettingsChange);
+}
+
 function createSurvtypeSelector(cfg: ChartConfig, survtypeFilters: Map<string, string>, onSettingsChange: () => void) {
-    const container = document.getElementById(cfg.containerId);
-    if (!container) {
-        console.error(`Container not found: ${cfg.containerId}`);
-        return;
-    }
-
-    // Create a wrapper div for the selector with minimal styling
-    const selectorWrapper = document.createElement('div');
-    selectorWrapper.id = `${cfg.containerId}-survtype-selector`;
-    selectorWrapper.style.marginBottom = '10px';
-
-    // Create label
-    const label = document.createElement('label');
-    label.htmlFor = `${cfg.containerId}-survtype-select`;
-    // Get fresh translations for current language
     const currentTranslations = getTranslations();
-    label.textContent = currentTranslations.survtypeLabel;
-    label.style.marginRight = '5px';
-
-    // Create select element with minimal styling
-    const select = document.createElement('select');
-    select.id = `${cfg.containerId}-survtype-select`;
-
-    // Add options for surveillance types using translations
-    const survtypes = [
+    const options = [
         { value: "both", label: currentTranslations.survtypeBoth },
         { value: "primary care sentinel", label: currentTranslations.survtypeSentinel },
         { value: "non-sentinel", label: currentTranslations.survtypeNonSentinel }
     ];
-
-    survtypes.forEach(st => {
-        const option = document.createElement('option');
-        option.value = st.value;
-        option.textContent = st.label;
-        select.appendChild(option);
-    });
-
-    // Set current value
-    const currentSurvtype = survtypeFilters.get(cfg.containerId) || "both";
-    select.value = currentSurvtype;
-
-    // Add change handler
-    select.addEventListener('change', () => {
-        const newSurvtype = select.value;
-        survtypeFilters.set(cfg.containerId, newSurvtype);
-        if (cfg.survtypeFilterKey) {
-            saveSurvtypeFilter(cfg.survtypeFilterKey, newSurvtype);
-        }
-        onSettingsChange();
-    });
-
-    selectorWrapper.appendChild(label);
-    selectorWrapper.appendChild(select);
-
-    // Insert after country selector if it exists, otherwise at the beginning
-    const countrySelector = document.getElementById(`${cfg.containerId}-country-selector`);
-    if (countrySelector && countrySelector.nextSibling) {
-        container.insertBefore(selectorWrapper, countrySelector.nextSibling);
-    } else {
-        container.insertBefore(selectorWrapper, container.firstChild);
-    }
+    createFilterSelector(cfg, 'survtype', survtypeFilters, options, currentTranslations.survtypeLabel, "both", cfg.survtypeFilterKey, onSettingsChange, `${cfg.containerId}-country-selector`);
 }
 
 // Refactored renderPage to use unified control creation and callback
@@ -457,7 +407,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         survtypeFilters = new Map<string, string>();
         chartConfigs.forEach(cfg => {
             if (cfg.hasSurvtypeFilter && cfg.survtypeFilterKey) {
-                survtypeFilters.set(cfg.containerId, loadSurvtypeFilter(cfg.survtypeFilterKey));
+                survtypeFilters.set(cfg.containerId, loadFilter(cfg.survtypeFilterKey, "both"));
             }
         });
         
@@ -479,10 +429,10 @@ function renderPage(rootDiv: HTMLElement | null) {
         survtypeFilters = new Map<string, string>();
         chartConfigs.forEach(cfg => {
             if (cfg.hasCountryFilter && cfg.countryFilterKey) {
-                countryFilters.set(cfg.containerId, loadCountryFilter(cfg.countryFilterKey));
+                countryFilters.set(cfg.containerId, loadFilter(cfg.countryFilterKey, "EU/EEA"));
             }
             if (cfg.hasSurvtypeFilter && cfg.survtypeFilterKey) {
-                survtypeFilters.set(cfg.containerId, loadSurvtypeFilter(cfg.survtypeFilterKey));
+                survtypeFilters.set(cfg.containerId, loadFilter(cfg.survtypeFilterKey, "both"));
             }
         });
     }
@@ -843,39 +793,21 @@ function filterDataBySurvtype(data: TimeseriesData, survtype: string): Timeserie
     };
 }
 
-function loadCountryFilter(key: string): string {
+function loadFilter(key: string, defaultValue: string): string {
     try {
         const stored = localStorage.getItem(key);
-        return stored || "EU/EEA";
+        return stored || defaultValue;
     } catch (error) {
-        console.error("Error loading country filter:", error);
-        return "EU/EEA";
+        console.error(`Error loading filter (${key}):`, error);
+        return defaultValue;
     }
 }
 
-function loadSurvtypeFilter(key: string): string {
+function saveFilter(key: string, value: string): void {
     try {
-        const stored = localStorage.getItem(key);
-        return stored || "both";
+        localStorage.setItem(key, value);
     } catch (error) {
-        console.error("Error loading survtype filter:", error);
-        return "both";
-    }
-}
-
-function saveSurvtypeFilter(key: string, survtype: string): void {
-    try {
-        localStorage.setItem(key, survtype);
-    } catch (error) {
-        console.error("Error saving survtype filter:", error);
-    }
-}
-
-function saveCountryFilter(key: string, country: string): void {
-    try {
-        localStorage.setItem(key, country);
-    } catch (error) {
-        console.error("Error saving country filter:", error);
+        console.error(`Error saving filter (${key}):`, error);
     }
 }
 
@@ -1125,21 +1057,12 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         
         // Also initialize visibility for test number bar variations (Positive Tests / Negative Tests)
         // These are created dynamically from positivity series but need their own visibility entries
-        const positiveTestsName = `${normalizedName} - Positive Tests`;
-        const negativeTestsName = `${normalizedName} - Negative Tests`;
-        
-        if (cfg.datasetVisibility[positiveTestsName] === undefined) {
-            if (hasStoredVisibility) {
-                cfg.datasetVisibility[positiveTestsName] = false;
-            } else {
-                cfg.datasetVisibility[positiveTestsName] = getVisibilityDefault(positiveTestsName, showShifted, showTestNumbers, showShiftedTestNumbers, showNonAveragedSeries);
-            }
-        }
-        if (cfg.datasetVisibility[negativeTestsName] === undefined) {
-            if (hasStoredVisibility) {
-                cfg.datasetVisibility[negativeTestsName] = false;
-            } else {
-                cfg.datasetVisibility[negativeTestsName] = getVisibilityDefault(negativeTestsName, showShifted, showTestNumbers, showShiftedTestNumbers, showNonAveragedSeries);
+        for (const testSuffix of [' - Positive Tests', ' - Negative Tests']) {
+            const testName = `${normalizedName}${testSuffix}`;
+            if (cfg.datasetVisibility[testName] === undefined) {
+                cfg.datasetVisibility[testName] = hasStoredVisibility
+                    ? false
+                    : getVisibilityDefault(testName, showShifted, showTestNumbers, showShiftedTestNumbers, showNonAveragedSeries);
             }
         }
     });
@@ -1350,9 +1273,32 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
         return compareLabels(labelA, labelB);
     });
     
-    // Group datasets by base name for test pairs
     // Track which datasets have been processed to avoid duplicates
     const processedIndices = new Set<number>();
+    
+    // Helper: find a dataset by normalized label match
+    const findDataset = (predicate: (normalizedLabel: string, rawLabel: string) => boolean) =>
+        datasetsWithIndices.find(d => {
+            const raw = d.dataset.label || '';
+            return predicate(normalizeSeriesName(raw), raw);
+        });
+    
+    // Helper: create a paired pill or fall back to a regular button
+    const createPairOrRegular = (
+        primaryDataset: typeof datasetsWithIndices[0]['dataset'],
+        primaryIndex: number,
+        pairedEntry: typeof datasetsWithIndices[0] | undefined,
+        createPill: (paired: typeof datasetsWithIndices[0]) => void
+    ) => {
+        if (pairedEntry) {
+            createPill(pairedEntry);
+            processedIndices.add(primaryIndex);
+            processedIndices.add(pairedEntry.index);
+        } else {
+            createRegularLegendButton(legendContainer, chart, cfg, primaryDataset, primaryIndex, updateRatioTable);
+            processedIndices.add(primaryIndex);
+        }
+    };
     
     // Create legend items for each dataset in sorted order
     datasetsWithIndices.forEach(({ dataset, index }) => {
@@ -1366,141 +1312,38 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
         const isPositiveTest = isPositiveTestSeries(datasetLabel);
         const isNegativeTest = isNegativeTestSeries(datasetLabel);
         
-        if (isPositiveTest) {
-            // Find the corresponding negative test dataset
+        if (isPositiveTest || isNegativeTest) {
             const baseSeriesName = getTestPairBaseName(datasetLabel);
-            const negativeLabel = `${baseSeriesName} - Negative Tests`;
+            const pairSuffix = isPositiveTest ? ' - Negative Tests' : ' - Positive Tests';
+            const pairDataset = findDataset(norm => norm === `${baseSeriesName}${pairSuffix}`);
             
-            // Find the negative test dataset
-            const negativeDataset = datasetsWithIndices.find(d => {
-                const label = normalizeSeriesName(d.dataset.label || '');
-                return label === negativeLabel;
+            createPairOrRegular(dataset, index, pairDataset, (paired) => {
+                // Positive dataset is always first in the pill
+                const [posDs, posIdx, negDs, negIdx] = isPositiveTest
+                    ? [dataset, index, paired.dataset, paired.index]
+                    : [paired.dataset, paired.index, dataset, index];
+                createSplitTestPill(legendContainer, chart, cfg, posDs, posIdx, negDs, negIdx, baseSeriesName, updateRatioTable);
             });
-            
-            if (negativeDataset) {
-                // Create a split pill for both positive and negative tests
-                createSplitTestPill(
-                    legendContainer,
-                    chart,
-                    cfg,
-                    dataset,
-                    index,
-                    negativeDataset.dataset,
-                    negativeDataset.index,
-                    baseSeriesName,
-                    updateRatioTable
-                );
-                
-                processedIndices.add(index);
-                processedIndices.add(negativeDataset.index);
-            } else {
-                // If no negative pair found, create regular button
-                createRegularLegendButton(legendContainer, chart, cfg, dataset, index, updateRatioTable);
-                processedIndices.add(index);
-            }
-        } else if (isNegativeTest) {
-            // Check if this negative test has a corresponding positive test
-            const baseSeriesName = getTestPairBaseName(datasetLabel);
-            const positiveLabel = `${baseSeriesName} - Positive Tests`;
-            
-            // Find the positive test dataset
-            const positiveDataset = datasetsWithIndices.find(d => {
-                const label = normalizeSeriesName(d.dataset.label || '');
-                return label === positiveLabel;
-            });
-            
-            if (positiveDataset) {
-                // Create a split pill for both positive and negative tests
-                // (positive is first in the pill)
-                createSplitTestPill(
-                    legendContainer,
-                    chart,
-                    cfg,
-                    positiveDataset.dataset,
-                    positiveDataset.index,
-                    dataset,
-                    index,
-                    baseSeriesName,
-                    updateRatioTable
-                );
-                
-                processedIndices.add(positiveDataset.index);
-                processedIndices.add(index);
-            } else {
-                // If no positive pair found, create regular button
-                createRegularLegendButton(legendContainer, chart, cfg, dataset, index, updateRatioTable);
-                processedIndices.add(index);
-            }
         } else {
-            // Check if this is a shifted series that has a corresponding base series
             const normalizedLabel = normalizeSeriesName(datasetLabel);
             const shifted = isShiftedSeries(datasetLabel);
             
             if (shifted) {
-                // Extract base series name (without shift suffix)
                 const baseNameWithoutShift = getBaseSeriesNameWithoutShift(normalizedLabel);
+                const baseDataset = findDataset((norm, raw) => norm === baseNameWithoutShift && !isShiftedSeries(raw));
                 
-                // Find the corresponding base series dataset
-                const baseDataset = datasetsWithIndices.find(d => {
-                    const label = normalizeSeriesName(d.dataset.label || '');
-                    // Match if it's the same base series but not shifted
-                    return label === baseNameWithoutShift && !isShiftedSeries(d.dataset.label || '');
+                createPairOrRegular(dataset, index, baseDataset, (paired) => {
+                    createSplitShiftedPill(legendContainer, chart, cfg, paired.dataset, paired.index, dataset, index, baseNameWithoutShift, updateRatioTable);
                 });
-                
-                if (baseDataset) {
-                    // Create a split pill for base and shifted series
-                    createSplitShiftedPill(
-                        legendContainer,
-                        chart,
-                        cfg,
-                        baseDataset.dataset,
-                        baseDataset.index,
-                        dataset,
-                        index,
-                        baseNameWithoutShift,
-                        updateRatioTable
-                    );
-                    
-                    processedIndices.add(baseDataset.index);
-                    processedIndices.add(index);
-                } else {
-                    // No base series found, create regular button
-                    createRegularLegendButton(legendContainer, chart, cfg, dataset, index, updateRatioTable);
-                    processedIndices.add(index);
-                }
             } else {
-                // Check if this base series has a corresponding shifted variant
-                const shiftedLabel = datasetsWithIndices.find(d => {
-                    const label = normalizeSeriesName(d.dataset.label || '');
-                    // Match if it's shifted and has the same base name
-                    if (!isShiftedSeries(d.dataset.label || '')) {
-                        return false;
-                    }
-                    const shiftedBaseName = getBaseSeriesNameWithoutShift(label);
-                    return shiftedBaseName === normalizedLabel;
+                const shiftedEntry = findDataset((norm, raw) => {
+                    if (!isShiftedSeries(raw)) return false;
+                    return getBaseSeriesNameWithoutShift(norm) === normalizedLabel;
                 });
                 
-                if (shiftedLabel) {
-                    // Create a split pill for base and shifted series
-                    createSplitShiftedPill(
-                        legendContainer,
-                        chart,
-                        cfg,
-                        dataset,
-                        index,
-                        shiftedLabel.dataset,
-                        shiftedLabel.index,
-                        normalizedLabel,
-                        updateRatioTable
-                    );
-                    
-                    processedIndices.add(index);
-                    processedIndices.add(shiftedLabel.index);
-                } else {
-                    // No shifted variant found, create regular button
-                    createRegularLegendButton(legendContainer, chart, cfg, dataset, index, updateRatioTable);
-                    processedIndices.add(index);
-                }
+                createPairOrRegular(dataset, index, shiftedEntry, (paired) => {
+                    createSplitShiftedPill(legendContainer, chart, cfg, dataset, index, paired.dataset, paired.index, normalizedLabel, updateRatioTable);
+                });
             }
         }
     });
@@ -1810,7 +1653,7 @@ function updateRatioTable() {
             
             // For EU chart, use the selected country from the filter
             if (cfg.hasCountryFilter && series.country && cfg.countryFilterKey) {
-                const selectedCountry = loadCountryFilter(cfg.countryFilterKey);
+                const selectedCountry = loadFilter(cfg.countryFilterKey, "EU/EEA");
                 if (series.country !== selectedCountry) {
                     return false;
                 }
