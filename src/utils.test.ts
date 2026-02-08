@@ -625,6 +625,140 @@ describe('getNewWithCustomShift Tests', () => {
     });
 });
 
+describe('Future Data Padding Tests', () => {
+    test('properly pads positivity series with correct placeholder objects when includeFutureDates is true', () => {
+        const testSeries: PositivitySeries = {
+            name: 'Test Series',
+            values: [
+                { positive: 10, tests: 100 },
+                { positive: 20, tests: 100 },
+                { positive: 30, tests: 100 }
+            ],
+            type: 'raw',
+            frequencyInDays: 1,
+            dataType: 'positivity'
+        };
+
+        const extremeSeries: ExtremeSeries[] = [
+            {
+                name: 'Test Series maxima over 3d',
+                originalSeriesName: 'Test Series',
+                indices: [1, 2],
+                type: 'extreme',
+                extreme: 'maxima'
+            }
+        ];
+
+        const data: TimeseriesData = {
+            dates: ['2022-01-01', '2022-01-02', '2022-01-03'],
+            series: [testSeries]
+        };
+
+        // Apply alignment with includeFutureDates = true
+        // This should add future dates and pad base series with proper placeholders
+        const result = getNewWithSifterToAlignExtremeDates(data, extremeSeries, 1, 2, true);
+
+        // Find the base (unshifted) series
+        const baseSeries = result.series.find(s => !s.name.includes('shifted by'));
+        expect(baseSeries).toBeDefined();
+        
+        // Base series should have more values than original due to padding
+        expect(baseSeries!.values.length).toBeGreaterThan(testSeries.values.length);
+        
+        // Check that padded values are proper Datapoint objects
+        const paddedValue = baseSeries!.values[baseSeries!.values.length - 1];
+        expect(paddedValue).toHaveProperty('positive');
+        expect(paddedValue).toHaveProperty('tests');
+        expect((paddedValue as Datapoint).positive).toBe(0);
+        expect(isNaN((paddedValue as Datapoint).tests)).toBe(true);
+    });
+
+    test('properly pads scalar series with correct placeholder objects when includeFutureDates is true', () => {
+        const testSeries: ScalarSeries = {
+            name: 'Wastewater Series',
+            values: [
+                { virusLoad: 100 },
+                { virusLoad: 200 },
+                { virusLoad: 300 }
+            ],
+            type: 'raw',
+            frequencyInDays: 1,
+            dataType: 'scalar'
+        };
+
+        const extremeSeries: ExtremeSeries[] = [
+            {
+                name: 'Wastewater Series maxima over 3d',
+                originalSeriesName: 'Wastewater Series',
+                indices: [1, 2],
+                type: 'extreme',
+                extreme: 'maxima'
+            }
+        ];
+
+        const data: TimeseriesData = {
+            dates: ['2022-01-01', '2022-01-02', '2022-01-03'],
+            series: [testSeries]
+        };
+
+        // Apply alignment with includeFutureDates = true
+        const result = getNewWithSifterToAlignExtremeDates(data, extremeSeries, 1, 2, true);
+
+        // Find the base (unshifted) series
+        const baseSeries = result.series.find(s => !s.name.includes('shifted by'));
+        expect(baseSeries).toBeDefined();
+        
+        // Base series should have more values than original due to padding
+        expect(baseSeries!.values.length).toBeGreaterThan(testSeries.values.length);
+        
+        // Check that padded values are proper ScalarDatapoint objects (not NaN)
+        const paddedValue = baseSeries!.values[baseSeries!.values.length - 1];
+        expect(paddedValue).toHaveProperty('virusLoad');
+        expect((paddedValue as any).virusLoad).toBe(0);
+        expect(typeof (paddedValue as any).virusLoad).toBe('number');
+        expect(isNaN((paddedValue as any).virusLoad)).toBe(false);
+    });
+
+    test('does not pad when includeFutureDates is false', () => {
+        const testSeries: PositivitySeries = {
+            name: 'Test Series',
+            values: [
+                { positive: 10, tests: 100 },
+                { positive: 20, tests: 100 },
+                { positive: 30, tests: 100 }
+            ],
+            type: 'raw',
+            frequencyInDays: 1,
+            dataType: 'positivity'
+        };
+
+        const extremeSeries: ExtremeSeries[] = [
+            {
+                name: 'Test Series maxima over 3d',
+                originalSeriesName: 'Test Series',
+                indices: [1, 2],
+                type: 'extreme',
+                extreme: 'maxima'
+            }
+        ];
+
+        const data: TimeseriesData = {
+            dates: ['2022-01-01', '2022-01-02', '2022-01-03'],
+            series: [testSeries]
+        };
+
+        // Apply alignment with includeFutureDates = false
+        const result = getNewWithSifterToAlignExtremeDates(data, extremeSeries, 1, 2, false);
+
+        // Find the base (unshifted) series
+        const baseSeries = result.series.find(s => !s.name.includes('shifted by'));
+        expect(baseSeries).toBeDefined();
+        
+        // Base series should have same number of values as original (no padding)
+        expect(baseSeries!.values.length).toBe(testSeries.values.length);
+    });
+});
+
 describe('compareLabels Tests', () => {
     test('sorts by word count first (fewer words first)', () => {
         expect(compareLabels('Short', 'Much Longer Label')).toBeLessThan(0);
