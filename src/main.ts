@@ -1468,6 +1468,12 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
  * Each base series is assigned to a palette, and different variations (raw, averaged, shifted)
  * get different colors within that palette.
  * 
+ * Priority assignments ensure standard respiratory viruses have consistent colors:
+ * - RSV: Blues palette (index 0)
+ * - Influenza: Greens palette (index 1)
+ * - SARS-CoV-2: Reds palette (index 2)
+ * - Other viruses: Purples palette (index 3) or cycling through remaining palettes
+ * 
  * @param series - Array of all series in the dataset
  * @param numPalettes - Number of available color palettes
  * @returns A map from base series name to palette index
@@ -1480,9 +1486,34 @@ function createStablePaletteMapping(series: DataSeries[], numPalettes: number): 
         new Set(series.map(s => getColorBaseSeriesName(s.name)))
     ).sort((a, b) => compareLabels(a, b));
     
-    // Assign each base series to a palette index (cycling through available palettes)
-    uniqueBaseNames.forEach((baseName, index) => {
-        paletteMap.set(baseName, index % numPalettes);
+    // Priority mappings for standard respiratory viruses to ensure consistency across all data sources
+    // These must match the palette indices defined in the colorPalettes array:
+    // [0: Blues, 1: Greens, 2: Reds, 3: Purples]
+    const priorityMappings: Record<string, number> = {
+        'RSV Positivity': 0,           // Blues palette
+        'RSV Wastewater': 0,           // Blues palette
+        'Influenza Positivity': 1,     // Greens palette
+        'Influenza Wastewater': 1,     // Greens palette
+        'SARS-CoV-2 Positivity': 2,    // Reds palette
+        'SARS-CoV-2 Wastewater': 2,    // Reds palette
+    };
+    
+    // Check for priority series and assign them first
+    const priorityNames = new Set<string>();
+    uniqueBaseNames.forEach(baseName => {
+        if (baseName in priorityMappings) {
+            paletteMap.set(baseName, priorityMappings[baseName]);
+            priorityNames.add(baseName);
+        }
+    });
+    
+    // Assign remaining series to available palettes, preferring palette 3 (Purples) for non-priority series
+    // to avoid conflicts with the standard viruses
+    const remainingNames = uniqueBaseNames.filter(name => !priorityNames.has(name));
+    remainingNames.forEach((baseName, index) => {
+        // Start from palette 3 (Purples) for other viruses
+        const paletteIndex = (3 + index) % numPalettes;
+        paletteMap.set(baseName, paletteIndex);
     });
     
     return paletteMap;
