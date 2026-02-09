@@ -384,6 +384,7 @@ function createCustomGraphData(selections: CustomGraphSelection[]): TimeseriesDa
         newName: string;
     }> = [];
     const processedCharts = new Set<number>();
+    const seenSeriesKeys = new Set<string>(); // Track which series we've already added
     
     selections.forEach(selection => {
         const sourceChart = chartConfigs[selection.sourceChartIndex];
@@ -396,8 +397,17 @@ function createCustomGraphData(selections: CustomGraphSelection[]): TimeseriesDa
         const series = sourceData.series.find(s => normalizeSeriesName(s.name) === normalizedSeriesName);
         if (!series) return;
         
+        // TODO: Remove this filter once dual y-axis support is implemented
         // Skip scalar/wastewater series to maintain scale compatibility
         if (series.dataType !== 'positivity') return;
+        
+        // Create a unique key for this series to prevent duplicates
+        // Use both chart index and the actual series name (not normalized) to distinguish Sentinel/Non-Sentinel
+        const seriesKey = `${selection.sourceChartIndex}:${series.name}`;
+        if (seenSeriesKeys.has(seriesKey)) {
+            return; // Skip duplicate
+        }
+        seenSeriesKeys.add(seriesKey);
         
         // Add dates from this source chart only once per chart
         if (!processedCharts.has(selection.sourceChartIndex)) {
