@@ -82,7 +82,7 @@ export function sortTooltipItems(items: TooltipItem[]): TooltipItem[] {
  * @param previousClosest - The previously selected datasetIndex (for hysteresis)
  * @returns datasetIndex of the closest item, or -1 if none found
  */
-export function findClosestItem(items: TooltipItem[], cursorY: number, chart: any, previousClosest: number = -1): number {
+export function findClosestItem(items: TooltipItem[], cursorY: number, chart: any, previousClosest: number = -1, rawLastMouseY: number | null = null): number {
     if (items.length === 0) return -1;
     
     const HYSTERESIS_PIXELS = 5; // Minimum pixel difference to switch selection
@@ -129,9 +129,10 @@ export function findClosestItem(items: TooltipItem[], cursorY: number, chart: an
         }
     }
     
-    // Log debug information
+    // Log debug information with rawLastMouseY to show the source
     console.log('Closest item detection:', {
         cursorY: cursorY.toFixed(1),
+        rawLastMouseY: rawLastMouseY !== null ? rawLastMouseY.toFixed(1) : 'N/A',
         chartAreaTop: chart.chartArea.top.toFixed(1),
         chartAreaBottom: chart.chartArea.bottom.toFixed(1),
         items: debugData,

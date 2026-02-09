@@ -1248,7 +1248,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                                         tooltip.dataPoints as TooltipItem[], 
                                         cursorY,
                                         chart,
-                                        previousClosestDatasetIndex
+                                        previousClosestDatasetIndex,
+                                        lastMouseY  // Pass raw value for debugging
                                     );
                                     tooltip._closestDatasetIndex = closestDatasetIndex;
                                     previousClosestDatasetIndex = closestDatasetIndex;
@@ -1405,6 +1406,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const canvas = cfg.canvas as HTMLCanvasElement;
     canvas.addEventListener('mousemove', (event) => {
         const rect = canvas.getBoundingClientRect();
+        // Mouse Y relative to canvas top
         lastMouseY = event.clientY - rect.top;
     });
     
