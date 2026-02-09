@@ -406,10 +406,19 @@ function createCustomGraphData(selections: CustomGraphSelection[]): TimeseriesDa
         }
         
         // Store series with metadata for later processing
+        // For ECDC series, include country name if not EU/EEA
+        let suffix = sourceChart.shortTitle;
+        if (sourceChart.hasCountryFilter && sourceChart.countryFilterKey) {
+            const selectedCountry = loadFilter(sourceChart.countryFilterKey, "EU/EEA");
+            if (selectedCountry !== "EU/EEA") {
+                suffix = `${suffix} - ${selectedCountry}`;
+            }
+        }
+        
         seriesWithMeta.push({
             series,
             sourceData,
-            newName: `${series.name} (${sourceChart.shortTitle})`
+            newName: `${series.name} (${suffix})`
         });
     });
     
