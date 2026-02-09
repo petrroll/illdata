@@ -24,6 +24,7 @@ import { type AppSettings, type AlignByExtreme, DEFAULT_APP_SETTINGS, APP_SETTIN
 import { type UrlState, type UrlChartConfig, encodeUrlState, decodeUrlState, loadStateFromUrl, applyUrlState } from "./urlstate";
 import { extractShiftFromLabel } from "./tooltip";
 import { adjustColorForTestBars } from "./color";
+import { compareTooltipItems, type TooltipItem } from "./tooltip-formatting";
 
 const averagingWindows = [28];
 const extremesForWindow = 28;
@@ -1105,7 +1106,30 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     mode: 'index', // Snap tooltip to vertical line
                     intersect: false,
                     axis: 'x',
+                    itemSort: function(a: any, b: any) {
+                        // Use direct comparison function for pairwise sorting
+                        return compareTooltipItems(a as TooltipItem, b as TooltipItem);
+                    },
                     callbacks: {
+                        label: function(context: any) {
+                            // Get the label and value
+                            const label = context.dataset.label || '';
+                            const value = context.parsed.y;
+                            
+                            // Format the value based on series type
+                            let formattedValue: string;
+                            if (isNaN(value)) {
+                                formattedValue = 'N/A';
+                            } else if (isScalarSeries(context.dataset)) {
+                                // For scalar series (e.g., wastewater), use scientific notation
+                                formattedValue = value.toExponential(3);
+                            } else {
+                                // For positivity data, show as decimal (values are percentages like 5.123 meaning 5.123%)
+                                formattedValue = value.toFixed(3);
+                            }
+                            
+                            return `${label}: ${formattedValue}`;
+                        },
                         title: function(context) {
                             if (context.length === 0) return '';
                             

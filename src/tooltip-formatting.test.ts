@@ -1,0 +1,261 @@
+import { describe, test, expect } from "bun:test";
+import { sortTooltipItems, compareTooltipItems, type TooltipItem } from "./tooltip-formatting";
+
+describe("sortTooltipItems", () => {
+    test("sorts by type first, then by value within type", () => {
+        const items: TooltipItem[] = [
+            {
+                dataset: { label: "PCR Positivity" },
+                parsed: { x: 0, y: 5.5 },
+                datasetIndex: 0
+            },
+            {
+                dataset: { label: "PCR Positivity" },
+                parsed: { x: 0, y: 10.2 },
+                datasetIndex: 1
+            },
+            {
+                dataset: { label: "Antigen Positivity" },
+                parsed: { x: 0, y: 3.1 },
+                datasetIndex: 2
+            },
+            {
+                dataset: { label: "Positive Tests" },
+                parsed: { x: 0, y: 100 },
+                datasetIndex: 3
+            }
+        ];
+        
+        const sorted = sortTooltipItems(items);
+        
+        // Check type ordering (positivity before test numbers)
+        expect(sorted[0].dataset.label).toContain("Positivity");
+        expect(sorted[1].dataset.label).toContain("Positivity");
+        expect(sorted[2].dataset.label).toContain("Positivity");
+        expect(sorted[3].dataset.label).toBe("Positive Tests");
+        
+        // Check value ordering within positivity type (highest first)
+        expect(sorted[0].parsed.y).toBe(10.2); // PCR with 10.2
+        expect(sorted[1].parsed.y).toBe(5.5);  // PCR with 5.5
+        expect(sorted[2].parsed.y).toBe(3.1);  // Antigen with 3.1
+    });
+    
+    test("handles shifted series correctly", () => {
+        const items: TooltipItem[] = [
+            {
+                dataset: { label: "PCR Positivity shifted by 1 wave -347d" },
+                parsed: { x: 0, y: 8.0 },
+                datasetIndex: 0
+            },
+            {
+                dataset: { label: "PCR Positivity" },
+                parsed: { x: 0, y: 5.0 },
+                datasetIndex: 1
+            },
+            {
+                dataset: { label: "Antigen Positivity" },
+                parsed: { x: 0, y: 10.0 },
+                datasetIndex: 2
+            }
+        ];
+        
+        const sorted = sortTooltipItems(items);
+        
+        // Regular positivity should come before shifted
+        expect(sorted[0].dataset.label).toBe("Antigen Positivity");
+        expect(sorted[0].parsed.y).toBe(10.0);
+        expect(sorted[1].dataset.label).toBe("PCR Positivity");
+        expect(sorted[1].parsed.y).toBe(5.0);
+        expect(sorted[2].dataset.label).toContain("shifted");
+        expect(sorted[2].parsed.y).toBe(8.0);
+    });
+    
+    test("handles averaged series correctly", () => {
+        const items: TooltipItem[] = [
+            {
+                dataset: { label: "PCR Positivity (28d avg)" },
+                parsed: { x: 0, y: 7.5 },
+                datasetIndex: 0
+            },
+            {
+                dataset: { label: "PCR Positivity" },
+                parsed: { x: 0, y: 5.0 },
+                datasetIndex: 1
+            },
+            {
+                dataset: { label: "PCR Positivity shifted by -180d" },
+                parsed: { x: 0, y: 8.0 },
+                datasetIndex: 2
+            }
+        ];
+        
+        const sorted = sortTooltipItems(items);
+        
+        // Order should be: regular, shifted, averaged
+        expect(sorted[0].dataset.label).toBe("PCR Positivity");
+        expect(sorted[1].dataset.label).toContain("shifted");
+        expect(sorted[2].dataset.label).toContain("avg");
+    });
+    
+    test("handles NaN values by placing them at the end", () => {
+        const items: TooltipItem[] = [
+            {
+                dataset: { label: "Series A" },
+                parsed: { x: 0, y: 5.0 },
+                datasetIndex: 0
+            },
+            {
+                dataset: { label: "Series B" },
+                parsed: { x: 0, y: NaN },
+                datasetIndex: 1
+            },
+            {
+                dataset: { label: "Series C" },
+                parsed: { x: 0, y: 10.0 },
+                datasetIndex: 2
+            }
+        ];
+        
+        const sorted = sortTooltipItems(items);
+        
+        // NaN should be at the end
+        expect(sorted[0].parsed.y).toBe(10.0);
+        expect(sorted[1].parsed.y).toBe(5.0);
+        expect(isNaN(sorted[2].parsed.y)).toBe(true);
+    });
+    
+    test("handles multiple NaN values", () => {
+        const items: TooltipItem[] = [
+            {
+                dataset: { label: "Series A" },
+                parsed: { x: 0, y: NaN },
+                datasetIndex: 0
+            },
+            {
+                dataset: { label: "Series B" },
+                parsed: { x: 0, y: NaN },
+                datasetIndex: 1
+            },
+            {
+                dataset: { label: "Series C" },
+                parsed: { x: 0, y: 5.0 },
+                datasetIndex: 2
+            }
+        ];
+        
+        const sorted = sortTooltipItems(items);
+        
+        // Non-NaN should come first
+        expect(sorted[0].parsed.y).toBe(5.0);
+        expect(isNaN(sorted[1].parsed.y)).toBe(true);
+        expect(isNaN(sorted[2].parsed.y)).toBe(true);
+    });
+    
+    test("sorts within same type by value descending", () => {
+        const items: TooltipItem[] = [
+            {
+                dataset: { label: "Adenovirus Positivity" },
+                parsed: { x: 0, y: 0.212 },
+                datasetIndex: 0
+            },
+            {
+                dataset: { label: "Chřipka Positivity" },
+                parsed: { x: 0, y: 5.508 },
+                datasetIndex: 1
+            },
+            {
+                dataset: { label: "RSV Positivity" },
+                parsed: { x: 0, y: 4.237 },
+                datasetIndex: 2
+            },
+            {
+                dataset: { label: "HMPV Positivity" },
+                parsed: { x: 0, y: 5.932 },
+                datasetIndex: 3
+            }
+        ];
+        
+        const sorted = sortTooltipItems(items);
+        
+        // All are same type (positivity), should be sorted by value descending
+        expect(sorted[0].parsed.y).toBe(5.932); // HMPV
+        expect(sorted[1].parsed.y).toBe(5.508); // Chřipka
+        expect(sorted[2].parsed.y).toBe(4.237); // RSV
+        expect(sorted[3].parsed.y).toBe(0.212); // Adenovirus
+    });
+});
+
+describe("sortTooltipItems - Czech test series bug", () => {
+    test("separates positivity series from test number series", () => {
+        const items: TooltipItem[] = [
+            {
+                dataset: { label: "Antigenní pozitivita (28d prům.)" },
+                parsed: { x: 0, y: 2.783 },
+                datasetIndex: 0
+            },
+            {
+                dataset: { label: "PCR pozitivita (28d prům.)" },
+                parsed: { x: 0, y: 2.453 },
+                datasetIndex: 1
+            },
+            {
+                dataset: { label: "Antigenní pozitivita - pozitivní testy" },
+                parsed: { x: 0, y: 70.0 },
+                datasetIndex: 2
+            },
+            {
+                dataset: { label: "Antigenní pozitivita - negativní testy" },
+                parsed: { x: 0, y: 2228.0 },
+                datasetIndex: 3
+            }
+        ];
+        
+        const sorted = sortTooltipItems(items);
+        
+        // First two should be positivity series (sorted by value)
+        expect(sorted[0].dataset.label).toBe("Antigenní pozitivita (28d prům.)");
+        expect(sorted[0].parsed.y).toBe(2.783);
+        expect(sorted[1].dataset.label).toBe("PCR pozitivita (28d prům.)");
+        expect(sorted[1].parsed.y).toBe(2.453);
+        
+        // Next two should be test series (positive tests before negative tests)
+        expect(sorted[2].dataset.label).toBe("Antigenní pozitivita - pozitivní testy");
+        expect(sorted[3].dataset.label).toBe("Antigenní pozitivita - negativní testy");
+    });
+});
+
+describe("compareTooltipItems", () => {
+    test("compares by type priority first", () => {
+        const positivity: TooltipItem = {
+            dataset: { label: "PCR Positivity" },
+            parsed: { x: 0, y: 5.0 },
+            datasetIndex: 0
+        };
+        const testNumber: TooltipItem = {
+            dataset: { label: "PCR Positivity - Positive Tests" },
+            parsed: { x: 0, y: 100.0 },
+            datasetIndex: 1
+        };
+        
+        // Positivity should come before test numbers
+        expect(compareTooltipItems(positivity, testNumber)).toBeLessThan(0);
+        expect(compareTooltipItems(testNumber, positivity)).toBeGreaterThan(0);
+    });
+    
+    test("compares by value within same type", () => {
+        const higher: TooltipItem = {
+            dataset: { label: "PCR Positivity" },
+            parsed: { x: 0, y: 10.0 },
+            datasetIndex: 0
+        };
+        const lower: TooltipItem = {
+            dataset: { label: "Antigen Positivity" },
+            parsed: { x: 0, y: 5.0 },
+            datasetIndex: 1
+        };
+        
+        // Higher value should come first (negative comparison result)
+        expect(compareTooltipItems(higher, lower)).toBeLessThan(0);
+        expect(compareTooltipItems(lower, higher)).toBeGreaterThan(0);
+    });
+});

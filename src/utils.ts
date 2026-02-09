@@ -8,6 +8,7 @@ import {
     isNegativeTestSeries,
     stripShiftAndExtremeSuffixes
 } from './series-utils';
+import { getSeriesTypePriority } from './series-priorities';
 
 export type DataSeries = PositivitySeries | ScalarSeries;
 
@@ -522,56 +523,9 @@ function calculateMedian(values: number[]): number {
  * @returns Negative if labelA comes first, positive if labelB comes first, 0 if equal
  */
 export function compareLabels(labelA: string, labelB: string): number {
-    // Priority constants (lower numbers appear first in sorted order)
-    // - Priorities 0-2 are for positivity series (regular, shifted, averaged)
-    // - Priorities 3-4 are for non-shifted test numbers
-    // - Priorities 5-6 are for shifted test numbers
-    // - Priority 7 is for other types
-    const PRIORITY_POSITIVITY = 0;
-    const PRIORITY_POSITIVITY_SHIFTED = 1;
-    const PRIORITY_POSITIVITY_AVERAGED = 2;
-    const PRIORITY_POSITIVE_TESTS = 3;
-    const PRIORITY_NEGATIVE_TESTS = 4;
-    const PRIORITY_POSITIVE_TESTS_SHIFTED = 5;
-    const PRIORITY_NEGATIVE_TESTS_SHIFTED = 6;
-    const PRIORITY_OTHER = 7;
-    
-    /**
-     * Determines the type priority of a series label.
-     * Lower numbers appear first in the sorted order.
-     * Uses language-neutral helper functions from series-utils.ts
-     */
-    const getSeriesType = (label: string): number => {
-        // Use language-neutral helper functions that normalize the label internally
-        const isPositivity = isPositivitySeries(label);
-        const isShifted = isShiftedSeries(label);
-        const isAveraged = isAveragedSeries(label);
-        const isPositiveTest = isPositiveTestSeries(label);
-        const isNegativeTest = isNegativeTestSeries(label);
-        
-        // Determine priority based on series type
-        if (isPositiveTest) {
-            return isShifted ? PRIORITY_POSITIVE_TESTS_SHIFTED : PRIORITY_POSITIVE_TESTS;
-        }
-        if (isNegativeTest) {
-            return isShifted ? PRIORITY_NEGATIVE_TESTS_SHIFTED : PRIORITY_NEGATIVE_TESTS;
-        }
-        if (isPositivity) {
-            // Shifted positivity takes precedence over averaged
-            if (isShifted) {
-                return PRIORITY_POSITIVITY_SHIFTED;
-            }
-            if (isAveraged) {
-                return PRIORITY_POSITIVITY_AVERAGED;
-            }
-            return PRIORITY_POSITIVITY;
-        }
-        
-        return PRIORITY_OTHER;
-    };
-    
-    const typeA = getSeriesType(labelA);
-    const typeB = getSeriesType(labelB);
+    // Sort by type first using the shared getSeriesTypePriority function
+    const typeA = getSeriesTypePriority(labelA);
+    const typeB = getSeriesTypePriority(labelB);
     
     // Sort by type first
     if (typeA !== typeB) {
