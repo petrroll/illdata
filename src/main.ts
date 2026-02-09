@@ -24,7 +24,7 @@ import { type AppSettings, type AlignByExtreme, DEFAULT_APP_SETTINGS, APP_SETTIN
 import { type UrlState, type UrlChartConfig, encodeUrlState, decodeUrlState, loadStateFromUrl, applyUrlState } from "./urlstate";
 import { extractShiftFromLabel } from "./tooltip";
 import { adjustColorForTestBars } from "./color";
-import { sortTooltipItems, findClosestItem, compareTooltipItems, type TooltipItem } from "./tooltip-formatting";
+import { compareTooltipItems, type TooltipItem } from "./tooltip-formatting";
 
 const mzcrPositivity = mzcrPositivityImport as TimeseriesData;
 const euPositivity = euPositivityImport as TimeseriesData;
@@ -1167,12 +1167,6 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         dataset.hidden = !cfg.datasetVisibility[normalizedLabel];
     });
 
-    // Track the previous closest item for tooltip hysteresis
-    let previousClosestDatasetIndex = -1;
-    
-    // Track actual mouse Y position for closest item detection
-    let lastMouseY: number | null = null;
-
     const newChart = new Chart(cfg.canvas as HTMLCanvasElement, {
         type: "line",
         data: {
@@ -1210,54 +1204,6 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     },
                     callbacks: {
                         label: function(context: any) {
-                            const chart = context.chart;
-                            const tooltip = chart.tooltip;
-                            
-                            // Find the closest item to cursor based on y-distance (with hysteresis)
-                            // Only calculate once per tooltip render by checking if this is the first item
-                            let closestDatasetIndex = -1;
-                            if (tooltip && tooltip.dataPoints) {
-                                // Store in tooltip object to calculate only once
-                                if (tooltip._closestDatasetIndex === undefined) {
-                                    // Use actual mouse Y position if available, otherwise fall back to tooltip positions
-                                    let cursorY: number;
-                                    if (lastMouseY !== null) {
-                                        // Use the actual mouse Y position captured from mousemove event
-                                        cursorY = lastMouseY;
-                                    } else if (tooltip.caretY !== undefined) {
-                                        // Fallback: caretY is where the tooltip arrow points
-                                        cursorY = tooltip.caretY;
-                                    } else if (tooltip.y !== undefined) {
-                                        // Fallback: tooltip box position
-                                        cursorY = tooltip.y;
-                                    } else {
-                                        // Last resort: Calculate average Y position of all visible points
-                                        const yPositions = tooltip.dataPoints
-                                            .map((item: any) => {
-                                                const yAxisID = item.dataset.yAxisID || 'y';
-                                                const scale = chart.scales[yAxisID];
-                                                return scale ? scale.getPixelForValue(item.parsed.y) : null;
-                                            })
-                                            .filter((y: number | null) => y !== null) as number[];
-                                        cursorY = yPositions.length > 0 
-                                            ? yPositions.reduce((sum, y) => sum + y, 0) / yPositions.length
-                                            : chart.chartArea.top + chart.chartArea.height / 2;
-                                    }
-                                    
-                                    closestDatasetIndex = findClosestItem(
-                                        tooltip.dataPoints as TooltipItem[], 
-                                        cursorY,
-                                        chart,
-                                        previousClosestDatasetIndex,
-                                        lastMouseY  // Pass raw value for debugging
-                                    );
-                                    tooltip._closestDatasetIndex = closestDatasetIndex;
-                                    previousClosestDatasetIndex = closestDatasetIndex;
-                                } else {
-                                    closestDatasetIndex = tooltip._closestDatasetIndex;
-                                }
-                            }
-                            
                             // Get the label and value
                             const label = context.dataset.label || '';
                             const value = context.parsed.y;
@@ -1274,21 +1220,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                                 formattedValue = value.toFixed(3);
                             }
                             
-                            // Check if this is the closest item by comparing datasetIndex
-                            const isClosest = context.datasetIndex === closestDatasetIndex;
-                            
-                            // Add marker for closest item (using bullet point)
-                            const marker = isClosest ? '● ' : '  ';
-                            
-                            return `${marker}${label}: ${formattedValue}`;
-                        },
-                        afterBody: function() {
-                            // Clear the cached closest index after tooltip is fully rendered
-                            const chart = (this as any).chart;
-                            if (chart && chart.tooltip) {
-                                delete chart.tooltip._closestDatasetIndex;
-                            }
-                            return [];
+                            return `${label}: ${formattedValue}`;
                         },
                         title: function(context) {
                             if (context.length === 0) return '';
@@ -1400,19 +1332,6 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                 }
             }
         }
-    });
-
-    // Add mousemove listener to track actual mouse position for closest item detection
-    const canvas = cfg.canvas as HTMLCanvasElement;
-    canvas.addEventListener('mousemove', (event) => {
-        const rect = canvas.getBoundingClientRect();
-        // Mouse Y relative to canvas top
-        lastMouseY = event.clientY - rect.top;
-    });
-    
-    // Clear mouse position when mouse leaves the canvas
-    canvas.addEventListener('mouseleave', () => {
-        lastMouseY = null;
     });
 
     // Create custom HTML legend with colored background boxes
