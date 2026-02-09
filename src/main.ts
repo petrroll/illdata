@@ -371,7 +371,7 @@ function saveCustomGraphSelections(selections: CustomGraphSelection[]): void {
     }
 }
 
-function createCustomGraphData(selections: CustomGraphSelection[]): TimeseriesData {
+function createCustomGraphData(selections: CustomGraphSelection[], showShifted: boolean): TimeseriesData {
     if (selections.length === 0) {
         return { dates: [], series: [] };
     }
@@ -397,8 +397,8 @@ function createCustomGraphData(selections: CustomGraphSelection[]): TimeseriesDa
         const series = sourceData.series.find(s => normalizeSeriesName(s.name) === normalizedSeriesName);
         if (!series) return;
         
-        // Skip shifted series - custom graph should only show non-shifted averaged series
-        if (isShiftedSeries(series.name)) return;
+        // Skip shifted series if they're disabled in settings
+        if (!showShifted && isShiftedSeries(series.name)) return;
         
         // TODO: Remove this filter once dual y-axis support is implemented
         // Skip scalar/wastewater series to maintain scale compatibility
@@ -518,7 +518,7 @@ function createCustomGraphData(selections: CustomGraphSelection[]): TimeseriesDa
     };
 }
 
-function createCustomGraphSeriesSelector(customGraphConfig: ChartConfig, onSelectionChange: () => void): HTMLElement {
+function createCustomGraphSeriesSelector(customGraphConfig: ChartConfig, showShifted: boolean, onSelectionChange: () => void): HTMLElement {
     const container = document.createElement('div');
     container.id = 'customGraphSeriesSelector';
     container.style.cssText = 'margin: 10px 0; padding: 10px; border: 1px solid #ddd; background: #f9f9f9;';
@@ -557,9 +557,10 @@ function createCustomGraphSeriesSelector(customGraphConfig: ChartConfig, onSelec
         chartSection.appendChild(chartTitle);
         
         // Get available series from this chart
-        // Only show averaged positivity series (not scalar/wastewater/shifted) to keep scales compatible
+        // Only show averaged positivity series (not scalar/wastewater) to keep scales compatible
+        // Include/exclude shifted series based on settings toggle
         const availableSeries = sourceChart.data.series
-            .filter(s => s.type === 'averaged' && s.dataType === 'positivity' && !isShiftedSeries(s.name))
+            .filter(s => s.type === 'averaged' && s.dataType === 'positivity' && (showShifted || !isShiftedSeries(s.name)))
             .sort((a, b) => compareLabels(a.name, b.name));
         
         // Deduplicate series by normalized name to avoid showing duplicates
@@ -750,7 +751,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         const customGraphConfig = chartConfigs.find(cfg => cfg.isCustomGraph);
         if (customGraphConfig) {
             const selections = loadCustomGraphSelections();
-            customGraphConfig.data = createCustomGraphData(selections);
+            customGraphConfig.data = createCustomGraphData(selections, appSettings.showShifted);
             // Clear extremes cache when data changes
             customGraphConfig.extremesCache = undefined;
         }
@@ -970,7 +971,7 @@ function renderPage(rootDiv: HTMLElement | null) {
             customGraphContainer.insertBefore(toggleButton, customGraphContainer.firstChild);
             
             // Create the selector (hidden by default)
-            const seriesSelector = createCustomGraphSeriesSelector(customGraphConfig, onSettingsChange);
+            const seriesSelector = createCustomGraphSeriesSelector(customGraphConfig, appSettings.showShifted, onSettingsChange);
             seriesSelector.style.display = 'none'; // Start hidden
             customGraphContainer.insertBefore(seriesSelector, toggleButton.nextSibling);
             
