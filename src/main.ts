@@ -397,6 +397,9 @@ function createCustomGraphData(selections: CustomGraphSelection[]): TimeseriesDa
         const series = sourceData.series.find(s => normalizeSeriesName(s.name) === normalizedSeriesName);
         if (!series) return;
         
+        // Skip shifted series - custom graph should only show non-shifted averaged series
+        if (isShiftedSeries(series.name)) return;
+        
         // TODO: Remove this filter once dual y-axis support is implemented
         // Skip scalar/wastewater series to maintain scale compatibility
         if (series.dataType !== 'positivity') return;
@@ -554,9 +557,9 @@ function createCustomGraphSeriesSelector(customGraphConfig: ChartConfig, onSelec
         chartSection.appendChild(chartTitle);
         
         // Get available series from this chart
-        // Only show averaged positivity series (not scalar/wastewater) to keep scales compatible
+        // Only show averaged positivity series (not scalar/wastewater/shifted) to keep scales compatible
         const availableSeries = sourceChart.data.series
-            .filter(s => s.type === 'averaged' && s.dataType === 'positivity')
+            .filter(s => s.type === 'averaged' && s.dataType === 'positivity' && !isShiftedSeries(s.name))
             .sort((a, b) => compareLabels(a.name, b.name));
         
         // Deduplicate series by normalized name to avoid showing duplicates
@@ -1089,7 +1092,7 @@ function createChartContainerAndCanvas(containerId: string, canvasId: string): H
         if (!chartWrapper) {
             chartWrapper = document.createElement('div');
             chartWrapper.id = 'customGraphChartWrapper';
-            chartWrapper.style.cssText = 'width: 100vw; height: 40vh; margin-bottom: 60px;';
+            chartWrapper.style.cssText = 'width: 100vw; height: 40vh; margin-bottom: 100px;';
             container.appendChild(chartWrapper);
         }
         
