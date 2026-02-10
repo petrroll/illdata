@@ -4,6 +4,7 @@ import {
     computeMovingAverageTimeseries,
     getNewWithSifterToAlignExtremeDates,
     getNewWithCustomShift,
+    getExtremeMatchSeriesName,
     compareLabels,
     isScalarSeries,
     type PositivitySeries, 
@@ -471,6 +472,59 @@ describe('addShiftedToAlignExtremeDates Tests', () => {
         expect(shiftedAveragedSeries).toBeDefined();
         expect(shiftedAveragedSeries?.type).toBe('averaged');
         expect(shiftedAveragedSeries?.shiftedByIndexes).toBe(-2); // Should have the same shift as the raw series
+    });
+});
+
+describe('addShiftedToAlignExtremeDates Tests - survtype isolation', () => {
+    test('does not cross-match extremes between different survtypes', () => {
+        const nonSentinelSeries = {
+            name: 'SARS-CoV-2 Positivity (Non-Sentinel) (28d avg) (ECDC)',
+            values: Array.from({ length: 5 }, (_, i) => ({ positive: [10, 30, 20, 40, 15][i], tests: 100 })),
+            type: 'averaged' as const, windowSizeInDays: 28, frequencyInDays: 1, dataType: 'positivity' as const
+        };
+        const sentinelSeries = {
+            name: 'SARS-CoV-2 Positivity (Sentinel) (28d avg) (ECDC)',
+            values: Array.from({ length: 5 }, (_, i) => ({ positive: [5, 15, 10, 25, 8][i], tests: 100 })),
+            type: 'averaged' as const, windowSizeInDays: 28, frequencyInDays: 1, dataType: 'positivity' as const
+        };
+        const data: TimeseriesData = {
+            dates: ['2022-01-01', '2022-01-02', '2022-01-03', '2022-01-04', '2022-01-05'],
+            series: [nonSentinelSeries, sentinelSeries]
+        };
+        const extremeSeries: ExtremeSeries[] = [
+            { name: 'NS maxima', originalSeriesName: 'SARS-CoV-2 Positivity (Non-Sentinel) (28d avg) (ECDC)', indices: [1, 3], type: 'extreme', extreme: 'maxima' },
+            { name: 'S maxima', originalSeriesName: 'SARS-CoV-2 Positivity (Sentinel) (28d avg) (ECDC)', indices: [0, 3], type: 'extreme', extreme: 'maxima' }
+        ];
+        const result = getNewWithSifterToAlignExtremeDates(data, extremeSeries, 1, 2, false);
+        // 2 base + 2 shifted = 4 (no cross-matching between survtypes)
+        expect(result.series.length).toBe(4);
+        const shiftedNS = result.series.find(s => s.name.includes('Non-Sentinel') && s.name.includes('shifted by'));
+        expect(shiftedNS).toBeDefined();
+        expect(shiftedNS?.shiftedByIndexes).toBe(-2);
+        const shiftedS = result.series.find(s => s.name.includes('Sentinel') && !s.name.includes('Non-Sentinel') && s.name.includes('shifted by'));
+        expect(shiftedS).toBeDefined();
+        expect(shiftedS?.shiftedByIndexes).toBe(-3);
+    });
+});
+
+describe('getExtremeMatchSeriesName Tests', () => {
+    test('strips averaging window but preserves survtype', () => {
+        expect(getExtremeMatchSeriesName('SARS-CoV-2 Positivity (Non-Sentinel) (28d avg) (ECDC)')).toBe('SARS-CoV-2 Positivity (Non-Sentinel) (ECDC)');
+        expect(getExtremeMatchSeriesName('SARS-CoV-2 Positivity (Sentinel) (28d avg) (ECDC)')).toBe('SARS-CoV-2 Positivity (Sentinel) (ECDC)');
+    });
+    test('different survtypes produce different names', () => {
+        expect(getExtremeMatchSeriesName('SARS-CoV-2 Positivity (Non-Sentinel) (28d avg) (ECDC)'))
+            .not.toBe(getExtremeMatchSeriesName('SARS-CoV-2 Positivity (Sentinel) (28d avg) (ECDC)'));
+    });
+    test('same survtype with different windows match', () => {
+        const avg7 = getExtremeMatchSeriesName('PCR Positivity (7d avg)');
+        const avg28 = getExtremeMatchSeriesName('PCR Positivity (28d avg)');
+        const raw = getExtremeMatchSeriesName('PCR Positivity');
+        expect(avg7).toBe(avg28);
+        expect(avg7).toBe(raw);
+    });
+    test('strips shift suffix', () => {
+        expect(getExtremeMatchSeriesName('PCR Positivity (28d avg) shifted by 1 wave -347d')).toBe('PCR Positivity');
     });
 });
 

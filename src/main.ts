@@ -25,6 +25,7 @@ import { type UrlState, type UrlChartConfig, encodeUrlState, decodeUrlState, loa
 import { extractShiftFromLabel } from "./tooltip";
 import { adjustColorForTestBars } from "./color";
 import { compareTooltipItems, type TooltipItem } from "./tooltip-formatting";
+import { assembleCustomGraphData, type CustomGraphSelection, type SourceChartInfo } from "./custom-graph";
 
 const averagingWindows = [28];
 const extremesForWindow = 28;
@@ -346,10 +347,7 @@ function createSurvtypeSelector(cfg: ChartConfig, survtypeFilters: Map<string, s
 }
 
 // Custom graph management functions
-interface CustomGraphSelection {
-    sourceChartIndex: number;
-    seriesName: string; // Normalized (English) series name
-}
+// CustomGraphSelection type is imported from ./custom-graph
 
 function loadCustomGraphSelections(): CustomGraphSelection[] {
     try {
@@ -372,150 +370,19 @@ function saveCustomGraphSelections(selections: CustomGraphSelection[]): void {
 }
 
 function createCustomGraphData(selections: CustomGraphSelection[], showShifted: boolean): TimeseriesData {
-    if (selections.length === 0) {
-        return { dates: [], series: [] };
-    }
-    
-    // Collect all unique dates across selected series
-    const allDatesSet = new Set<string>();
-    const seriesWithMeta: Array<{
-        series: DataSeries;
-        sourceData: TimeseriesData;
-        newName: string;
-    }> = [];
-    const processedCharts = new Set<number>();
-    const seenSeriesKeys = new Set<string>(); // Track which series we've already added
-    
-    selections.forEach(selection => {
-        const sourceChart = chartConfigs[selection.sourceChartIndex];
-        if (!sourceChart || sourceChart.isCustomGraph) return;
-        
-        const sourceData = sourceChart.data;
-        const normalizedSeriesName = selection.seriesName;
-        
-        // Find the series by normalized name
-        const series = sourceData.series.find(s => normalizeSeriesName(s.name) === normalizedSeriesName);
-        if (!series) return;
-        
-        // Skip shifted series if they're disabled in settings
-        if (!showShifted && isShiftedSeries(series.name)) return;
-        
-        // TODO: Remove this filter once dual y-axis support is implemented
-        // Skip scalar/wastewater series to maintain scale compatibility
-        if (series.dataType !== 'positivity') return;
-        
-        // Create a unique key for this series to prevent duplicates
-        // Use both chart index and the actual series name (not normalized) to distinguish Sentinel/Non-Sentinel
-        const seriesKey = `${selection.sourceChartIndex}:${series.name}`;
-        if (seenSeriesKeys.has(seriesKey)) {
-            return; // Skip duplicate
-        }
-        seenSeriesKeys.add(seriesKey);
-        
-        // Add dates from this source chart only once per chart
-        if (!processedCharts.has(selection.sourceChartIndex)) {
-            sourceData.dates.forEach(date => allDatesSet.add(date));
-            processedCharts.add(selection.sourceChartIndex);
-        }
-        
-        // Store series with metadata for later processing
-        // For ECDC series, include country name if not EU/EEA
-        let suffix = sourceChart.shortTitle;
-        if (sourceChart.hasCountryFilter && sourceChart.countryFilterKey) {
-            const selectedCountry = loadFilter(sourceChart.countryFilterKey, "EU/EEA");
-            if (selectedCountry !== "EU/EEA") {
-                suffix = `${suffix} - ${selectedCountry}`;
-            }
-        }
-        
-        seriesWithMeta.push({
-            series,
-            sourceData,
-            newName: `${series.name} (${suffix})`
-        });
-    });
-    
-    // Convert set to sorted array
-    const allDates = Array.from(allDatesSet).sort();
-    
-    // Now align each series' values with the merged dates array
-    const allSeries: DataSeries[] = seriesWithMeta.map(({ series, sourceData, newName }) => {
-        // Create a map from date to value index in the source data
-        const dateToIndexMap = new Map<string, number>();
-        sourceData.dates.forEach((date, idx) => {
-            dateToIndexMap.set(date, idx);
-        });
-        
-        // Create aligned values array with linear interpolation for missing dates
-        const alignedValues = allDates.map((date, idx) => {
-            const sourceIndex = dateToIndexMap.get(date);
-            if (sourceIndex !== undefined && sourceIndex < series.values.length) {
-                return series.values[sourceIndex];
-            }
-            
-            // Interpolate for missing dates
-            // Find the nearest previous and next dates with actual data
-            let prevIdx = idx - 1;
-            let nextIdx = idx + 1;
-            
-            while (prevIdx >= 0 && !dateToIndexMap.has(allDates[prevIdx])) {
-                prevIdx--;
-            }
-            while (nextIdx < allDates.length && !dateToIndexMap.has(allDates[nextIdx])) {
-                nextIdx++;
-            }
-            
-            // If we have both prev and next data points, interpolate
-            if (prevIdx >= 0 && nextIdx < allDates.length) {
-                const prevSourceIdx = dateToIndexMap.get(allDates[prevIdx])!;
-                const nextSourceIdx = dateToIndexMap.get(allDates[nextIdx])!;
-                const prevValue = series.values[prevSourceIdx];
-                const nextValue = series.values[nextSourceIdx];
-                
-                if (prevValue && nextValue) {
-                    const ratio = (idx - prevIdx) / (nextIdx - prevIdx);
-                    
-                    if (isScalarSeries(series)) {
-                        const prevScalar = prevValue as ScalarDatapoint;
-                        const nextScalar = nextValue as ScalarDatapoint;
-                        return {
-                            virusLoad: prevScalar.virusLoad + (nextScalar.virusLoad - prevScalar.virusLoad) * ratio
-                        } as ScalarDatapoint;
-                    } else {
-                        const prevPositivity = prevValue as Datapoint;
-                        const nextPositivity = nextValue as Datapoint;
-                        return {
-                            positive: prevPositivity.positive + (nextPositivity.positive - prevPositivity.positive) * ratio,
-                            tests: prevPositivity.tests + (nextPositivity.tests - prevPositivity.tests) * ratio
-                        } as Datapoint;
-                    }
-                }
-            }
-            
-            // If we can't interpolate, return null
-            return null;
-        });
-        
-        // Return series with aligned values and new name
-        if (isScalarSeries(series)) {
-            return {
-                ...series,
-                name: newName,
-                values: alignedValues as ScalarDatapoint[]
-            } as ScalarSeries;
-        } else {
-            return {
-                ...series,
-                name: newName,
-                values: alignedValues as Datapoint[]
-            } as PositivitySeries;
-        }
-    });
-    
-    return {
-        dates: allDates,
-        series: allSeries
-    };
+    // Convert chartConfigs to SourceChartInfo by resolving filters from localStorage
+    const sourceCharts: SourceChartInfo[] = chartConfigs.map(cfg => ({
+        data: cfg.data,
+        shortTitle: cfg.shortTitle,
+        isCustomGraph: cfg.isCustomGraph,
+        countryFilter: cfg.hasCountryFilter && cfg.countryFilterKey
+            ? loadFilter(cfg.countryFilterKey, "EU/EEA")
+            : undefined,
+        survtypeFilter: cfg.hasSurvtypeFilter && cfg.survtypeFilterKey
+            ? loadFilter(cfg.survtypeFilterKey, "both")
+            : undefined
+    }));
+    return assembleCustomGraphData(selections, sourceCharts, showShifted);
 }
 
 function createCustomGraphSeriesSelector(customGraphConfig: ChartConfig, showShifted: boolean, onSelectionChange: () => void): HTMLElement {
@@ -559,7 +426,20 @@ function createCustomGraphSeriesSelector(customGraphConfig: ChartConfig, showShi
         // Get available series from this chart
         // Only show averaged positivity series (not scalar/wastewater) to keep scales compatible
         // Include/exclude shifted series based on settings toggle
-        const availableSeries = sourceChart.data.series
+        // Apply country filter from source chart so we only show series for the selected country
+        let filteredSourceSeries = sourceChart.data.series;
+        if (sourceChart.hasCountryFilter && sourceChart.countryFilterKey) {
+            const country = loadFilter(sourceChart.countryFilterKey, "EU/EEA");
+            filteredSourceSeries = filteredSourceSeries.filter(s => !s.country || s.country === country);
+        }
+        // Apply survtype filter from source chart so Sentinel/Non-Sentinel respects the filter
+        if (sourceChart.hasSurvtypeFilter && sourceChart.survtypeFilterKey) {
+            const survtype = loadFilter(sourceChart.survtypeFilterKey, "both");
+            if (survtype !== "both") {
+                filteredSourceSeries = filteredSourceSeries.filter(s => !s.survtype || s.survtype === survtype);
+            }
+        }
+        const availableSeries = filteredSourceSeries
             .filter(s => s.type === 'averaged' && s.dataType === 'positivity' && (showShifted || !isShiftedSeries(s.name)))
             .sort((a, b) => compareLabels(a.name, b.name));
         
@@ -752,9 +632,11 @@ function renderPage(rootDiv: HTMLElement | null) {
         if (customGraphConfig) {
             const selections = loadCustomGraphSelections();
             customGraphConfig.data = createCustomGraphData(selections, appSettings.showShifted);
-            // Clear extremes cache when data changes
-            customGraphConfig.extremesCache = undefined;
         }
+        
+        // Clear extremes cache for all charts so extremes are recalculated
+        // from the current filtered data (e.g. after country/survtype filter changes)
+        chartConfigs.forEach(cfg => cfg.extremesCache = undefined);
                 
         chartConfigs.forEach(cfg => {
             if ((cfg as any).canvas) {
@@ -1093,15 +975,24 @@ function createChartContainerAndCanvas(containerId: string, canvasId: string): H
         if (!chartWrapper) {
             chartWrapper = document.createElement('div');
             chartWrapper.id = 'customGraphChartWrapper';
-            chartWrapper.style.cssText = 'width: 100vw; height: 40vh; margin-bottom: 100px;';
+            chartWrapper.style.cssText = 'width: 100vw;';
             container.appendChild(chartWrapper);
+        }
+        
+        // Inner canvas wrapper with fixed height for Chart.js sizing
+        let canvasWrapper = document.getElementById('customGraphCanvasWrapper');
+        if (!canvasWrapper) {
+            canvasWrapper = document.createElement('div');
+            canvasWrapper.id = 'customGraphCanvasWrapper';
+            canvasWrapper.style.cssText = 'width: 100%; height: 40vh;';
+            chartWrapper.appendChild(canvasWrapper);
         }
         
         let canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
         if (!canvas) {
             canvas = document.createElement("canvas");
             canvas.id = canvasId;
-            chartWrapper.appendChild(canvas);
+            canvasWrapper.appendChild(canvas);
         }
         return canvas;
     }
@@ -1421,7 +1312,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
             } else {
                 // If we have stored visibility (from URL or localStorage), missing entries should be false
                 // Otherwise, use the default visibility for first-time load
-                if (hasStoredVisibility) {
+                // Exception: custom graph series are user-selected, so new additions should always be visible
+                if (hasStoredVisibility && !cfg.isCustomGraph) {
                     cfg.datasetVisibility[normalizedName] = false;
                 } else {
                     const seriesType = normalizedNameToType.get(normalizedName);
@@ -1435,7 +1327,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         for (const testSuffix of [' - Positive Tests', ' - Negative Tests']) {
             const testName = `${normalizedName}${testSuffix}`;
             if (cfg.datasetVisibility[testName] === undefined) {
-                cfg.datasetVisibility[testName] = hasStoredVisibility
+                cfg.datasetVisibility[testName] = (hasStoredVisibility && !cfg.isCustomGraph)
                     ? false
                     : getVisibilityDefault(testName, showShifted, showTestNumbers, showShiftedTestNumbers, showNonAveragedSeries);
             }
