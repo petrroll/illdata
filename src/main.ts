@@ -632,6 +632,25 @@ function renderPage(rootDiv: HTMLElement | null) {
         if (customGraphConfig) {
             const selections = loadCustomGraphSelections();
             customGraphConfig.data = createCustomGraphData(selections, appSettings.showShifted);
+            
+            // Hide chart wrapper + legend when no series are selected
+            const chartWrapper = document.getElementById('customGraphChartWrapper');
+            const legendContainer = document.getElementById(`${customGraphConfig.containerId}-legend`);
+            const hasSelections = selections.length > 0;
+            if (chartWrapper) chartWrapper.style.display = hasSelections ? '' : 'none';
+            if (legendContainer) legendContainer.style.display = hasSelections ? '' : 'none';
+
+            // Rebuild the series selector UI so checkboxes stay in sync
+            const existingSelector = document.getElementById('customGraphSeriesSelector');
+            if (existingSelector) {
+                const wasVisible = existingSelector.style.display !== 'none';
+                const parent = existingSelector.parentNode;
+                const nextSibling = existingSelector.nextSibling;
+                existingSelector.remove();
+                const newSelector = createCustomGraphSeriesSelector(customGraphConfig, appSettings.showShifted, onSettingsChange);
+                newSelector.style.display = wasVisible ? 'block' : 'none';
+                if (parent) parent.insertBefore(newSelector, nextSibling);
+            }
         }
         
         // Clear extremes cache for all charts so extremes are recalculated
@@ -859,11 +878,13 @@ function renderPage(rootDiv: HTMLElement | null) {
             
             // Toggle functionality
             toggleButton.onclick = () => {
-                if (seriesSelector.style.display === 'none') {
-                    seriesSelector.style.display = 'block';
+                const selector = document.getElementById('customGraphSeriesSelector');
+                if (!selector) return;
+                if (selector.style.display === 'none') {
+                    selector.style.display = 'block';
                     toggleButton.textContent = `${translations.customGraphSelectSeries} ▼`;
                 } else {
-                    seriesSelector.style.display = 'none';
+                    selector.style.display = 'none';
                     toggleButton.textContent = translations.customGraphSelectSeries;
                 }
             };
