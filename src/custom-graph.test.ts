@@ -433,6 +433,44 @@ describe('assembleCustomGraphData', () => {
             expect(czValues[1].tests).toBe(100);     // interpolated midpoint
             expect(czValues[2].positive).toBe(30);
         });
+
+        test('interpolates using actual date distances', () => {
+            const chart1: SourceChartInfo = {
+                data: {
+                    dates: ['2025-01-01', '2025-01-15'],
+                    series: [
+                        makePositivitySeries('PCR Positivity (28d avg)', [dp(10, 100), dp(30, 100)])
+                    ]
+                },
+                shortTitle: 'CZ'
+            };
+            const chart2: SourceChartInfo = {
+                data: {
+                    dates: ['2025-01-07'],
+                    series: [
+                        makePositivitySeries('SARS-CoV-2 Positivity (28d avg)', [dp(40, 200)])
+                    ]
+                },
+                shortTitle: 'ECDC',
+                countryFilter: 'EU/EEA'
+            };
+
+            const selections: CustomGraphSelection[] = [
+                { sourceChartIndex: 0, seriesName: 'PCR Positivity (28d avg)' },
+                { sourceChartIndex: 1, seriesName: 'SARS-CoV-2 Positivity (28d avg)' }
+            ];
+
+            const result = assembleCustomGraphData(selections, [chart1, chart2], true);
+            const czSeries = result.series.find(s => s.name.includes('CZ'));
+            expect(czSeries).toBeDefined();
+            const czValues = czSeries!.values as Datapoint[];
+
+            // 2025-01-07 is 6 days after 2025-01-01 and 8 days before 2025-01-15
+            const expectedPositive = 10 + (30 - 10) * (6 / 14);
+            const expectedTests = 100 + (100 - 100) * (6 / 14);
+            expect(czValues[1].positive).toBeCloseTo(expectedPositive, 3);
+            expect(czValues[1].tests).toBeCloseTo(expectedTests, 3);
+        });
     });
 
     describe('combined country + survtype filtering', () => {

@@ -100,6 +100,7 @@ export function assembleCustomGraphData(
     });
     
     const allDates = Array.from(allDatesSet).sort();
+    const allDatesMs = allDates.map(date => Date.parse(date));
     
     const allSeries: DataSeries[] = seriesWithMeta.map(({ series, sourceData, newName }) => {
         const dateToIndexMap = new Map<string, number>();
@@ -131,7 +132,13 @@ export function assembleCustomGraphData(
                 const nextValue = series.values[nextSourceIdx];
                 
                 if (prevValue && nextValue) {
-                    const ratio = (idx - prevIdx) / (nextIdx - prevIdx);
+                    const prevTime = allDatesMs[prevIdx];
+                    const nextTime = allDatesMs[nextIdx];
+                    const currentTime = allDatesMs[idx];
+                    if (!Number.isFinite(prevTime) || !Number.isFinite(nextTime) || !Number.isFinite(currentTime) || nextTime === prevTime) {
+                        return null;
+                    }
+                    const ratio = (currentTime - prevTime) / (nextTime - prevTime);
                     
                     if (isScalarSeries(series)) {
                         const prevScalar = prevValue as ScalarDatapoint;
