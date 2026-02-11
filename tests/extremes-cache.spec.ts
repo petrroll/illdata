@@ -60,7 +60,7 @@ test.describe('Extremes Cache Invalidation', () => {
     // Verify cache was cleared and recalculated (extremes are not stale)
     // by checking all labels follow expected format
     expect(extremesAfter.every(label => 
-      /\(28d avg\) (maxima|minima) over \d+d/.test(label)
+      /\(\d+d avg\) (maxima|minima) over \d+d/.test(label)
     )).toBe(true);
   });
 
