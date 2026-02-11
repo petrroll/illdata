@@ -1170,7 +1170,18 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         };
     }
     
-    const { filteredMaximaSeries, filteredMinimaSeries, localMaximaSeries, localMinimaSeries } = cfg.extremesCache;
+    // Get cached extremes (will be undefined if not yet calculated or for custom graph)
+    let filteredMaximaSeries: ExtremeSeries[] = [];
+    let filteredMinimaSeries: ExtremeSeries[] = [];
+    let localMaximaSeries: ExtremeSeries[][] = [];
+    let localMinimaSeries: ExtremeSeries[][] = [];
+    
+    if (cfg.extremesCache) {
+        filteredMaximaSeries = cfg.extremesCache.filteredMaximaSeries;
+        filteredMinimaSeries = cfg.extremesCache.filteredMinimaSeries;
+        localMaximaSeries = cfg.extremesCache.localMaximaSeries;
+        localMinimaSeries = cfg.extremesCache.localMinimaSeries;
+    }
     
     // Apply shift based on settings
     if (alignByExtreme === 'days') {
