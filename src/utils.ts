@@ -191,11 +191,13 @@ export function getNewWithSifterToAlignExtremeDates(
         );
     }
 
-    // Helper function to find extremes that match a series by base name
+    // Helper function to find extremes that match a series by base name.
+    // Uses getExtremeMatchSeriesName which preserves survtype (Sentinel/Non-Sentinel)
+    // so that series with different survtypes don't cross-match extremes.
     function findMatchingExtremes(series: DataSeries): ExtremeSeries[] {
-        const seriesBaseName = getColorBaseSeriesName(series.name);
+        const seriesBaseName = getExtremeMatchSeriesName(series.name);
         return extremeSeries.filter(extreme => {
-            const extremeBaseName = getColorBaseSeriesName(extreme.originalSeriesName);
+            const extremeBaseName = getExtremeMatchSeriesName(extreme.originalSeriesName);
             return extremeBaseName === seriesBaseName;
         });
     }
@@ -534,6 +536,23 @@ export function compareLabels(labelA: string, labelB: string): number {
     
     // Within same type, sort alphabetically
     return labelA.localeCompare(labelB);
+}
+
+/**
+ * Extracts the base series name for extreme matching purposes.
+ * Strips shift/extreme suffixes and averaging window, but preserves surveillance type
+ * (Sentinel/Non-Sentinel) so that series with different survtypes don't cross-match.
+ * 
+ * Examples:
+ * - "PCR Positivity (28d avg)" -> "PCR Positivity"
+ * - "SARS-CoV-2 Positivity (Non-Sentinel) (28d avg) (ECDC)" -> "SARS-CoV-2 Positivity (Non-Sentinel) (ECDC)"
+ * - "SARS-CoV-2 Positivity (Sentinel) (28d avg) (ECDC)" -> "SARS-CoV-2 Positivity (Sentinel) (ECDC)"
+ * - "PCR Positivity (28d avg) shifted by 1 wave -347d" -> "PCR Positivity"
+ */
+export function getExtremeMatchSeriesName(label: string): string {
+    let baseName = stripShiftAndExtremeSuffixes(label);
+    baseName = baseName.replace(/\s*\(\d+d avg\)/, '');
+    return baseName.trim();
 }
 
 /**
