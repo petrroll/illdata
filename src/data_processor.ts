@@ -14,11 +14,11 @@ const NL_INFECTIERADAR_POSITIVITY = "./data_processed/nl_infectieradar/positivit
 const TIMESTAMP_FILE = "./data_processed/timestamp.json";
 
 // Common pipeline: download → load → compute → save
-async function processSource(
+async function processSource<TInput, TResult>(
     downloadFn: (file: string) => Promise<void>,
     file: string,
-    loaderFn: (file: string) => Promise<Record<string, string>[]>,
-    computeFn: (data: Record<string, string>[]) => unknown,
+    loaderFn: (file: string) => Promise<TInput>,
+    computeFn: (data: TInput) => TResult,
     outputPath: string
 ) {
     await downloadFn(file);
@@ -41,9 +41,15 @@ await saveData(computeEuEcdcData(combinedEuData, true), EU_ALLSENTINEL_ERVIS_POS
 
 await processSource(downloadDeWastewaterData, "amelag_aggregierte_kurve.tsv", loadAndParseTsv, computeDeWastewaterData, DE_WASTEWATER_AMELAG);
 
-// NL Infectieradar: uses custom semicolon CSV parser
-await downloadNlInfectieradarData("data_pathogens.csv");
-const nlCsvContent = await fs.readFile(getAbsolutePath("./data/data_pathogens.csv"), "utf-8");
-await saveData(computeNlInfectieradarData(parseSemicolonCsv(nlCsvContent)), NL_INFECTIERADAR_POSITIVITY);
+await processSource(
+    downloadNlInfectieradarData,
+    "data_pathogens.csv",
+    async (file) => {
+        const content = await fs.readFile(getAbsolutePath(`./data/${file}`), "utf-8");
+        return parseSemicolonCsv(content);
+    },
+    computeNlInfectieradarData,
+    NL_INFECTIERADAR_POSITIVITY
+);
 
 await saveTimeStamp(TIMESTAMP_FILE);
