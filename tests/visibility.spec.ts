@@ -115,22 +115,23 @@ test.describe('Series Visibility', () => {
   test('should keep all series hidden after reload when Hide All button is clicked', async ({ page }) => {
     const hideAllButton = page.locator('#hideAllButton');
     await hideAllButton.click();
-    await page.waitForTimeout(200);
+    await expect(page.locator('#czechDataContainer-legend')).toBeVisible();
+    await expect(page.locator('#czechDataContainer-legend > span').first()).toHaveCSS('opacity', '0.5');
 
     await page.reload();
     await page.waitForSelector('#czechDataContainer-legend');
-    await page.waitForTimeout(500);
+    await expect(page.locator('#czechDataContainer-legend > span').first()).toHaveCSS('opacity', '0.5');
 
     const allLegends = page.locator('[id$="-legend"]');
     const count = await allLegends.count();
 
-    for (let i = 0; i < count; i++) {
-      const legend = allLegends.nth(i);
+    for (let legendIndex = 0; legendIndex < count; legendIndex++) {
+      const legend = allLegends.nth(legendIndex);
       const items = legend.locator('> span');
       const itemCount = await items.count();
 
-      for (let j = 0; j < itemCount; j++) {
-        const item = items.nth(j);
+      for (let itemIndex = 0; itemIndex < itemCount; itemIndex++) {
+        const item = items.nth(itemIndex);
         const opacity = await item.evaluate(el => window.getComputedStyle(el).opacity);
         expect(opacity).toBe('0.5');
       }
