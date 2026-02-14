@@ -146,4 +146,18 @@ describe('computeNlInfectieradarData Tests', () => {
         expect((rsv?.values[1] as Datapoint).tests).toBe(0);
         expect((rsv?.values[1] as Datapoint).positive).toBe(0);
     });
+
+    test('does not create series from invalid rows', () => {
+        const input = [
+            { WEEK: '2023-01-02', SAMPLES_N: '100', PATHOGEN: 'SARS-CoV-2', PERC: '10,00', WEEK_LABEL: '' },
+            // Invalid: missing date, should not create "Rhinovirus Positivity" series
+            { WEEK: '', SAMPLES_N: '100', PATHOGEN: 'Rhinovirus', PERC: '5,00', WEEK_LABEL: '' },
+            // Invalid: bad percent, should not create "Adenovirus Positivity" series
+            { WEEK: '2023-01-02', SAMPLES_N: '100', PATHOGEN: 'Adenovirus', PERC: 'bad', WEEK_LABEL: '' },
+        ];
+
+        const result: TimeseriesData = computeNlInfectieradarData(input);
+
+        expect(result.series.map(s => s.name)).toEqual(['SARS-CoV-2 Positivity']);
+    });
 });
