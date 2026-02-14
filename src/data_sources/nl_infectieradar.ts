@@ -28,6 +28,7 @@ export function parseSemicolonCsv(csvContent: string): Record<string, string>[] 
 export function computeNlInfectieradarData(data: Record<string, string>[]): TimeseriesData {
     // Group by date and pathogen
     const groupedData = new Map<string, Map<string, { tests: number, positive: number }>>();
+    const uniquePathogens = new Set<string>();
 
     data.forEach(row => {
         const datum = row["WEEK"] || "";
@@ -39,6 +40,7 @@ export function computeNlInfectieradarData(data: Record<string, string>[]): Time
         if (!datum || !pathogen || isNaN(samplesN) || isNaN(perc)) {
             return;
         }
+        uniquePathogens.add(pathogen);
 
         if (!groupedData.has(datum)) {
             groupedData.set(datum, new Map());
@@ -59,11 +61,8 @@ export function computeNlInfectieradarData(data: Record<string, string>[]): Time
     });
 
     const dates = [...groupedData.keys()].sort();
-    const pathogens = [...new Set(data.map(row => normalizePathogenName(row["PATHOGEN"] || "")))].filter(Boolean);
-    // Deduplicate after normalization
-    const uniquePathogens = [...new Set(pathogens)];
 
-    const allSeries: PositivitySeries[] = uniquePathogens.map(pathogen => ({
+    const allSeries: PositivitySeries[] = [...uniquePathogens].map(pathogen => ({
         name: `${pathogen} Positivity`,
         values: dates.map(date => {
             const stats = groupedData.get(date)?.get(pathogen);
