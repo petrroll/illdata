@@ -1933,14 +1933,14 @@ function hideAllSeries(onOptionsChange: () => void) {
             const visibilityMap: { [name: string]: boolean } = {};
             chart.data.datasets.forEach((dataset: any) => {
                 if (dataset.label) {
-                    visibilityMap[dataset.label] = false;
+                    visibilityMap[normalizeSeriesName(dataset.label)] = false;
                 }
                 dataset.hidden = true;
             });
             localStorage.setItem(cfg.visibilityKey, JSON.stringify(visibilityMap));
-            onOptionsChange();
         }
     });
+    onOptionsChange();
 }
 
 function updateRatioTable() { 
