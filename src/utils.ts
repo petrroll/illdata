@@ -457,16 +457,27 @@ export function calculateRatios(data: TimeseriesData, visibleMainSeries: string[
         const series = data.series.find(s => s.name === seriesName);
         if (!series) return { seriesName, ratio7days: null, ratio28days: null, lastDataDate: null };
         
-        const ratio7days = calculatePeriodRatio(series, preTodayIndex, 7);
-        const ratio28days = calculatePeriodRatio(series, preTodayIndex, 28);
+        const ratio7days = calculateLatestFinitePeriodRatio(series, preTodayIndex, 7);
+        const ratio28days = calculateLatestFinitePeriodRatio(series, preTodayIndex, 28);
+        const lastRatioIndex = ratio28days.endIndex ?? ratio7days.endIndex ?? preTodayIndex;
         
         return {
             seriesName,
-            ratio7days,
-            ratio28days,
-            lastDataDate: new Date(data.dates[preTodayIndex])
+            ratio7days: ratio7days.ratio,
+            ratio28days: ratio28days.ratio,
+            lastDataDate: new Date(data.dates[lastRatioIndex])
         };
     });
+}
+
+function calculateLatestFinitePeriodRatio(series: DataSeries, endIndex: number, periodDays: number): { ratio: number | null; endIndex: number | null } {
+    for (let i = Math.min(endIndex, series.values.length - 1); i >= 0; i--) {
+        const ratio = calculatePeriodRatio(series, i, periodDays);
+        if (ratio !== null && Number.isFinite(ratio)) {
+            return { ratio, endIndex: i };
+        }
+    }
+    return { ratio: null, endIndex: null };
 }
 
 function calculatePeriodRatio(series: DataSeries, endIndex: number, periodDays: number): number | null {
