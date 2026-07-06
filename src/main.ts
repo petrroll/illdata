@@ -37,9 +37,10 @@ interface DataSourceStatus {
 const averagingWindows = [28];
 const extremesForWindow = 28;
 const extremeWindow = 3*28;
-const dataSources = [mzcrPositivityImport, euPositivityImport, deWastewaterImport, deAreImport, nlInfectieradarImport] as const;
-const [mzcrPositivityEnhanced, euPositivityEnhanced, deWastewaterEnhanced, deAreEnhanced, nlInfectieradarEnhanced] = 
+const dataSources = [mzcrPositivityImport, euPositivityImport, deWastewaterImport, nlInfectieradarImport] as const;
+const [mzcrPositivityEnhanced, euPositivityEnhanced, deWastewaterEnhanced, nlInfectieradarEnhanced] =
     dataSources.map(d => computeMovingAverageTimeseries(d as TimeseriesData, averagingWindows));
+const deAreEnhanced = deAreImport as TimeseriesData;
 
 // Constants for chart styling
 const SHIFTED_LINE_DASH_PATTERN = [15, 1]; // Dash pattern for shifted series: [dash length, gap length] - very subtle, almost solid pattern

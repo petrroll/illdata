@@ -17,7 +17,8 @@ describe('computeDeAreData Tests', () => {
         const result: TimeseriesData = computeDeAreData(input);
 
         expect(result.dates).toEqual(['2025-12-29', '2026-01-05']);
-        expect(result.series.map(s => s.name)).toEqual([
+        const rawSeries = result.series.filter(s => s.type === 'raw');
+        expect(rawSeries.map(s => s.name)).toEqual([
             'Overall SARI Hospitalization Incidence',
             'COVID-19 SARI Hospitalization Incidence',
             'Influenza SARI Hospitalization Incidence',
@@ -32,6 +33,12 @@ describe('computeDeAreData Tests', () => {
         expect(influenza?.ageGroup).toBe('00+');
         expect((influenza?.values[0] as any).virusLoad).toBe(3.4);
         expect((influenza?.values[1] as any).virusLoad).toBe(4.1);
+
+        const averagedInfluenza = result.series.find(s => s.name === 'Influenza SARI Hospitalization Incidence (28d avg)');
+        expect(averagedInfluenza).toBeDefined();
+        expect(averagedInfluenza?.type).toBe('averaged');
+        expect(averagedInfluenza?.windowSizeInDays).toBe(28);
+        expect(averagedInfluenza?.ageGroup).toBe('00+');
     });
 
     test('keeps age groups as metadata instead of separate legend grouping', () => {
@@ -42,11 +49,15 @@ describe('computeDeAreData Tests', () => {
 
         const result: TimeseriesData = computeDeAreData(input);
 
-        expect(result.series.map(s => s.name)).toEqual([
+        const rawSeries = result.series.filter(s => s.type === 'raw');
+        expect(rawSeries.map(s => s.name)).toEqual([
             'Overall SARI Hospitalization Incidence',
             'Overall SARI Hospitalization Incidence'
         ]);
-        expect(result.series.map(s => s.ageGroup)).toEqual(['00+', '0-4']);
+        expect(rawSeries.map(s => s.ageGroup)).toEqual(['00+', '0-4']);
+
+        const averagedSeries = result.series.filter(s => s.type === 'averaged');
+        expect(averagedSeries.map(s => s.ageGroup)).toEqual(['00+', '0-4']);
     });
 
     test('ignores invalid week and incidence values', () => {
