@@ -5,7 +5,7 @@ import nlInfectieradarImport from "../data_processed/nl_infectieradar/positivity
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, type ScalarSeries, type Datapoint, type ScalarDatapoint, datapointToPercentage, compareLabels, getColorBaseSeriesName, isScalarSeries } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, type ScalarSeries, type Datapoint, type ScalarDatapoint, type TrendSuffixMarker, datapointToPercentage, compareLabels, getColorBaseSeriesName, isScalarSeries } from "./utils";
 import { getLanguage, setLanguage, getTranslations, translateSeriesName, normalizeSeriesName, type Language } from "./locales";
 import { createRegularLegendButton, createSplitTestPill, createSplitShiftedPill, type ChartConfig as LegendChartConfig } from "./ui/legend-utils";
 import { 
@@ -250,7 +250,7 @@ function createUnifiedSettingsControl<K extends keyof AppSettings>(options: {
     label?: string,
     container: HTMLElement,
     settingKey: K,
-    values?: { value: string, label: string }[], // for select
+    values?: FilterOption[], // for select
     settings: AppSettings,
     onChange: (key: K, value: AppSettings[K]) => void
 }): AppSettings[K] {
@@ -273,7 +273,7 @@ function createUnifiedSettingsControl<K extends keyof AppSettings>(options: {
         control.id = options.id;
         (control as HTMLInputElement).checked = currentValue as boolean;
     }
-    
+
     if (options.label) {
         const label = document.createElement('label');
         label.htmlFor = options.id;
@@ -295,16 +295,147 @@ function createUnifiedSettingsControl<K extends keyof AppSettings>(options: {
     return currentValue;
 }
 
+interface FilterOption {
+    value: string;
+    label: string;
+    trendMarkers?: TrendSuffixMarker[];
+}
+
+function trendMarkerColor(marker: TrendSuffixMarker): string {
+    // Mirror the trends table (header) rules: red when incidence is rising
+    // (ratio > 1.1), green when falling (ratio < 0.9), neutral otherwise.
+    if (marker.trend === 'negative') return '#c62828';
+    if (marker.trend === 'positive') return '#2e7d32';
+    return '#999';
+}
+
+function trendMarkerSquare(marker: TrendSuffixMarker): string {
+    // Flat colored squares mirror the trends table rules: red square when
+    // incidence is rising (ratio > 1.1), green when falling (ratio < 0.9),
+    // white for neutral/unknown. In fixed I, R, S order.
+    if (marker.trend === 'negative') return '🟥';
+    if (marker.trend === 'positive') return '🟩';
+    return '⬜';
+}
+
+function formatTrendSuffixSquares(markers: TrendSuffixMarker[] | undefined): string {
+    if (!markers || markers.length === 0) return '';
+    return markers.map(trendMarkerSquare).join('');
+}
+
+function trendMarkerTitle(marker: TrendSuffixMarker): string {
+    return `${marker.letter}: ${marker.ratio28days === null ? 'n/a' : `${marker.ratio28days.toFixed(2)}x`}`;
+}
+
+function formatTrendSuffixTitle(markers: TrendSuffixMarker[] | undefined): string {
+    if (!markers || markers.length === 0) return '';
+    return markers.map(trendMarkerTitle).join(', ');
+}
+
+function updateSelectedTrendSuffix(suffix: HTMLElement, markers: TrendSuffixMarker[] | undefined): void {
+    suffix.replaceChildren();
+    if (!markers || markers.length === 0) return;
+    markers.forEach(marker => {
+        const letter = document.createElement('span');
+        letter.textContent = marker.letter;
+        letter.style.color = trendMarkerColor(marker);
+        letter.style.fontWeight = 'bold';
+        letter.title = trendMarkerTitle(marker);
+        suffix.appendChild(letter);
+    });
+}
+
+function setFilterOptions(select: HTMLSelectElement, options: FilterOption[], selectedValue: string, suffix?: HTMLElement): void {
+    // Native <option> elements cannot render per-letter colors, so each option
+    // label carries flat colored squares (I, R, S order) so trends are visible
+    // in the dropdown list; the colored IRS letters next to the select convey
+    // the trend for the current selection with per-pathogen ratios in tooltips.
+    select.replaceChildren();
+    options.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.value;
+        const squares = formatTrendSuffixSquares(opt.trendMarkers);
+        option.textContent = squares ? `${opt.label} ${squares}` : opt.label;
+        const title = formatTrendSuffixTitle(opt.trendMarkers);
+        if (title) option.title = title;
+        select.appendChild(option);
+    });
+    select.value = selectedValue;
+    updateSelectedTrendSuffix(suffix ?? document.createElement('span'), options.find(opt => opt.value === select.value)?.trendMarkers);
+}
+
+function trendMarkersForOption(
+    cfg: ChartConfig,
+    filterType: 'country' | 'survtype',
+    value: string,
+    countryFilters: Map<string, string>,
+    survtypeFilters: Map<string, string>
+): TrendSuffixMarker[] | undefined {
+    const suffixes = cfg.data.filterTrendSuffixes;
+    if (!suffixes) return undefined;
+    if (filterType === 'country') {
+        const selectedSurvtype = survtypeFilters.get(cfg.containerId) || "both";
+        return suffixes.countries[selectedSurvtype]?.[value];
+    }
+    const selectedCountry = countryFilters.get(cfg.containerId) || "EU/EEA";
+    return suffixes.survtypes[selectedCountry]?.[value];
+}
+
+function buildCountryOptions(cfg: ChartConfig, countryFilters: Map<string, string>, survtypeFilters: Map<string, string>): FilterOption[] {
+    return getAvailableCountries(cfg.data).map(country => ({
+        value: country,
+        label: country,
+        trendMarkers: trendMarkersForOption(cfg, 'country', country, countryFilters, survtypeFilters)
+    }));
+}
+
+function buildSurvtypeOptions(cfg: ChartConfig, countryFilters: Map<string, string>, survtypeFilters: Map<string, string>): FilterOption[] {
+    const currentTranslations = getTranslations();
+    return [
+        { value: "both", label: currentTranslations.survtypeBoth },
+        { value: "primary care sentinel", label: currentTranslations.survtypeSentinel },
+        { value: "non-sentinel", label: currentTranslations.survtypeNonSentinel }
+    ].map(option => ({
+        ...option,
+        trendMarkers: trendMarkersForOption(cfg, 'survtype', option.value, countryFilters, survtypeFilters)
+    }));
+}
+
+function refreshTrendFilterSelectors(cfg: ChartConfig, countryFilters: Map<string, string>, survtypeFilters: Map<string, string>): void {
+    const countrySelect = document.getElementById(`${cfg.containerId}-country-select`) as HTMLSelectElement | null;
+    if (countrySelect) {
+        const countrySuffix = document.getElementById(`${cfg.containerId}-country-trend-suffix`) as HTMLElement | null;
+        setFilterOptions(
+            countrySelect,
+            buildCountryOptions(cfg, countryFilters, survtypeFilters),
+            countryFilters.get(cfg.containerId) || "EU/EEA",
+            countrySuffix ?? undefined
+        );
+    }
+
+    const survtypeSelect = document.getElementById(`${cfg.containerId}-survtype-select`) as HTMLSelectElement | null;
+    if (survtypeSelect) {
+        const survtypeSuffix = document.getElementById(`${cfg.containerId}-survtype-trend-suffix`) as HTMLElement | null;
+        setFilterOptions(
+            survtypeSelect,
+            buildSurvtypeOptions(cfg, countryFilters, survtypeFilters),
+            survtypeFilters.get(cfg.containerId) || "both",
+            survtypeSuffix ?? undefined
+        );
+    }
+}
+
 function createFilterSelector(
     cfg: ChartConfig,
     filterType: 'country' | 'survtype',
     filters: Map<string, string>,
-    options: { value: string; label: string }[],
+    options: FilterOption[],
     labelText: string,
     defaultValue: string,
     filterKey: string | undefined,
     onSettingsChange: () => void,
-    insertAfterSelector?: string
+    insertAfterSelector?: string,
+    onFilterChange?: () => void
 ) {
     const container = document.getElementById(cfg.containerId);
     if (!container) {
@@ -330,14 +461,12 @@ function createFilterSelector(
     const select = document.createElement('select');
     select.id = `${cfg.containerId}-${filterType}-select`;
 
-    options.forEach(opt => {
-        const option = document.createElement('option');
-        option.value = opt.value;
-        option.textContent = opt.label;
-        select.appendChild(option);
-    });
-
-    select.value = filters.get(cfg.containerId) || defaultValue;
+    const selectedValue = filters.get(cfg.containerId) || defaultValue;
+    const suffix = document.createElement('span');
+    suffix.id = `${cfg.containerId}-${filterType}-trend-suffix`;
+    suffix.style.marginLeft = '6px';
+    suffix.style.letterSpacing = '2px';
+    setFilterOptions(select, options, selectedValue, suffix);
 
     select.addEventListener('change', () => {
         const newValue = select.value;
@@ -345,11 +474,13 @@ function createFilterSelector(
         if (filterKey) {
             saveFilter(filterKey, newValue);
         }
+        onFilterChange?.();
         onSettingsChange();
     });
 
     selectorWrapper.appendChild(label);
     selectorWrapper.appendChild(select);
+    selectorWrapper.appendChild(suffix);
 
     if (insertAfterSelector) {
         const prevSelector = document.getElementById(insertAfterSelector);
@@ -361,20 +492,37 @@ function createFilterSelector(
     container.insertBefore(selectorWrapper, container.firstChild);
 }
 
-function createCountrySelector(cfg: ChartConfig, countryFilters: Map<string, string>, onSettingsChange: () => void) {
-    const countries = getAvailableCountries(cfg.data);
-    const options = countries.map(c => ({ value: c, label: c }));
-    createFilterSelector(cfg, 'country', countryFilters, options, translations.countryLabel, "EU/EEA", cfg.countryFilterKey, onSettingsChange);
+function createCountrySelector(cfg: ChartConfig, countryFilters: Map<string, string>, survtypeFilters: Map<string, string>, onSettingsChange: () => void) {
+    const options = buildCountryOptions(cfg, countryFilters, survtypeFilters);
+    createFilterSelector(
+        cfg,
+        'country',
+        countryFilters,
+        options,
+        translations.countryLabel,
+        "EU/EEA",
+        cfg.countryFilterKey,
+        onSettingsChange,
+        undefined,
+        () => refreshTrendFilterSelectors(cfg, countryFilters, survtypeFilters)
+    );
 }
 
-function createSurvtypeSelector(cfg: ChartConfig, survtypeFilters: Map<string, string>, onSettingsChange: () => void) {
+function createSurvtypeSelector(cfg: ChartConfig, countryFilters: Map<string, string>, survtypeFilters: Map<string, string>, onSettingsChange: () => void) {
     const currentTranslations = getTranslations();
-    const options = [
-        { value: "both", label: currentTranslations.survtypeBoth },
-        { value: "primary care sentinel", label: currentTranslations.survtypeSentinel },
-        { value: "non-sentinel", label: currentTranslations.survtypeNonSentinel }
-    ];
-    createFilterSelector(cfg, 'survtype', survtypeFilters, options, currentTranslations.survtypeLabel, "both", cfg.survtypeFilterKey, onSettingsChange, `${cfg.containerId}-country-selector`);
+    const options = buildSurvtypeOptions(cfg, countryFilters, survtypeFilters);
+    createFilterSelector(
+        cfg,
+        'survtype',
+        survtypeFilters,
+        options,
+        currentTranslations.survtypeLabel,
+        "both",
+        cfg.survtypeFilterKey,
+        onSettingsChange,
+        `${cfg.containerId}-country-selector`,
+        () => refreshTrendFilterSelectors(cfg, countryFilters, survtypeFilters)
+    );
 }
 
 // Custom graph management functions
@@ -870,14 +1018,14 @@ function renderPage(rootDiv: HTMLElement | null) {
     // Create country selectors for charts that have them
     chartConfigs.forEach(cfg => {
         if (cfg.hasCountryFilter && cfg.countryFilterKey) {
-            createCountrySelector(cfg, countryFilters, onSettingsChange);
+            createCountrySelector(cfg, countryFilters, survtypeFilters, onSettingsChange);
         }
     });
     
     // Create survtype selectors for charts that have them
     chartConfigs.forEach(cfg => {
         if (cfg.hasSurvtypeFilter && cfg.survtypeFilterKey) {
-            createSurvtypeSelector(cfg, survtypeFilters, onSettingsChange);
+            createSurvtypeSelector(cfg, countryFilters, survtypeFilters, onSettingsChange);
         }
     });
     
