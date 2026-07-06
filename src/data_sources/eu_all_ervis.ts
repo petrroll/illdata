@@ -1,5 +1,5 @@
 import { downloadAndSaveCsv, getAbsolutePath, toFloat } from "./ioUtils";
-import { datapointToPercentage, type Datapoint, type TimeseriesData, type PositivitySeries, type TrendSuffixMarker } from "../utils";
+import { datapointToPercentage, trendFromRatio, type Datapoint, type TimeseriesData, type PositivitySeries, type TrendSuffixMarker } from "../utils";
 
 // Country name ECDC uses for the pre-aggregated Europe-wide row. This aggregate is
 // unreliable for non-sentinel data (it only ships per-subtype detections and no test
@@ -77,15 +77,6 @@ function calculate28DayRatio(values: Datapoint[], frequencyInDays: number): numb
     const previousAvg = datapointToPercentage(previous);
     const ratio = currentAvg / previousAvg;
     return Number.isFinite(ratio) ? ratio : null;
-}
-
-function trendFromRatio(ratio: number | null): TrendSuffixMarker['trend'] {
-    // Mirror the trends table (header) thresholds: rising incidence (ratio > 1.1) is a
-    // negative signal, falling incidence (ratio < 0.9) is a positive one.
-    if (ratio === null) return 'unknown';
-    if (ratio > 1.1) return 'negative';
-    if (ratio < 0.9) return 'positive';
-    return 'neutral';
 }
 
 export function computeEuEcdcData(data: Record<string, string>[], preserveSurvtype: boolean = false): TimeseriesData {
