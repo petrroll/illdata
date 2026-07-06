@@ -27,6 +27,12 @@ import { adjustColorForTestBars } from "./color";
 import { compareTooltipItems, type TooltipItem } from "./tooltip-formatting";
 import { assembleCustomGraphData, type CustomGraphSelection, type SourceChartInfo } from "./custom-graph";
 
+interface DataSourceStatus {
+    name: string;
+    status: "ok" | "failed";
+    error?: string;
+}
+
 const averagingWindows = [28];
 const extremesForWindow = 28;
 const extremeWindow = 3*28;
@@ -161,6 +167,31 @@ function updateAllUITexts() {
     chartConfigs[2].title = t.chartTitleDeWastewater;
     chartConfigs[3].title = t.chartTitleNlInfectieradar;
     chartConfigs[4].title = t.chartTitleCustomGraph;
+}
+
+function updateDataSourceStatusNotice(rootDiv: HTMLElement) {
+    const failedSources = ((lastUpdateTimestamp as { sources?: DataSourceStatus[] }).sources ?? [])
+        .filter(source => source.status === "failed");
+    let notice = document.getElementById("dataSourceStatusNotice");
+
+    if (failedSources.length === 0) {
+        notice?.remove();
+        return;
+    }
+
+    if (!notice) {
+        notice = document.createElement("div");
+        notice.id = "dataSourceStatusNotice";
+        notice.setAttribute("role", "alert");
+        notice.style.cssText = "display: block; margin: 0 15px 15px 0; padding: 10px; border: 1px solid #f0c36d; background: #fff8e5; color: #6b4e00; max-width: 960px;";
+        rootDiv.insertBefore(notice, rootDiv.firstChild);
+    }
+
+    const sourceNames = failedSources.map(source => source.name).join(", ");
+    notice.textContent = `Data update warning: ${sourceNames} could not be refreshed. The dashboard is showing previously available data when possible.`;
+    notice.title = failedSources
+        .map(source => `${source.name}: ${source.error ?? "Unknown error"}`)
+        .join("\n");
 }
 
 // Initialize UI texts
@@ -613,6 +644,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     } else {
         console.error("Last update span not found");
     }
+    updateDataSourceStatusNotice(rootDiv);
 
     // Prepare chart canvases and holders
     chartConfigs.forEach(cfg => {
