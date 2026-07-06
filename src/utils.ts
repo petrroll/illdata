@@ -283,7 +283,7 @@ function buildAveragedSeriesMetadata(series: DataSeries, windowSizeInDays: numbe
 }
 
 export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes: number[]): TimeseriesData {
-    const averagedSeries: DataSeries[] = data.series.flatMap((series): DataSeries[] => {
+    const averagedSeries: DataSeries[] = data.series.filter(series => series.type === 'raw').flatMap((series): DataSeries[] => {
         const adjustedWindowSizes = windowSizes.map(w => windowSizeDaysToIndex(w, series.frequencyInDays));
         
         if (isScalarSeries(series)) {
