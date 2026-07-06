@@ -270,23 +270,16 @@ interface FilterOption {
     trendMarkers?: TrendSuffixMarker[];
 }
 
-function trendMarkerColors(marker: TrendSuffixMarker): { background: string; color: string } {
-    // Mirror the trends table (header) palette: red when incidence is rising
+function trendMarkerColor(marker: TrendSuffixMarker): string {
+    // Mirror the trends table (header) rules: red when incidence is rising
     // (ratio > 1.1), green when falling (ratio < 0.9), neutral otherwise.
-    if (marker.trend === 'negative') return { background: '#ffebee', color: '#c62828' };
-    if (marker.trend === 'positive') return { background: '#e8f5e8', color: '#2e7d32' };
-    return { background: '#f0f0f0', color: '#777' };
+    if (marker.trend === 'negative') return '#c62828';
+    if (marker.trend === 'positive') return '#2e7d32';
+    return '#999';
 }
 
 function trendMarkerTitle(marker: TrendSuffixMarker): string {
     return `${marker.letter}: ${marker.ratio28days === null ? 'n/a' : `${marker.ratio28days.toFixed(2)}x`}`;
-}
-
-function formatTrendSuffixText(markers: TrendSuffixMarker[] | undefined): string {
-    // Native <option> elements cannot render per-letter colors, so the dropdown list
-    // shows plain letters; the colored boxes next to the select convey the trend.
-    if (!markers || markers.length === 0) return '';
-    return `  ${markers.map(marker => marker.letter).join('')}`;
 }
 
 function formatTrendSuffixTitle(markers: TrendSuffixMarker[] | undefined): string {
@@ -298,30 +291,24 @@ function updateSelectedTrendSuffix(suffix: HTMLElement, markers: TrendSuffixMark
     suffix.replaceChildren();
     if (!markers || markers.length === 0) return;
     markers.forEach(marker => {
-        const box = document.createElement('span');
-        box.textContent = marker.letter;
-        const { background, color } = trendMarkerColors(marker);
-        box.style.display = 'inline-block';
-        box.style.minWidth = '1.1em';
-        box.style.padding = '0 3px';
-        box.style.marginLeft = '2px';
-        box.style.borderRadius = '3px';
-        box.style.textAlign = 'center';
-        box.style.fontWeight = 'bold';
-        box.style.fontSize = '0.85em';
-        box.style.backgroundColor = background;
-        box.style.color = color;
-        box.title = trendMarkerTitle(marker);
-        suffix.appendChild(box);
+        const letter = document.createElement('span');
+        letter.textContent = marker.letter;
+        letter.style.color = trendMarkerColor(marker);
+        letter.style.fontWeight = 'bold';
+        letter.title = trendMarkerTitle(marker);
+        suffix.appendChild(letter);
     });
 }
 
 function setFilterOptions(select: HTMLSelectElement, options: FilterOption[], selectedValue: string, suffix?: HTMLElement): void {
+    // Native <option> elements cannot render per-letter colors, so the dropdown list
+    // keeps plain labels (with ratios in the tooltip); the colored IRS letters next to
+    // the select convey the trend for the current selection.
     select.replaceChildren();
     options.forEach(opt => {
         const option = document.createElement('option');
         option.value = opt.value;
-        option.textContent = `${opt.label}${formatTrendSuffixText(opt.trendMarkers)}`;
+        option.textContent = opt.label;
         const title = formatTrendSuffixTitle(opt.trendMarkers);
         if (title) option.title = title;
         select.appendChild(option);
@@ -430,7 +417,8 @@ function createFilterSelector(
     const selectedValue = filters.get(cfg.containerId) || defaultValue;
     const suffix = document.createElement('span');
     suffix.id = `${cfg.containerId}-${filterType}-trend-suffix`;
-    suffix.style.marginLeft = '4px';
+    suffix.style.marginLeft = '6px';
+    suffix.style.letterSpacing = '2px';
     setFilterOptions(select, options, selectedValue, suffix);
 
     select.addEventListener('change', () => {
