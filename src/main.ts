@@ -231,6 +231,19 @@ const languageSelect = document.getElementById("languageSelect") as HTMLSelectEl
 // Flag to prevent recursive renderPage calls
 let isRendering = false;
 
+// renderPage() re-runs on every language switch while the shared DOM elements
+// (document, static buttons) persist. Track the last handler per target so we can
+// detach it before attaching a fresh one and avoid stacking duplicate listeners.
+const trackedListeners = new WeakMap<EventTarget, { types: string[]; handler: EventListener }>();
+function attachSingletonListener(target: EventTarget, types: string[], handler: EventListener): void {
+    const previous = trackedListeners.get(target);
+    if (previous) {
+        previous.types.forEach(type => target.removeEventListener(type, previous.handler));
+    }
+    types.forEach(type => target.addEventListener(type, handler));
+    trackedListeners.set(target, { types, handler });
+}
+
 // Helper function to change language and update UI
 function changeLanguageAndUpdate(newLang: Language) {
     setLanguage(newLang);
@@ -1133,7 +1146,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     // Attach event listener to hide all button
     const hideAllButton = document.getElementById('hideAllButton');
     if (hideAllButton) {
-        hideAllButton.addEventListener('click', () => hideAllSeries(() => onSettingsChange()));
+        attachSingletonListener(hideAllButton, ['click'], () => hideAllSeries(() => onSettingsChange()));
     }
     
     // Create and attach "Get Link" functionality
@@ -1156,7 +1169,7 @@ function createGetLinkButton(appSettings: AppSettings, chartConfigs: ChartConfig
         return;
     }
     
-    getLinkElement.addEventListener('click', () => {
+    attachSingletonListener(getLinkElement, ['click'], () => {
         // Encode current state
         const encoded = encodeUrlState(appSettings, chartConfigs, countryFilters, ageGroupFilters);
         
@@ -1214,8 +1227,7 @@ function setupTooltipDismissHandler(chartConfigs: ChartConfig[]): void {
     
     // Add listeners for both click and touchend events
     // touchend is important for iOS/Safari to handle tap gestures
-    document.addEventListener('click', handleClickOutside);
-    document.addEventListener('touchend', handleClickOutside);
+    attachSingletonListener(document, ['click', 'touchend'], handleClickOutside as EventListener);
 }
 
 function createChartContainerAndCanvas(containerId: string, canvasId: string): HTMLCanvasElement | null {
@@ -1517,7 +1529,6 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     ];
     // Sort series and calculate color assignments
     const sortedSeriesWithIndices = getSortedSeriesWithIndices(data.series);
-    const numberOfRawData = data.series.filter(series => series.type === 'raw').length;
     
     try {
         const storedVisibility = localStorage.getItem(cfg.visibilityKey);
@@ -1529,8 +1540,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     // Create stable palette mapping for consistent colors across alignment modes
     const paletteMap = createStablePaletteMapping(data.series, colorPalettes.length);
 
-    let datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, paletteMap);
-    let barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, numberOfRawData, colorPalettes, data, startIdx, endIdx, paletteMap, showShifted, showShiftedTestNumbers);
+    let datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, colorPalettes, data, startIdx, endIdx, paletteMap);
+    let barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, colorPalettes, data, startIdx, endIdx, paletteMap, showShifted, showShiftedTestNumbers);
 
     // Filter shifted series based on showShifted setting
     datasets = datasets.filter(ds => shouldIncludeShiftedSeries(ds.label, showShifted));
@@ -1661,6 +1672,11 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         const normalizedLabel = normalizeSeriesName(dataset.label);
         dataset.hidden = !cfg.datasetVisibility[normalizedLabel];
     });
+
+    // Precompute axis-formatting characteristics once instead of scanning all series
+    // on every y-axis tick render.
+    const hasScalarSeries = cfg.data.series.some(s => isScalarSeries(s));
+    const usesNumberFormat = hasScalarSeries && cfg.data.series.some(s => isScalarSeries(s) && s.valueFormat === 'number');
 
     const newChart = new Chart(cfg.canvas as HTMLCanvasElement, {
         type: "line",
@@ -1797,9 +1813,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                         callback: function(tickValue: string | number) {
                             if (typeof tickValue === 'number') {
                                 // Check if this is a scalar series chart (e.g., wastewater)
-                                const hasScalarSeries = cfg.data.series.some(s => isScalarSeries(s));
                                 if (hasScalarSeries) {
-                                    const usesNumberFormat = cfg.data.series.some(s => isScalarSeries(s) && s.valueFormat === 'number');
                                     return usesNumberFormat ? tickValue.toLocaleString() : tickValue.toExponential(2);
                                 } else {
                                     // For positivity data, show as percentage
@@ -2124,7 +2138,7 @@ function getSeriesPalette(series: DataSeries, paletteMap: Map<string, number>, c
     return colorPalettes[paletteIndex % colorPalettes.length];
 }
 
-function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], cfg: ChartConfig, numberOfRawData: number, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number, paletteMap: Map<string, number>) {
+function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], cfg: ChartConfig, colorPalettes: string[][], data: TimeseriesData, startIdx: number, endIdx: number, paletteMap: Map<string, number>) {
     return sortedSeriesWithIndices.map(({ series, originalIndex }, sortedIndex) => {
         const selectedPalette = getSeriesPalette(series, paletteMap, colorPalettes);
         const colorIndex = getSeriesColorIndex(series);
@@ -2179,7 +2193,6 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
 function generateTestNumberBarDatasets(
     sortedSeriesWithIndices: { series: DataSeries; originalIndex: number; }[], 
     cfg: ChartConfig, 
-    numberOfRawData: number, 
     colorPalettes: string[][], 
     data: TimeseriesData, 
     startIdx: number, 
@@ -2204,7 +2217,7 @@ function generateTestNumberBarDatasets(
         
         // For test bars, use first two colors from the palette (with bounds checking)
         // Positive tests use the base color (index 0), negative tests use slightly lighter (index 1)
-        const basePositiveColor = selectedPalette[0 % selectedPalette.length];
+        const basePositiveColor = selectedPalette[0];
         const baseNegativeColor = selectedPalette[Math.min(1, selectedPalette.length - 1)];
 
         // Adjust colors: reduce saturation and increase contrast

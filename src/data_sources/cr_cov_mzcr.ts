@@ -42,24 +42,10 @@ export function computeCzCovPositivityData(data: Record<string, string>[]): Time
     };
 }
 
-export async function downloadCzCovPositivity(filename: string, perDay: boolean = false) {
-    let storedFilename = filename;
-    if (perDay) {
-        storedFilename = createPerDayName(filename, storedFilename);
-    }
-    const filePath = getAbsolutePath(`./data/${storedFilename}`);
+export async function downloadCzCovPositivity(filename: string) {
+    const filePath = getAbsolutePath(`./data/${filename}`);
     const url = `https://onemocneni-aktualne.mzcr.cz/api/v2/covid-19/${filename}`;
 
     await downloadAndSaveCsv(url, filePath);
-}
-
-function createPerDayName(filename: string, storedFilename: string) {
-    // Use current date in YYYY-MM-DD format
-    const today = new Date().toISOString().slice(0, 10);
-    const dotIndex = filename.lastIndexOf('.');
-    storedFilename = dotIndex !== -1
-        ? `${filename.slice(0, dotIndex)}_${today}${filename.slice(dotIndex)}`
-        : `${filename}_${today}`;
-    return storedFilename;
 }
 
