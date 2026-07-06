@@ -92,7 +92,7 @@ export async function runDataProcessor() {
     sourceStatuses.push(await processSource("Czech MZCR COVID positivity", downloadCzCovPositivity, "testy-pcr-antigenni.csv", loadAndParseCsv, computeCzCovPositivityData, CR_COV_MZCR_POSITIVITY, EMPTY_TIMESERIES));
     sourceStatuses.push(await processEuEcdcSource());
     sourceStatuses.push(await processSource("Germany Wastewater Surveillance (AMELAG)", downloadDeWastewaterData, "amelag_aggregierte_kurve.tsv", loadAndParseTsv, computeDeWastewaterData, DE_WASTEWATER_AMELAG, EMPTY_TIMESERIES));
-    sourceStatuses.push(await processSource("Germany ARE Consultation Incidence", downloadDeAreData, "ARE-Konsultationsinzidenz.tsv", loadAndParseTsv, computeDeAreData, DE_ARE, EMPTY_TIMESERIES));
+    sourceStatuses.push(await processSource("Germany SARI Hospitalization Incidence", downloadDeAreData, "SARI-Hospitalisierungsinzidenz.tsv", loadAndParseTsv, computeDeAreData, DE_ARE, EMPTY_TIMESERIES));
     sourceStatuses.push(await processSource(
         "Netherlands Infectieradar Pathogens",
         downloadNlInfectieradarData,
