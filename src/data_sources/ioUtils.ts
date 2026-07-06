@@ -38,6 +38,10 @@ export async function loadAndParseTsv(filename: string) {
 export function parseDelimited(content: string, delimiter: string, label: string) {
     const lines = content.split("\n").filter(line => line.trim() !== "");
 
+    if (lines.length === 0) {
+        throw new Error(`Cannot parse ${label} data: content is empty`);
+    }
+
     // Assume first line contains headers
     const headers = lines[0].split(delimiter).map(h => h.trim());
     const data = lines.slice(1).map(line => {
@@ -75,11 +79,28 @@ export async function downloadAndSaveCsv(url: string, filePath: string): Promise
     console.log(`CSV downloaded and saved to ${filePath}`);
 }
 
-export async function downloadCsv(url: string) {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Failed to fetch CSV: ${response.statusText}`);
-    const csvContent = await response.text();
-    return csvContent;
+export async function downloadCsv(url: string, retries: number = 3, retryDelayMs: number = 1000) {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Failed to fetch CSV: ${response.statusText}`);
+            const csvContent = await response.text();
+            // Some upstream sources intermittently answer with HTTP 200 and an empty
+            // body. Treat that as a transient failure and retry instead of saving an
+            // empty file that would later crash parsing and break the build.
+            if (csvContent.trim() === "") throw new Error("Fetched CSV is empty");
+            return csvContent;
+        } catch (error) {
+            lastError = error;
+            const message = error instanceof Error ? error.message : String(error);
+            console.warn(`Download attempt ${attempt}/${retries} for ${url} failed: ${message}`);
+            if (attempt < retries) {
+                await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+            }
+        }
+    }
+    throw new Error(`Failed to download CSV from ${url} after ${retries} attempts: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
 }
 
 export async function saveData<T>(data: T, filePath: string): Promise<void> {
