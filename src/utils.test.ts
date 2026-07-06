@@ -7,6 +7,7 @@ import {
     getExtremeMatchSeriesName,
     compareLabels,
     isScalarSeries,
+    compareByPreferredOrder,
     calculateRatios,
     trendFromRatio,
     type PositivitySeries, 
@@ -61,6 +62,26 @@ describe('isScalarSeries Type Guard Tests', () => {
             dataType: 'positivity'
         };
         expect(isScalarSeries(avgPositivitySeries)).toBe(false);
+    });
+});
+
+describe('compareByPreferredOrder Tests', () => {
+    test('sorts values by their position in the preferred order', () => {
+        const order = ['00+', '0-4', '5-14', '15-34'];
+        const input = ['5-14', '00+', '15-34', '0-4'];
+        expect([...input].sort(compareByPreferredOrder(order))).toEqual(['00+', '0-4', '5-14', '15-34']);
+    });
+
+    test('places values not present in the order list at the end', () => {
+        const order = ['Gesamt', 'COVID-19', 'Influenza'];
+        const input = ['RSV', 'Influenza', 'Gesamt'];
+        expect([...input].sort(compareByPreferredOrder(order))).toEqual(['Gesamt', 'Influenza', 'RSV']);
+    });
+
+    test('handles an empty order list without reordering known values first', () => {
+        const input = ['b', 'a', 'c'];
+        // All values are unknown, so they all compare equal and keep their input order.
+        expect([...input].sort(compareByPreferredOrder([]))).toEqual(['b', 'a', 'c']);
     });
 });
 

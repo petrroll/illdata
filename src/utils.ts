@@ -81,6 +81,19 @@ export function isScalarSeries(series: DataSeries): series is ScalarSeries {
     return series.dataType === 'scalar';
 }
 
+/**
+ * Comparator that sorts strings by their position in a preferred order list.
+ * Values not present in the list are sorted to the end (keeping their relative order).
+ */
+export function compareByPreferredOrder(order: string[]) {
+    return (a: string, b: string) => {
+        const aIndex = order.indexOf(a);
+        const bIndex = order.indexOf(b);
+        return (aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex) -
+            (bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex);
+    };
+}
+
 interface ShiftedSeriesOptions {
     name: string;
     shiftByIndexes: number;

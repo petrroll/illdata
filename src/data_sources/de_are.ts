@@ -1,5 +1,5 @@
 import { downloadCsv, getAbsolutePath } from "./ioUtils";
-import { type ScalarSeries, type TimeseriesData } from "../utils";
+import { compareByPreferredOrder, type ScalarSeries, type TimeseriesData } from "../utils";
 import { promises as fs } from "fs";
 import path from "path";
 
@@ -53,8 +53,8 @@ export function computeDeAreData(data: Record<string, string>[]): TimeseriesData
     });
 
     const dates = [...groupedData.keys()].sort();
-    const orderedAgeGroups = [...ageGroups].sort(compareByOrder(AGE_GROUP_ORDER));
-    const orderedPathogens = [...pathogens].sort(compareByOrder(PATHOGEN_ORDER));
+    const orderedAgeGroups = [...ageGroups].sort(compareByPreferredOrder(AGE_GROUP_ORDER));
+    const orderedPathogens = [...pathogens].sort(compareByPreferredOrder(PATHOGEN_ORDER));
     const series: ScalarSeries[] = [];
 
     orderedAgeGroups.forEach(ageGroup => {
@@ -79,15 +79,6 @@ export function computeDeAreData(data: Record<string, string>[]): TimeseriesData
     });
 
     return { dates, series };
-}
-
-function compareByOrder(order: string[]) {
-    return (a: string, b: string) => {
-        const aIndex = order.indexOf(a);
-        const bIndex = order.indexOf(b);
-        return (aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex) -
-            (bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex);
-    };
 }
 
 function seriesKey(pathogen: string, ageGroup: string): string {
