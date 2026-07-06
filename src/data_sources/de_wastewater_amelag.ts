@@ -27,7 +27,7 @@ export function computeDeWastewaterData(data: Record<string, string>[]): Timeser
     // datum, n, anteil_bev, viruslast, viruslast_normalisiert, vorhersage, obere_schranke, untere_schranke, typ
     
     // Group by date and virus type (typ)
-    const groupedData = new Map<string, Map<string, { viruslast_normalisiert: number, count: number }>>();
+    const groupedData = new Map<string, Map<string, number>>();
     
     data.forEach(row => {
         const datum = normalizeDate(row["datum"] || "");
@@ -41,14 +41,8 @@ export function computeDeWastewaterData(data: Record<string, string>[]): Timeser
         if (!groupedData.has(datum)) {
             groupedData.set(datum, new Map());
         }
-        const dateGroup = groupedData.get(datum)!;
-        
-        if (!dateGroup.has(virusType)) {
-            dateGroup.set(virusType, { viruslast_normalisiert: viruslast, count: 1 });
-        } else {
-            // If there are multiple entries for the same date and virus, take the most recent one
-            dateGroup.set(virusType, { viruslast_normalisiert: viruslast, count: 1 });
-        }
+        // If there are multiple entries for the same date and virus, keep the last one.
+        groupedData.get(datum)!.set(virusType, viruslast);
     });
 
     // Get unique dates and virus types
@@ -85,9 +79,9 @@ export function computeDeWastewaterData(data: Record<string, string>[]): Timeser
                     let hasData = false;
                     
                     originalTypes.forEach(originalType => {
-                        const stats = groupedData.get(date)?.get(originalType);
-                        if (stats) {
-                            totalViruslast += stats.viruslast_normalisiert;
+                        const value = groupedData.get(date)?.get(originalType);
+                        if (value !== undefined) {
+                            totalViruslast += value;
                             hasData = true;
                         }
                     });

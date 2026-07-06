@@ -6,7 +6,7 @@ import nlInfectieradarImport from "../data_processed/nl_infectieradar/positivity
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, type ScalarSeries, type Datapoint, type ScalarDatapoint, type TrendSuffixMarker, datapointToPercentage, compareLabels, getColorBaseSeriesName, getExtremeMatchSeriesName, isScalarSeries } from "./utils";
+import { findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, type ScalarSeries, type Datapoint, type ScalarDatapoint, type TrendSuffixMarker, datapointToPercentage, compareLabels, getColorBaseSeriesName, getExtremeMatchSeriesName, isScalarSeries, compareByPreferredOrder } from "./utils";
 import { getLanguage, setLanguage, getTranslations, translateSeriesName, normalizeSeriesName, type Language } from "./locales";
 import { createRegularLegendButton, createSplitTestPill, createSplitShiftedPill, type TrendRatioLookup, type ChartConfig as LegendChartConfig } from "./ui/legend-utils";
 import { 
@@ -1307,12 +1307,7 @@ function getAvailableAgeGroups(data: TimeseriesData): string[] {
         }
     });
     const preferredOrder = ["00+", "0-4", "5-14", "15-34", "35-59", "60-79", "80+"];
-    return Array.from(ageGroups).sort((a, b) => {
-        const aIndex = preferredOrder.indexOf(a);
-        const bIndex = preferredOrder.indexOf(b);
-        return (aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex) -
-            (bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex);
-    });
+    return Array.from(ageGroups).sort(compareByPreferredOrder(preferredOrder));
 }
 
 function filterDataByCountry(data: TimeseriesData, country: string): TimeseriesData {
@@ -1677,6 +1672,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     // on every y-axis tick render.
     const hasScalarSeries = cfg.data.series.some(s => isScalarSeries(s));
     const usesNumberFormat = hasScalarSeries && cfg.data.series.some(s => isScalarSeries(s) && s.valueFormat === 'number');
+    // Compute "now" once per render instead of allocating a Date on every x-axis tick.
+    const nowMs = Date.now();
 
     const newChart = new Chart(cfg.canvas as HTMLCanvasElement, {
         type: "line",
@@ -1801,7 +1798,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                                 label = label[0];
                             }
                             const date = new Date(label || '');
-                            return date > new Date() ? 'gray' : 'black';
+                            return date.getTime() > nowMs ? 'gray' : 'black';
                         }
                     }
                 },
@@ -2367,10 +2364,11 @@ function updateRatioTable() {
     
     // Calculate ratios for all datasets
     const allRatios: RatioData[] = [];
+    const nowMs = Date.now();
     visiblePerChart.forEach(([cfg, seriesNames]) => {
         const ratios = calculateRatios(cfg.data, seriesNames);
         ratios.forEach(ratio => {
-            const daysSinceLastData = (new Date().getTime() - (ratio.lastDataDate ?? new Date()).getTime()) / (1000 * 60 * 60 * 24);
+            const daysSinceLastData = (nowMs - (ratio.lastDataDate?.getTime() ?? nowMs)) / (1000 * 60 * 60 * 24);
             const translatedSeriesName = translateSeriesName(ratio.seriesName);
             ratio.seriesName =  `${translatedSeriesName} - ${cfg.shortTitle} (last: -${Math.ceil(daysSinceLastData)}d)`; 
         });
