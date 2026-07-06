@@ -1018,14 +1018,25 @@ function createChartContainerAndCanvas(containerId: string, canvasId: string): H
         return canvas;
     }
     
-    // For regular charts, use the existing approach
+    // For regular charts, wrap the canvas in a fixed-height wrapper. Filter
+    // selectors (country/survtype) are prepended to the container, so putting the
+    // fixed height on the container itself would shrink the chart and let its
+    // rotated x-axis labels overflow into the legend below (see EU ECDC graph).
+    // Keeping the height on a dedicated canvas wrapper guarantees the chart always
+    // gets its full height and a consistent gap to the legend.
     container.style.width = "100vw";
-    container.style.height = "40vh";
+    let canvasWrapper = document.getElementById(`${containerId}-canvasWrapper`);
+    if (!canvasWrapper) {
+        canvasWrapper = document.createElement('div');
+        canvasWrapper.id = `${containerId}-canvasWrapper`;
+        canvasWrapper.style.cssText = 'width: 100%; height: 40vh;';
+        container.appendChild(canvasWrapper);
+    }
     let canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
     if (!canvas) {
         canvas = document.createElement("canvas");
         canvas.id = canvasId;
-        container.appendChild(canvas);
+        canvasWrapper.appendChild(canvas);
     }
     return canvas;
 }
