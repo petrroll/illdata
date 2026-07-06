@@ -33,6 +33,14 @@ test.describe('Germany SARI Hospitalization Incidence chart', () => {
     expect(legendText?.match(/Overall SARI Hospitalization Incidence/g)?.length).toBe(1);
   });
 
+  test('shows trend dot for aggregate COVID-19 base legend pill despite trailing zeros', async ({ page }) => {
+    const legend = page.locator('#deAreContainer-legend');
+    const covidPill = legend.locator('> span').filter({ hasText: 'COVID-19 SARI Hospitalization Incidence' }).first();
+    const baseSegment = covidPill.locator('> span').first();
+
+    await expect(baseSegment.locator('.trend-dot')).toHaveCount(1);
+  });
+
   test('filters DE-ARE series by selected age group', async ({ page }) => {
     const ageSelector = page.locator('#deAreContainer-ageGroup-select');
     await ageSelector.selectOption('0-4');

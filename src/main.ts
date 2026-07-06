@@ -1850,13 +1850,14 @@ function buildTrendRatioLookup(cfg: ChartConfig, processedData: TimeseriesData):
         ? loadFilter(cfg.countryFilterKey, "EU/EEA")
         : undefined;
     
-    const rawSeries = cfg.data.series.filter((series): boolean =>
+    const rawSeries = processedData.series.filter((series): boolean =>
         series.type === 'raw' &&
+        !isShiftedSeries(series.name) &&
         (selectedCountry === undefined || !series.country || series.country === selectedCountry)
     );
     
     const ratios = calculateRatios(
-        { dates: cfg.data.dates, series: rawSeries },
+        { dates: processedData.dates, series: rawSeries },
         rawSeries.map(series => series.name)
     );
     

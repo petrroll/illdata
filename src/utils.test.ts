@@ -7,6 +7,7 @@ import {
     getExtremeMatchSeriesName,
     compareLabels,
     isScalarSeries,
+    calculateRatios,
     trendFromRatio,
     type PositivitySeries, 
     type ScalarSeries,
@@ -589,6 +590,27 @@ describe('trendFromRatio Tests', () => {
         expect(trendFromRatio(null)).toBe('unknown');
         expect(trendFromRatio(Infinity)).toBe('unknown');
         expect(trendFromRatio(NaN)).toBe('unknown');
+    });
+});
+
+describe('calculateRatios Tests', () => {
+    test('uses the latest finite scalar ratio before a padded zero tail', () => {
+        const data: TimeseriesData = {
+            dates: Array.from({ length: 20 }, (_, i) => `2026-${String(Math.floor(i / 4) + 1).padStart(2, '0')}-${String((i % 4) * 7 + 1).padStart(2, '0')}`),
+            series: [{
+                name: 'COVID-19 SARI Hospitalization Incidence',
+                values: [8, 8, 8, 8, 4, 4, 4, 4, 2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]
+                    .map(virusLoad => ({ virusLoad })),
+                type: 'raw',
+                frequencyInDays: 7,
+                dataType: 'scalar'
+            }]
+        };
+
+        const [ratio] = calculateRatios(data, ['COVID-19 SARI Hospitalization Incidence']);
+
+        expect(ratio.ratio28days).toBe(0);
+        expect(ratio.lastDataDate?.toISOString().split('T')[0]).toBe(data.dates[18]);
     });
 });
 
