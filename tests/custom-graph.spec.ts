@@ -37,6 +37,21 @@ test.describe('Custom Graph', () => {
     expect(count).toBeGreaterThan(0);
   });
 
+  test('shows trend dot on selected base series legend pill', async ({ page }) => {
+    await page.locator('#customGraphToggleButton').click();
+    const antigenCheckbox = page
+      .locator('#customGraphSeriesSelector label', { hasText: /^Antigen Positivity \(28d avg\)$/ })
+      .locator('input');
+
+    await antigenCheckbox.check();
+
+    const legend = page.locator('#customGraphContainer-legend');
+    const antigenPill = legend.locator('> span').filter({ hasText: 'Antigen Positivity (28d avg) (MZCR)' }).first();
+    const baseSegment = antigenPill.locator('> span').first();
+
+    await expect(baseSegment.locator('.trend-dot')).toHaveCount(1);
+  });
+
   test('legend keeps flex layout so pills stay spaced out', async ({ page }) => {
     // Regression for issue #176: toggling the legend visible reset display to ''
     // (block) which dropped the flex `gap`, bunching the pills together.

@@ -1864,22 +1864,27 @@ function buildTrendRatioLookup(cfg: ChartConfig, processedData: TimeseriesData):
         ? loadFilter(cfg.countryFilterKey, "EU/EEA")
         : undefined;
     
-    const rawSeries = processedData.series.filter((series): boolean =>
-        series.type === 'raw' &&
+    const nonShiftedSeries = processedData.series.filter((series): boolean =>
         !isShiftedSeries(series.name) &&
         (selectedCountry === undefined || !series.country || series.country === selectedCountry)
     );
-    
-    const ratios = calculateRatios(
-        { dates: processedData.dates, series: rawSeries },
-        rawSeries.map(series => series.name)
-    );
+    const rawSeries = nonShiftedSeries.filter((series): boolean => series.type === 'raw');
     
     const ratioByRawName = new Map<string, number | null>();
-    ratios.forEach(ratio => {
-        const rawKey = getExtremeMatchSeriesName(normalizeSeriesName(ratio.seriesName));
-        ratioByRawName.set(rawKey, ratio.ratio28days);
-    });
+    const addTrendRatios = (seriesList: DataSeries[], overwrite: boolean) => {
+        const ratios = calculateRatios(
+            { dates: processedData.dates, series: seriesList },
+            seriesList.map(series => series.name)
+        );
+        ratios.forEach(ratio => {
+            const rawKey = getExtremeMatchSeriesName(normalizeSeriesName(ratio.seriesName));
+            if (overwrite || !ratioByRawName.has(rawKey)) {
+                ratioByRawName.set(rawKey, ratio.ratio28days);
+            }
+        });
+    };
+    addTrendRatios(rawSeries, true);
+    addTrendRatios(nonShiftedSeries.filter(series => series.type !== 'raw'), false);
     
     // Compute each shifted series' own 28-day trend from the plotted (post-shift) data so the
     // shifted pill's dot reflects where the shifted line is heading, not the base series.
