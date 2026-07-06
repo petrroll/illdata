@@ -805,7 +805,16 @@ function renderPage(rootDiv: HTMLElement | null) {
         // Initialize survtype filters from localStorage (URL state support can be added later)
         survtypeFilters = new Map<string, string>();
         ageGroupFilters = new Map<string, string>();
+        // Backfill filter defaults for charts not present in the URL state.
+        // applyUrlState only populates filters explicitly encoded in the URL, so
+        // charts omitted from the state (e.g. an empty country map) would otherwise
+        // have no filter applied. Country filters in particular must default to
+        // "EU/EEA": leaving the EU chart unfiltered keeps every country's series,
+        // which cross-match extremes and can blow up rendering.
         chartConfigs.forEach(cfg => {
+            if (cfg.hasCountryFilter && cfg.countryFilterKey && !countryFilters.has(cfg.containerId)) {
+                countryFilters.set(cfg.containerId, loadFilter(cfg.countryFilterKey, "EU/EEA"));
+            }
             if (cfg.hasSurvtypeFilter && cfg.survtypeFilterKey) {
                 survtypeFilters.set(cfg.containerId, loadFilter(cfg.survtypeFilterKey, "both"));
             }
@@ -1425,19 +1434,21 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     if (!cfg.extremesCache) {
         const averagedForExtremes = data.series
             .filter(series => series.type === 'averaged')
-            .filter(series => extremesForWindow == series.windowSizeInDays);
+            .filter(series => extremesForWindow === series.windowSizeInDays);
         
         const localMaximaSeries = averagedForExtremes
             .map(series => findLocalExtreme(series, extremeWindow, 'maxima'))
         const localMinimaSeries = averagedForExtremes
             .map(series => findLocalExtreme(series, extremeWindow, 'minima'))
         
-        // Apply filtering as a separate step
+        // Apply filtering as a separate step. localMaxima/MinimaSeries[idx] already
+        // corresponds to averagedForExtremes[idx], so use the index instead of
+        // rescanning all extremes for each series.
         const filteredExtremesResults = averagedForExtremes
-            .map(series => filterExtremesByMedianThreshold(
+            .map((series, idx) => filterExtremesByMedianThreshold(
                 series, 
-                localMaximaSeries.flat().filter(extreme => extreme.originalSeriesName === series.name),
-                localMinimaSeries.flat().filter(extreme => extreme.originalSeriesName === series.name)
+                localMaximaSeries[idx],
+                localMinimaSeries[idx]
             ));
         
         const filteredMaximaSeries = filteredExtremesResults.flatMap(result => result.filteredMaxima);
@@ -2322,20 +2333,27 @@ function updateRatioTable() {
             return;
         }
 
+        // Load the active filter selections once (they are constant for this chart),
+        // instead of re-reading localStorage for every series.
+        const selectedCountry = cfg.hasCountryFilter && cfg.countryFilterKey
+            ? loadFilter(cfg.countryFilterKey, "EU/EEA")
+            : undefined;
+        const selectedAgeGroup = cfg.hasAgeGroupFilter && cfg.ageGroupFilterKey
+            ? loadFilter(cfg.ageGroupFilterKey, "00+")
+            : undefined;
+
         // Filter series for ratio table
         const filteredSeries = cfg.data.series.filter(series => {
             if (series.type !== 'raw') return false;
             
             // For EU chart, use the selected country from the filter
-            if (cfg.hasCountryFilter && series.country && cfg.countryFilterKey) {
-                const selectedCountry = loadFilter(cfg.countryFilterKey, "EU/EEA");
+            if (selectedCountry !== undefined && series.country) {
                 if (series.country !== selectedCountry) {
                     return false;
                 }
             }
 
-            if (cfg.hasAgeGroupFilter && series.ageGroup && cfg.ageGroupFilterKey) {
-                const selectedAgeGroup = loadFilter(cfg.ageGroupFilterKey, "00+");
+            if (selectedAgeGroup !== undefined && series.ageGroup) {
                 if (series.ageGroup !== selectedAgeGroup) {
                     return false;
                 }

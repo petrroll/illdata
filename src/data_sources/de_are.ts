@@ -33,6 +33,7 @@ export function computeDeAreData(data: Record<string, string>[]): TimeseriesData
     const groupedData = new Map<string, Map<string, number>>();
     const ageGroups = new Set<string>();
     const pathogens = new Set<string>();
+    const seriesKeysWithData = new Set<string>();
 
     data.forEach(row => {
         const date = isoWeekToDate(row["Kalenderwoche"] || "");
@@ -46,6 +47,7 @@ export function computeDeAreData(data: Record<string, string>[]): TimeseriesData
 
         ageGroups.add(ageGroup);
         pathogens.add(pathogen);
+        seriesKeysWithData.add(seriesKey(pathogen, ageGroup));
         if (!groupedData.has(date)) {
             groupedData.set(date, new Map());
         }
@@ -59,7 +61,7 @@ export function computeDeAreData(data: Record<string, string>[]): TimeseriesData
 
     orderedAgeGroups.forEach(ageGroup => {
         orderedPathogens.forEach(pathogen => {
-            const hasValue = dates.some(date => groupedData.get(date)?.has(seriesKey(pathogen, ageGroup)));
+            const hasValue = seriesKeysWithData.has(seriesKey(pathogen, ageGroup));
             if (!hasValue) {
                 return;
             }

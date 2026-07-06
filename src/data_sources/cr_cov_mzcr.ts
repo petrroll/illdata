@@ -10,8 +10,8 @@ export function computeCzCovPositivityData(data: Record<string, string>[]): Time
         return { datum, pcr, ag };
 
         function getPositivity(totalColumn: string ,positiveColumns: string[]) {
-            var total = toFloat(row, totalColumn);
-            var positives = positiveColumns.map(col => toFloat(row, col)).reduce((a, b) => a + b, 0);
+            const total = toFloat(row, totalColumn);
+            let positives = positiveColumns.map(col => toFloat(row, col)).reduce((a, b) => a + b, 0);
 
             if (positives > 0 && total === 0) {
                 console.log(`Warning: PCR positivity is greater than zero ${positives} but total PCR tests are zero on date ${datum}. This may indicate an issue with the data.`);
