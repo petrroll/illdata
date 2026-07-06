@@ -100,7 +100,34 @@ export async function downloadCsv(url: string, retries: number = 3, retryDelayMs
             }
         }
     }
+    if (!(lastError instanceof Error && lastError.message === "Fetched CSV is empty")) {
+        try {
+            const csvContent = await downloadCsvWithCurl(url);
+            if (csvContent.trim() === "") throw new Error("Fetched CSV is empty");
+            return csvContent;
+        } catch (error) {
+            lastError = error;
+        }
+    }
     throw new Error(`Failed to download CSV from ${url} after ${retries} attempts: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+}
+
+async function downloadCsvWithCurl(url: string): Promise<string> {
+    const proc = Bun.spawn(["curl", "-fL", "--max-time", "60", "--retry", "2", "--retry-delay", "1", url], {
+        stdout: "pipe",
+        stderr: "pipe"
+    });
+    const [stdout, stderr, exitCode] = await Promise.all([
+        new Response(proc.stdout).text(),
+        new Response(proc.stderr).text(),
+        proc.exited
+    ]);
+
+    if (exitCode !== 0) {
+        throw new Error(`curl failed with exit code ${exitCode}: ${stderr.trim()}`);
+    }
+
+    return stdout;
 }
 
 export async function saveData<T>(data: T, filePath: string): Promise<void> {

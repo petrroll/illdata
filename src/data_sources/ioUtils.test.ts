@@ -21,9 +21,11 @@ describe('parseDelimited Tests', () => {
 
 describe('downloadCsv Tests', () => {
     const originalFetch = globalThis.fetch;
+    const originalSpawn = Bun.spawn;
 
     afterEach(() => {
         globalThis.fetch = originalFetch;
+        Bun.spawn = originalSpawn;
     });
 
     test('retries and succeeds after a transient empty response', async () => {
@@ -63,5 +65,28 @@ describe('downloadCsv Tests', () => {
             'Failed to download CSV from https://example.com/data.csv after 3 attempts'
         );
         expect(calls).toBe(3);
+    });
+
+    test('falls back to curl after persistent fetch errors', async () => {
+        let fetchCalls = 0;
+        let curlArgs: string[] = [];
+        globalThis.fetch = (async () => {
+            fetchCalls++;
+            throw new Error('Malformed_HTTP_Response');
+        }) as typeof fetch;
+        Bun.spawn = ((args: string[]) => {
+            curlArgs = args;
+            return {
+                stdout: new Response('A,B\n1,2').body,
+                stderr: new Response('').body,
+                exited: Promise.resolve(0),
+            } as unknown as ReturnType<typeof Bun.spawn>;
+        }) as typeof Bun.spawn;
+
+        const content = await downloadCsv('https://example.com/data.csv', 3, 0);
+
+        expect(fetchCalls).toBe(3);
+        expect(curlArgs).toContain('https://example.com/data.csv');
+        expect(content).toBe('A,B\n1,2');
     });
 });
