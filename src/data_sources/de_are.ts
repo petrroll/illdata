@@ -1,10 +1,9 @@
 import { downloadCsv, getAbsolutePath } from "./ioUtils";
-import { computeMovingAverageTimeseries, type ScalarSeries, type TimeseriesData } from "../utils";
+import { type ScalarSeries, type TimeseriesData } from "../utils";
 import { promises as fs } from "fs";
 import path from "path";
 
 const AGE_GROUP_ORDER = ["00+", "0-4", "5-14", "15-34", "35-59", "60-79", "80+"];
-const AVERAGING_WINDOWS = [28];
 const PATHOGEN_ORDER = ["Gesamt", "COVID-19", "Influenza", "RSV"];
 const PATHOGEN_LABELS: Record<string, string> = {
     "Gesamt": "Overall SARI",
@@ -79,7 +78,7 @@ export function computeDeAreData(data: Record<string, string>[]): TimeseriesData
         });
     });
 
-    return computeMovingAverageTimeseries({ dates, series }, AVERAGING_WINDOWS);
+    return { dates, series };
 }
 
 function compareByOrder(order: string[]) {

@@ -2,7 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
-import { processSource } from "./data_processor";
+import { addBuildTimeDerivedSeries, processSource } from "./data_processor";
+import type { TimeseriesData } from "./utils";
 
 const tempDirs: string[] = [];
 
@@ -38,6 +39,7 @@ describe("processSource", () => {
             outputPath,
             error: "download failed"
         });
+
         expect(JSON.parse(await readFile(outputPath, "utf-8"))).toEqual(fallback);
     });
 
@@ -80,5 +82,31 @@ describe("processSource", () => {
             outputPath
         });
         expect(JSON.parse(await readFile(outputPath, "utf-8"))).toEqual({ rows: 2 });
+    });
+});
+
+describe("addBuildTimeDerivedSeries", () => {
+    test("adds 28d averaged series during data processing", () => {
+        const input: TimeseriesData = {
+            dates: ["2026-01-05", "2026-01-12"],
+            series: [{
+                name: "Weekly Scalar",
+                values: [{ virusLoad: 10 }, { virusLoad: 20 }],
+                type: "raw",
+                frequencyInDays: 7,
+                dataType: "scalar",
+                ageGroup: "00+"
+            }]
+        };
+
+        const result = addBuildTimeDerivedSeries(input);
+
+        expect(result.series.map(series => series.name)).toEqual([
+            "Weekly Scalar",
+            "Weekly Scalar (28d avg)"
+        ]);
+        expect(result.series[1].type).toBe("averaged");
+        expect(result.series[1].windowSizeInDays).toBe(28);
+        expect(result.series[1].ageGroup).toBe("00+");
     });
 });

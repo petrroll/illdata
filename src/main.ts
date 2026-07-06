@@ -6,7 +6,7 @@ import nlInfectieradarImport from "../data_processed/nl_infectieradar/positivity
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, type ScalarSeries, type Datapoint, type ScalarDatapoint, type TrendSuffixMarker, datapointToPercentage, compareLabels, getColorBaseSeriesName, getExtremeMatchSeriesName, isScalarSeries } from "./utils";
+import { findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, type ScalarSeries, type Datapoint, type ScalarDatapoint, type TrendSuffixMarker, datapointToPercentage, compareLabels, getColorBaseSeriesName, getExtremeMatchSeriesName, isScalarSeries } from "./utils";
 import { getLanguage, setLanguage, getTranslations, translateSeriesName, normalizeSeriesName, type Language } from "./locales";
 import { createRegularLegendButton, createSplitTestPill, createSplitShiftedPill, type TrendRatioLookup, type ChartConfig as LegendChartConfig } from "./ui/legend-utils";
 import { 
@@ -34,12 +34,12 @@ interface DataSourceStatus {
     error?: string;
 }
 
-const averagingWindows = [28];
 const extremesForWindow = 28;
 const extremeWindow = 3*28;
-const dataSources = [mzcrPositivityImport, euPositivityImport, deWastewaterImport, nlInfectieradarImport] as const;
-const [mzcrPositivityEnhanced, euPositivityEnhanced, deWastewaterEnhanced, nlInfectieradarEnhanced] =
-    dataSources.map(d => computeMovingAverageTimeseries(d as TimeseriesData, averagingWindows));
+const mzcrPositivityEnhanced = mzcrPositivityImport as TimeseriesData;
+const euPositivityEnhanced = euPositivityImport as TimeseriesData;
+const deWastewaterEnhanced = deWastewaterImport as TimeseriesData;
+const nlInfectieradarEnhanced = nlInfectieradarImport as TimeseriesData;
 const deAreEnhanced = deAreImport as TimeseriesData;
 
 // Constants for chart styling
