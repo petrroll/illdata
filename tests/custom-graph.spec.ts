@@ -52,6 +52,18 @@ test.describe('Custom Graph', () => {
     await expect(baseSegment.locator('.trend-dot')).toHaveCount(1);
   });
 
+  test('keeps legend when selected series include missing datapoints', async ({ page }) => {
+    await page.locator('#customGraphToggleButton').click();
+
+    await page.locator('#customGraphSeriesSelector label', { hasText: /^Antigen Positivity \(28d avg\)$/ }).locator('input').check();
+    await page.locator('#customGraphSeriesSelector label', { hasText: /^PCR Positivity \(28d avg\)$/ }).locator('input').check();
+    await page.locator('#customGraphSeriesSelector label', { hasText: /^Influenza Positivity \(Non-Sentinel\) \(28d avg\)$/ }).locator('input').check();
+
+    const legend = page.locator('#customGraphContainer-legend');
+    await expect(legend).toBeVisible();
+    await expect(legend.locator('> span')).toHaveCount(3);
+  });
+
   test('legend keeps flex layout so pills stay spaced out', async ({ page }) => {
     // Regression for issue #176: toggling the legend visible reset display to ''
     // (block) which dropped the flex `gap`, bunching the pills together.

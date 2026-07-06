@@ -493,8 +493,12 @@ function calculatePeriodRatio(series: DataSeries, endIndex: number, periodDays: 
     
     if (previousStart >= previousEnd || currentStart >= currentEnd) return null;
     
-    const currentValues = series.values.slice(currentStart, currentEnd);
-    const previousValues = series.values.slice(previousStart, previousEnd);
+    const currentValues = series.values
+        .slice(currentStart, currentEnd)
+        .filter(value => value !== null && value !== undefined);
+    const previousValues = series.values
+        .slice(previousStart, previousEnd)
+        .filter(value => value !== null && value !== undefined);
     
     if (currentValues.length === 0 || previousValues.length === 0) return null;
     
