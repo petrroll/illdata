@@ -5,9 +5,9 @@ import nlInfectieradarImport from "../data_processed/nl_infectieradar/positivity
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, type ScalarSeries, type Datapoint, type ScalarDatapoint, type TrendSuffixMarker, datapointToPercentage, compareLabels, getColorBaseSeriesName, isScalarSeries } from "./utils";
+import { computeMovingAverageTimeseries, findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, type ScalarSeries, type Datapoint, type ScalarDatapoint, type TrendSuffixMarker, datapointToPercentage, compareLabels, getColorBaseSeriesName, getExtremeMatchSeriesName, isScalarSeries } from "./utils";
 import { getLanguage, setLanguage, getTranslations, translateSeriesName, normalizeSeriesName, type Language } from "./locales";
-import { createRegularLegendButton, createSplitTestPill, createSplitShiftedPill, type ChartConfig as LegendChartConfig } from "./ui/legend-utils";
+import { createRegularLegendButton, createSplitTestPill, createSplitShiftedPill, type TrendRatioLookup, type ChartConfig as LegendChartConfig } from "./ui/legend-utils";
 import { 
     SHIFTED_SERIES_IDENTIFIER, 
     isShiftedSeries,
@@ -1747,12 +1747,65 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     });
 
     // Create custom HTML legend with colored background boxes
-    createCustomHtmlLegend(newChart, cfg);
+    createCustomHtmlLegend(newChart, cfg, data);
     
     return newChart;
 }
 
-function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
+/**
+ * Builds a lookup that returns the 28-day trend ratio for a legend dataset label.
+ *
+ * Non-shifted pills use the underlying raw series (mirroring the trends table), so their
+ * indicators stay consistent with the trends table regardless of averaging. Shifted pills
+ * instead use their own shifted series' 28-day trend (computed from the plotted, post-shift
+ * data), so the dot reflects the direction of the shifted line rather than the base series.
+ * For the country-filtered EU chart only the currently selected country is considered.
+ */
+function buildTrendRatioLookup(cfg: ChartConfig, processedData: TimeseriesData): TrendRatioLookup {
+    const selectedCountry = cfg.hasCountryFilter && cfg.countryFilterKey
+        ? loadFilter(cfg.countryFilterKey, "EU/EEA")
+        : undefined;
+    
+    const rawSeries = cfg.data.series.filter((series): boolean =>
+        series.type === 'raw' &&
+        (selectedCountry === undefined || !series.country || series.country === selectedCountry)
+    );
+    
+    const ratios = calculateRatios(
+        { dates: cfg.data.dates, series: rawSeries },
+        rawSeries.map(series => series.name)
+    );
+    
+    const ratioByRawName = new Map<string, number | null>();
+    ratios.forEach(ratio => {
+        const rawKey = getExtremeMatchSeriesName(normalizeSeriesName(ratio.seriesName));
+        ratioByRawName.set(rawKey, ratio.ratio28days);
+    });
+    
+    // Compute each shifted series' own 28-day trend from the plotted (post-shift) data so the
+    // shifted pill's dot reflects where the shifted line is heading, not the base series.
+    const shiftedSeries = processedData.series.filter(series => isShiftedSeries(series.name));
+    const shiftedRatios = calculateRatios(processedData, shiftedSeries.map(series => series.name));
+    const ratioByShiftedName = new Map<string, number | null>();
+    shiftedRatios.forEach(ratio => {
+        ratioByShiftedName.set(normalizeSeriesName(ratio.seriesName), ratio.ratio28days);
+    });
+    
+    return (datasetLabel: string): number | null => {
+        // Strip test-number suffixes first so positive/negative test pills map back to the
+        // underlying positivity series, then strip averaging/shift/extreme decoration.
+        const withoutTestSuffix = normalizeSeriesName(datasetLabel)
+            .replace(' - Positive Tests', '')
+            .replace(' - Negative Tests', '');
+        if (isShiftedSeries(withoutTestSuffix)) {
+            return ratioByShiftedName.get(withoutTestSuffix) ?? null;
+        }
+        const rawKey = getExtremeMatchSeriesName(withoutTestSuffix);
+        return ratioByRawName.get(rawKey) ?? null;
+    };
+}
+
+function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig, processedData: TimeseriesData) {
     // Find or create legend container
     const containerId = cfg.containerId;
     let legendContainer = document.getElementById(`${containerId}-legend`);
@@ -1798,6 +1851,10 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
     // Track which datasets have been processed to avoid duplicates
     const processedIndices = new Set<number>();
     
+    // Build the per-series 28-day trend lookup so each legend pill can show a red/green
+    // indicator mirroring the trends table (rising incidence = red, falling = green).
+    const getTrendRatio = buildTrendRatioLookup(cfg, processedData);
+    
     // Helper: find a dataset by normalized label match
     const findDataset = (predicate: (normalizedLabel: string, rawLabel: string) => boolean) =>
         datasetsWithIndices.find(d => {
@@ -1817,7 +1874,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
             processedIndices.add(primaryIndex);
             processedIndices.add(pairedEntry.index);
         } else {
-            createRegularLegendButton(legendContainer, chart, cfg, primaryDataset, primaryIndex, updateRatioTable);
+            createRegularLegendButton(legendContainer, chart, cfg, primaryDataset, primaryIndex, updateRatioTable, getTrendRatio);
             processedIndices.add(primaryIndex);
         }
     };
@@ -1844,7 +1901,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
                 const [posDs, posIdx, negDs, negIdx] = isPositiveTest
                     ? [dataset, index, paired.dataset, paired.index]
                     : [paired.dataset, paired.index, dataset, index];
-                createSplitTestPill(legendContainer, chart, cfg, posDs, posIdx, negDs, negIdx, baseSeriesName, updateRatioTable);
+                createSplitTestPill(legendContainer, chart, cfg, posDs, posIdx, negDs, negIdx, baseSeriesName, updateRatioTable, getTrendRatio);
             });
         } else {
             const normalizedLabel = normalizeSeriesName(datasetLabel);
@@ -1855,7 +1912,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
                 const baseDataset = findDataset((norm, raw) => norm === baseNameWithoutShift && !isShiftedSeries(raw));
                 
                 createPairOrRegular(dataset, index, baseDataset, (paired) => {
-                    createSplitShiftedPill(legendContainer, chart, cfg, paired.dataset, paired.index, dataset, index, baseNameWithoutShift, updateRatioTable);
+                    createSplitShiftedPill(legendContainer, chart, cfg, paired.dataset, paired.index, dataset, index, baseNameWithoutShift, updateRatioTable, getTrendRatio);
                 });
             } else {
                 const shiftedEntry = findDataset((norm, raw) => {
@@ -1864,7 +1921,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
                 });
                 
                 createPairOrRegular(dataset, index, shiftedEntry, (paired) => {
-                    createSplitShiftedPill(legendContainer, chart, cfg, dataset, index, paired.dataset, paired.index, normalizedLabel, updateRatioTable);
+                    createSplitShiftedPill(legendContainer, chart, cfg, dataset, index, paired.dataset, paired.index, normalizedLabel, updateRatioTable, getTrendRatio);
                 });
             }
         }

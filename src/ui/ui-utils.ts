@@ -1,6 +1,8 @@
 // UI utility functions for creating and managing UI elements
 // Extracted from main.ts to reduce duplication
 
+import { trendFromRatio } from '../utils';
+
 /**
  * Creates a styled button element
  * @param text - Button text
@@ -20,7 +22,8 @@ export function createStyledButton(
     const button = document.createElement('span');
     const borderRight = options?.hasBorderRight ? 'border-right: 1px solid rgba(255, 255, 255, 0.3);' : '';
     button.style.cssText = `
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
         padding: 4px 8px;
         background-color: ${backgroundColor};
         color: white;
@@ -74,4 +77,44 @@ export function updatePillVisibility(
     buttons.forEach(button => {
         button.style.textDecoration = isVisible ? 'none' : 'line-through';
     });
+}
+
+// Trend indicator colors mirror the trends table (rising incidence is a negative
+// signal shown in red, falling incidence a positive signal shown in green).
+const TREND_DOT_COLORS: Record<'positive' | 'negative' | 'neutral', string> = {
+    negative: '#e53935', // rising / bad
+    positive: '#43a047', // falling / good
+    neutral: 'rgba(255, 255, 255, 0.55)', // stable
+};
+
+/**
+ * Creates a small circular trend indicator ("red/green light") for a series pill.
+ *
+ * The color reflects the 28-day trend of the underlying series: red when incidence is
+ * rising, green when falling and a subtle neutral dot when stable. Returns null when the
+ * trend is unknown (e.g. no data) so no dot is rendered.
+ *
+ * @param ratio28days - The 28-day period ratio for the series (recent avg / prior avg)
+ * @param title - Optional tooltip text describing the trend
+ * @returns A styled dot element, or null when the trend is unknown
+ */
+export function createTrendDot(ratio28days: number | null, title?: string): HTMLSpanElement | null {
+    const trend = trendFromRatio(ratio28days);
+    if (trend === 'unknown') return null;
+
+    const dot = document.createElement('span');
+    dot.className = 'trend-dot';
+    dot.style.cssText = `
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-right: 5px;
+        border-radius: 50%;
+        background-color: ${TREND_DOT_COLORS[trend]};
+        box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9);
+        vertical-align: middle;
+        flex: 0 0 auto;
+    `;
+    if (title) dot.title = title;
+    return dot;
 }

@@ -427,6 +427,20 @@ export interface RatioData {
     lastDataDate: Date | null;
 }
 
+/**
+ * Maps a period ratio (recent average / prior average) to a trend classification.
+ *
+ * Mirrors the trends table (header) thresholds: rising incidence (ratio > 1.1) is a
+ * negative signal (red), falling incidence (ratio < 0.9) is a positive one (green),
+ * values in between are neutral, and a missing ratio is unknown.
+ */
+export function trendFromRatio(ratio: number | null): TrendSuffixMarker['trend'] {
+    if (ratio === null || !Number.isFinite(ratio)) return 'unknown';
+    if (ratio > 1.1) return 'negative';
+    if (ratio < 0.9) return 'positive';
+    return 'neutral';
+}
+
 export function calculateRatios(data: TimeseriesData, visibleMainSeries: string[]): RatioData[] {
     const today = new Date().toISOString().split('T')[0];
     const preTodayIndex = data.dates.findLastIndex(date => date <= today);

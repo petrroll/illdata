@@ -7,6 +7,7 @@ import {
     getExtremeMatchSeriesName,
     compareLabels,
     isScalarSeries,
+    trendFromRatio,
     type PositivitySeries, 
     type ScalarSeries,
     type ExtremeSeries,
@@ -545,6 +546,27 @@ describe('getExtremeMatchSeriesName Tests', () => {
     });
     test('strips shift suffix', () => {
         expect(getExtremeMatchSeriesName('PCR Positivity (28d avg) shifted by 1 wave -347d')).toBe('PCR Positivity');
+    });
+});
+
+describe('trendFromRatio Tests', () => {
+    test('rising incidence (ratio > 1.1) is a negative trend', () => {
+        expect(trendFromRatio(1.11)).toBe('negative');
+        expect(trendFromRatio(2)).toBe('negative');
+    });
+    test('falling incidence (ratio < 0.9) is a positive trend', () => {
+        expect(trendFromRatio(0.89)).toBe('positive');
+        expect(trendFromRatio(0.1)).toBe('positive');
+    });
+    test('ratios between thresholds are neutral', () => {
+        expect(trendFromRatio(1)).toBe('neutral');
+        expect(trendFromRatio(0.9)).toBe('neutral');
+        expect(trendFromRatio(1.1)).toBe('neutral');
+    });
+    test('null and non-finite ratios are unknown', () => {
+        expect(trendFromRatio(null)).toBe('unknown');
+        expect(trendFromRatio(Infinity)).toBe('unknown');
+        expect(trendFromRatio(NaN)).toBe('unknown');
     });
 });
 
