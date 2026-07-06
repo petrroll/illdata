@@ -15,6 +15,9 @@ export interface UrlState {
     survtypeFilters?: {
         [key: string]: string;
     };
+    ageGroupFilters?: {
+        [key: string]: string;
+    };
     language?: string; // Optional for backward compatibility
 }
 
@@ -23,9 +26,10 @@ export interface UrlChartConfig {
     visibilityKey: string;
     datasetVisibility: { [key: string]: boolean };
     countryFilterKey?: string;
+    ageGroupFilterKey?: string;
 }
 
-export function encodeUrlState(appSettings: AppSettings, chartConfigs: UrlChartConfig[], countryFilters: Map<string, string>): string {
+export function encodeUrlState(appSettings: AppSettings, chartConfigs: UrlChartConfig[], countryFilters: Map<string, string>, ageGroupFilters: Map<string, string> = new Map()): string {
     // Collect visibility state from all charts, storing only 'true' values to reduce size
     const compactVisibility: { [key: string]: { [seriesName: string]: boolean } } = {};
     chartConfigs.forEach(cfg => {
@@ -48,12 +52,21 @@ export function encodeUrlState(appSettings: AppSettings, chartConfigs: UrlChartC
             compactCountryFilters[cfg.countryFilterKey] = country;
         }
     });
+
+    const compactAgeGroupFilters: { [key: string]: string } = {};
+    ageGroupFilters.forEach((ageGroup, containerId) => {
+        const cfg = chartConfigs.find(c => c.containerId === containerId);
+        if (cfg && cfg.ageGroupFilterKey) {
+            compactAgeGroupFilters[cfg.ageGroupFilterKey] = ageGroup;
+        }
+    });
     
     // Use short keys to minimize URL length
     const compactState = {
         s: appSettings,
         v: compactVisibility,
         c: compactCountryFilters,
+        a: compactAgeGroupFilters,
         l: getLanguage() // Include current language in shared link
     };
     
@@ -70,12 +83,13 @@ export function decodeUrlState(encoded: string): UrlState | null {
         
         // Handle both compact format (new) and full format (old) for backward compatibility
         let state: UrlState;
-        if ('s' in parsed || 'v' in parsed || 'c' in parsed || 'l' in parsed) {
+        if ('s' in parsed || 'v' in parsed || 'c' in parsed || 'a' in parsed || 'l' in parsed) {
             // New compact format with short keys
             state = {
                 settings: parsed.s || {},
                 visibility: parsed.v || {},
                 countryFilters: parsed.c || {},
+                ageGroupFilters: parsed.a || {},
                 language: parsed.l
             };
         } else {
@@ -99,7 +113,7 @@ export function loadStateFromUrl(): UrlState | null {
     return null;
 }
 
-export function applyUrlState(state: UrlState, chartConfigs: UrlChartConfig[]): { appSettings: AppSettings, countryFilters: Map<string, string> } {
+export function applyUrlState(state: UrlState, chartConfigs: UrlChartConfig[]): { appSettings: AppSettings, countryFilters: Map<string, string>, ageGroupFilters: Map<string, string> } {
     // Apply language if present in state and valid
     if (state.language && (state.language === 'en' || state.language === 'cs')) {
         setLanguage(state.language as Language);
@@ -128,6 +142,15 @@ export function applyUrlState(state: UrlState, chartConfigs: UrlChartConfig[]): 
             countryFilters.set(cfg.containerId, country);
         }
     });
+
+    const ageGroupFilters = new Map<string, string>();
+    Object.entries(state.ageGroupFilters ?? {}).forEach(([filterKey, ageGroup]) => {
+        localStorage.setItem(filterKey, ageGroup);
+        const cfg = chartConfigs.find(c => c.ageGroupFilterKey === filterKey);
+        if (cfg) {
+            ageGroupFilters.set(cfg.containerId, ageGroup);
+        }
+    });
     
-    return { appSettings, countryFilters };
+    return { appSettings, countryFilters, ageGroupFilters };
 }

@@ -47,6 +47,7 @@ export interface LinearSeries {
     frequencyInDays: number;
     country?: string; // Optional country field for EU data
     survtype?: string; // Optional surveillance type field for EU ERVIS data (sentinel/non-sentinel)
+    ageGroup?: string; // Optional age-group field for data that supports age filtering
 }
 
 export interface PositivitySeries extends LinearSeries {
@@ -57,6 +58,7 @@ export interface PositivitySeries extends LinearSeries {
 export interface ScalarSeries extends LinearSeries {
     values: ScalarDatapoint[];
     dataType: 'scalar';
+    valueFormat?: 'scientific' | 'number';
 }
 
 export interface ExtremeSeries {
@@ -106,7 +108,9 @@ function createShiftedSeries(series: DataSeries, options: ShiftedSeriesOptions):
         frequencyInDays: series.frequencyInDays,
         ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {}),
         ...(includeCountry && series.country ? { country: series.country } : {}),
-        ...(series.survtype ? { survtype: series.survtype } : {})
+        ...(series.survtype ? { survtype: series.survtype } : {}),
+        ...(series.ageGroup ? { ageGroup: series.ageGroup } : {}),
+        ...(isScalarSeries(series) && series.valueFormat ? { valueFormat: series.valueFormat } : {})
     } as const;
 
     if (isScalarSeries(series)) {
@@ -272,7 +276,9 @@ function buildAveragedSeriesMetadata(series: DataSeries, windowSizeInDays: numbe
         windowSizeInDays,
         frequencyInDays: series.frequencyInDays,
         ...(series.country ? { country: series.country } : {}),
-        ...(series.survtype ? { survtype: series.survtype } : {})
+        ...(series.survtype ? { survtype: series.survtype } : {}),
+        ...(series.ageGroup ? { ageGroup: series.ageGroup } : {}),
+        ...(isScalarSeries(series) && series.valueFormat ? { valueFormat: series.valueFormat } : {})
     };
 }
 

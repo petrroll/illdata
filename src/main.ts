@@ -1,6 +1,7 @@
 import mzcrPositivityImport from "../data_processed/cr_cov_mzcr/positivity_data.json" with { type: "json" };
 import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_data.json" with { type: "json" };
 import deWastewaterImport from "../data_processed/de_wastewater_amelag/wastewater_data.json" with { type: "json" };
+import deAreImport from "../data_processed/de_are/are_data.json" with { type: "json" };
 import nlInfectieradarImport from "../data_processed/nl_infectieradar/positivity_data.json" with { type: "json" };
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
@@ -37,8 +38,9 @@ const averagingWindows = [28];
 const extremesForWindow = 28;
 const extremeWindow = 3*28;
 const dataSources = [mzcrPositivityImport, euPositivityImport, deWastewaterImport, nlInfectieradarImport] as const;
-const [mzcrPositivityEnhanced, euPositivityEnhanced, deWastewaterEnhanced, nlInfectieradarEnhanced] = 
+const [mzcrPositivityEnhanced, euPositivityEnhanced, deWastewaterEnhanced, nlInfectieradarEnhanced] =
     dataSources.map(d => computeMovingAverageTimeseries(d as TimeseriesData, averagingWindows));
+const deAreEnhanced = deAreImport as TimeseriesData;
 
 // Constants for chart styling
 const SHIFTED_LINE_DASH_PATTERN = [15, 1]; // Dash pattern for shifted series: [dash length, gap length] - very subtle, almost solid pattern
@@ -49,6 +51,8 @@ const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
 const EU_COUNTRY_FILTER_KEY = "euCountryFilter";
 const EU_SURVTYPE_FILTER_KEY = "euSurvtypeFilter";
 const DE_WASTEWATER_VISIBILITY_KEY = "deWastewaterVisibility";
+const DE_ARE_VISIBILITY_KEY = "deAreVisibility";
+const DE_AGE_GROUP_FILTER_KEY = "deAgeGroupFilter";
 const NL_INFECTIERADAR_VISIBILITY_KEY = "nlInfectieradarVisibility";
 const CUSTOM_GRAPH_VISIBILITY_KEY = "customGraphVisibility";
 const CUSTOM_GRAPH_SELECTIONS_KEY = "customGraphSelections";
@@ -74,6 +78,8 @@ interface ChartConfig {
     countryFilterKey?: string;
     hasSurvtypeFilter?: boolean;
     survtypeFilterKey?: string;
+    hasAgeGroupFilter?: boolean;
+    ageGroupFilterKey?: string;
     isCustomGraph?: boolean;
 }
 
@@ -124,6 +130,18 @@ const chartConfigs : ChartConfig[] = [
         datasetVisibility: { }
     },
     {
+        containerId: "deAreContainer",
+        canvasId: "deAreChart",
+        data: deAreEnhanced,
+        title: "Germany SARI Hospitalization Incidence",
+        shortTitle: "DE-ARE",
+        visibilityKey: DE_ARE_VISIBILITY_KEY,
+        chartHolder: { chart: undefined as Chart | undefined },
+        datasetVisibility: { },
+        hasAgeGroupFilter: true,
+        ageGroupFilterKey: DE_AGE_GROUP_FILTER_KEY
+    },
+    {
         containerId: "customGraphContainer",
         canvasId: "customGraphChart",
         data: { dates: [], series: [] }, // Start with empty data
@@ -166,7 +184,8 @@ function updateAllUITexts() {
     chartConfigs[1].title = t.chartTitleEuViruses;
     chartConfigs[2].title = t.chartTitleDeWastewater;
     chartConfigs[3].title = t.chartTitleNlInfectieradar;
-    chartConfigs[4].title = t.chartTitleCustomGraph;
+    chartConfigs[4].title = t.chartTitleDeAre;
+    chartConfigs[5].title = t.chartTitleCustomGraph;
 }
 
 function updateDataSourceStatusNotice(rootDiv: HTMLElement) {
@@ -427,7 +446,7 @@ function refreshTrendFilterSelectors(cfg: ChartConfig, countryFilters: Map<strin
 
 function createFilterSelector(
     cfg: ChartConfig,
-    filterType: 'country' | 'survtype',
+    filterType: 'country' | 'survtype' | 'ageGroup',
     filters: Map<string, string>,
     options: FilterOption[],
     labelText: string,
@@ -454,7 +473,7 @@ function createFilterSelector(
     const label = document.createElement('label');
     label.htmlFor = `${cfg.containerId}-${filterType}-select`;
     label.textContent = labelText;
-    if (filterType === 'survtype') {
+    if (filterType === 'survtype' || filterType === 'ageGroup') {
         label.style.marginRight = '5px';
     }
 
@@ -525,6 +544,12 @@ function createSurvtypeSelector(cfg: ChartConfig, countryFilters: Map<string, st
     );
 }
 
+function createAgeGroupSelector(cfg: ChartConfig, ageGroupFilters: Map<string, string>, onSettingsChange: () => void) {
+    const ageGroups = getAvailableAgeGroups(cfg.data);
+    const options = ageGroups.map(ageGroup => ({ value: ageGroup, label: ageGroup }));
+    createFilterSelector(cfg, 'ageGroup', ageGroupFilters, options, translations.ageGroupLabel, "00+", cfg.ageGroupFilterKey, onSettingsChange);
+}
+
 // Custom graph management functions
 // CustomGraphSelection type is imported from ./custom-graph
 
@@ -559,6 +584,9 @@ function createCustomGraphData(selections: CustomGraphSelection[], showShifted: 
             : undefined,
         survtypeFilter: cfg.hasSurvtypeFilter && cfg.survtypeFilterKey
             ? loadFilter(cfg.survtypeFilterKey, "both")
+            : undefined,
+        ageGroupFilter: cfg.hasAgeGroupFilter && cfg.ageGroupFilterKey
+            ? loadFilter(cfg.ageGroupFilterKey, "00+")
             : undefined
     }));
     return assembleCustomGraphData(selections, sourceCharts, showShifted);
@@ -617,6 +645,10 @@ function createCustomGraphSeriesSelector(customGraphConfig: ChartConfig, showShi
             if (survtype !== "both") {
                 filteredSourceSeries = filteredSourceSeries.filter(s => !s.survtype || s.survtype === survtype);
             }
+        }
+        if (sourceChart.hasAgeGroupFilter && sourceChart.ageGroupFilterKey) {
+            const ageGroup = loadFilter(sourceChart.ageGroupFilterKey, "00+");
+            filteredSourceSeries = filteredSourceSeries.filter(s => !s.ageGroup || s.ageGroup === ageGroup);
         }
         const availableSeries = filteredSourceSeries
             .filter(s => s.type === 'averaged' && s.dataType === 'positivity' && (showShifted || !isShiftedSeries(s.name)))
@@ -704,6 +736,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         'euDataContainer',
         'deWastewaterContainer',
         'nlInfectieradarContainer',
+        'deAreContainer',
         'customGraphContainer',
         'hideAllButton'
     ];
@@ -718,19 +751,24 @@ function renderPage(rootDiv: HTMLElement | null) {
         }
     });
     
-    // Also clear country and survtype selectors from chart containers
+    // Also clear chart-specific selectors from chart containers
     chartConfigs.forEach(cfg => {
         const container = document.getElementById(cfg.containerId);
         if (container) {
             const countrySelectorId = `${cfg.containerId}-country-selector`;
             const survtypeSelectorId = `${cfg.containerId}-survtype-selector`;
+            const ageGroupSelectorId = `${cfg.containerId}-ageGroup-selector`;
             const existingCountrySelector = document.getElementById(countrySelectorId);
             const existingSurvtypeSelector = document.getElementById(survtypeSelectorId);
+            const existingAgeGroupSelector = document.getElementById(ageGroupSelectorId);
             if (existingCountrySelector) {
                 existingCountrySelector.remove();
             }
             if (existingSurvtypeSelector) {
                 existingSurvtypeSelector.remove();
+            }
+            if (existingAgeGroupSelector) {
+                existingAgeGroupSelector.remove();
             }
         }
     });
@@ -743,6 +781,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     let appSettings: AppSettings;
     let countryFilters: Map<string, string>;
     let survtypeFilters: Map<string, string>;
+    let ageGroupFilters: Map<string, string>;
     
     if (urlState) {
         // Apply state from URL
@@ -752,9 +791,13 @@ function renderPage(rootDiv: HTMLElement | null) {
         
         // Initialize survtype filters from localStorage (URL state support can be added later)
         survtypeFilters = new Map<string, string>();
+        ageGroupFilters = new Map<string, string>();
         chartConfigs.forEach(cfg => {
             if (cfg.hasSurvtypeFilter && cfg.survtypeFilterKey) {
                 survtypeFilters.set(cfg.containerId, loadFilter(cfg.survtypeFilterKey, "both"));
+            }
+            if (cfg.hasAgeGroupFilter && cfg.ageGroupFilterKey) {
+                ageGroupFilters.set(cfg.containerId, loadFilter(cfg.ageGroupFilterKey, "00+"));
             }
         });
         
@@ -774,12 +817,16 @@ function renderPage(rootDiv: HTMLElement | null) {
         appSettings = loadAppSettings();
         countryFilters = new Map<string, string>();
         survtypeFilters = new Map<string, string>();
+        ageGroupFilters = new Map<string, string>();
         chartConfigs.forEach(cfg => {
             if (cfg.hasCountryFilter && cfg.countryFilterKey) {
                 countryFilters.set(cfg.containerId, loadFilter(cfg.countryFilterKey, "EU/EEA"));
             }
             if (cfg.hasSurvtypeFilter && cfg.survtypeFilterKey) {
                 survtypeFilters.set(cfg.containerId, loadFilter(cfg.survtypeFilterKey, "both"));
+            }
+            if (cfg.hasAgeGroupFilter && cfg.ageGroupFilterKey) {
+                ageGroupFilters.set(cfg.containerId, loadFilter(cfg.ageGroupFilterKey, "00+"));
             }
         });
     }
@@ -842,6 +889,7 @@ function renderPage(rootDiv: HTMLElement | null) {
             if ((cfg as any).canvas) {
                 const countryFilter = cfg.hasCountryFilter ? countryFilters.get(cfg.containerId) : undefined;
                 const survtypeFilter = cfg.hasSurvtypeFilter ? survtypeFilters.get(cfg.containerId) : undefined;
+                const ageGroupFilter = cfg.hasAgeGroupFilter ? ageGroupFilters.get(cfg.containerId) : undefined;
                 cfg.chartHolder.chart = updateChart(
                     appSettings.timeRange,
                     cfg,
@@ -854,7 +902,8 @@ function renderPage(rootDiv: HTMLElement | null) {
                     appSettings.shiftOverride,
                     appSettings.alignByExtreme,
                     countryFilter,
-                    survtypeFilter
+                    survtypeFilter,
+                    ageGroupFilter
                 );
             }
         });
@@ -1029,6 +1078,12 @@ function renderPage(rootDiv: HTMLElement | null) {
             createSurvtypeSelector(cfg, countryFilters, survtypeFilters, onSettingsChange);
         }
     });
+
+    chartConfigs.forEach(cfg => {
+        if (cfg.hasAgeGroupFilter && cfg.ageGroupFilterKey) {
+            createAgeGroupSelector(cfg, ageGroupFilters, onSettingsChange);
+        }
+    });
     
     // Create series selector for custom graph
     const customGraphConfig = chartConfigs.find(cfg => cfg.isCustomGraph);
@@ -1082,7 +1137,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     }
     
     // Create and attach "Get Link" functionality
-    createGetLinkButton(appSettings, chartConfigs, countryFilters);
+    createGetLinkButton(appSettings, chartConfigs, countryFilters, ageGroupFilters);
     
     // Setup global click handler to close tooltips when clicking outside charts
     // This is especially important for Safari/iOS where tooltips can get stuck
@@ -1094,7 +1149,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     }
 }
 
-function createGetLinkButton(appSettings: AppSettings, chartConfigs: ChartConfig[], countryFilters: Map<string, string>) {
+function createGetLinkButton(appSettings: AppSettings, chartConfigs: ChartConfig[], countryFilters: Map<string, string>, ageGroupFilters: Map<string, string>) {
     const getLinkElement = document.getElementById('getLinkButton');
     if (!getLinkElement) {
         console.error("Get Link button not found");
@@ -1103,7 +1158,7 @@ function createGetLinkButton(appSettings: AppSettings, chartConfigs: ChartConfig
     
     getLinkElement.addEventListener('click', () => {
         // Encode current state
-        const encoded = encodeUrlState(appSettings, chartConfigs, countryFilters);
+        const encoded = encodeUrlState(appSettings, chartConfigs, countryFilters, ageGroupFilters);
         
         // Create URL with state parameter
         const url = new URL(window.location.href);
@@ -1232,10 +1287,33 @@ function getAvailableCountries(data: TimeseriesData): string[] {
     return Array.from(countries).sort();
 }
 
+function getAvailableAgeGroups(data: TimeseriesData): string[] {
+    const ageGroups = new Set<string>();
+    data.series.forEach(series => {
+        if (series.ageGroup) {
+            ageGroups.add(series.ageGroup);
+        }
+    });
+    const preferredOrder = ["00+", "0-4", "5-14", "15-34", "35-59", "60-79", "80+"];
+    return Array.from(ageGroups).sort((a, b) => {
+        const aIndex = preferredOrder.indexOf(a);
+        const bIndex = preferredOrder.indexOf(b);
+        return (aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex) -
+            (bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex);
+    });
+}
+
 function filterDataByCountry(data: TimeseriesData, country: string): TimeseriesData {
     return {
         dates: data.dates,
         series: data.series.filter(series => series.country === country)
+    };
+}
+
+function filterDataByAgeGroup(data: TimeseriesData, ageGroup: string): TimeseriesData {
+    return {
+        dates: data.dates,
+        series: data.series.filter(series => !series.ageGroup || series.ageGroup === ageGroup)
     };
 }
 
@@ -1280,7 +1358,7 @@ function getSortedSeriesWithIndices(series: DataSeries[]): { series: DataSeries,
     return seriesWithIndices;
 }
 
-function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false, showNonAveragedSeries: boolean = false, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima', countryFilter?: string, survtypeFilter?: string) {
+function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false, showNonAveragedSeries: boolean = false, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima', countryFilter?: string, survtypeFilter?: string, ageGroupFilter?: string) {
     // Destroy existing chart if it exists
     if (cfg.chartHolder.chart) {
         cfg.chartHolder.chart.destroy();
@@ -1323,6 +1401,10 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     // Apply survtype filter if applicable
     if (survtypeFilter && cfg.hasSurvtypeFilter) {
         data = filterDataBySurvtype(data, survtypeFilter);
+    }
+
+    if (ageGroupFilter && cfg.hasAgeGroupFilter) {
+        data = filterDataByAgeGroup(data, ageGroupFilter);
     }
     let cutoffDateString = data.dates[0] ?? new Date().toISOString().split('T')[0];
     if (timeRange !== "all") {
@@ -1626,8 +1708,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             if (isNaN(value)) {
                                 formattedValue = 'N/A';
                             } else if (isScalarSeries(context.dataset)) {
-                                // For scalar series (e.g., wastewater), use scientific notation
-                                formattedValue = value.toExponential(3);
+                                formattedValue = context.dataset.valueFormat === 'number'
+                                    ? value.toLocaleString()
+                                    : value.toExponential(3);
                             } else {
                                 // For positivity data, show as decimal (values are percentages like 5.123 meaning 5.123%)
                                 formattedValue = value.toFixed(3);
@@ -1716,8 +1799,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                                 // Check if this is a scalar series chart (e.g., wastewater)
                                 const hasScalarSeries = cfg.data.series.some(s => isScalarSeries(s));
                                 if (hasScalarSeries) {
-                                    // For scalar series, show the value with scientific notation if needed
-                                    return tickValue.toExponential(2);
+                                    const usesNumberFormat = cfg.data.series.some(s => isScalarSeries(s) && s.valueFormat === 'number');
+                                    return usesNumberFormat ? tickValue.toLocaleString() : tickValue.toExponential(2);
                                 } else {
                                     // For positivity data, show as percentage
                                     return tickValue.toFixed(2) + "%";
@@ -1940,6 +2023,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig, processedData: T
  * - SARS-CoV-2: Reds palette (index 2) - all data sources
  * - RSV: Blues palette (index 0) - EU/NL/DE data sources
  * - Influenza: Greens palette (index 1) - EU/NL/DE data sources
+ * - Germany SARI: COVID-19 Reds, RSV Blues, Influenza Greens, Overall Grays
  * - Netherlands-specific pathogens: Each gets unique color family (Purples, Oranges, Browns, Pinks, Grays)
  * 
  * @param series - Array of all series in the dataset
@@ -1970,6 +2054,13 @@ function createStablePaletteMapping(series: DataSeries[], numPalettes: number): 
         'RSV Wastewater': 0,                      // Blues
         'Influenza Positivity': 1,                // Greens
         'Influenza Wastewater': 1,                // Greens
+
+        // Germany SARI hospitalization incidence - match pathogen colors above
+        'SARS-CoV-2 SARI Hospitalization Incidence': 2,  // Reds
+        'COVID-19 SARI Hospitalization Incidence': 2,    // Reds
+        'RSV SARI Hospitalization Incidence': 0,         // Blues
+        'Influenza SARI Hospitalization Incidence': 1,   // Greens
+        'Overall SARI Hospitalization Incidence': 7,     // Grays (neutral aggregate)
         
         // Netherlands-specific pathogens - each gets unique color family
         'Adenovirus Positivity': 3,               // Purples
@@ -2078,6 +2169,8 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
             borderWidth: 1,
             pointRadius: 0,
             spanGaps: false, // Don't connect across null values
+            dataType: series.dataType,
+            ...(isScalarSeries(series) && series.valueFormat ? { valueFormat: series.valueFormat } : {}),
         };
     });
 }
@@ -2221,6 +2314,13 @@ function updateRatioTable() {
             if (cfg.hasCountryFilter && series.country && cfg.countryFilterKey) {
                 const selectedCountry = loadFilter(cfg.countryFilterKey, "EU/EEA");
                 if (series.country !== selectedCountry) {
+                    return false;
+                }
+            }
+
+            if (cfg.hasAgeGroupFilter && series.ageGroup && cfg.ageGroupFilterKey) {
+                const selectedAgeGroup = loadFilter(cfg.ageGroupFilterKey, "00+");
+                if (series.ageGroup !== selectedAgeGroup) {
                     return false;
                 }
             }

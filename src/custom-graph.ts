@@ -21,6 +21,7 @@ export interface SourceChartInfo {
     isCustomGraph?: boolean;
     countryFilter?: string;     // Currently selected country (undefined = no filter)
     survtypeFilter?: string;    // Currently selected survtype ("both" = no filter)
+    ageGroupFilter?: string;    // Currently selected age group (undefined = no filter)
 }
 
 /**
@@ -63,6 +64,11 @@ export function assembleCustomGraphData(
         // Apply survtype filter from source chart
         if (sourceChart.survtypeFilter && sourceChart.survtypeFilter !== "both") {
             sourceSeries = sourceSeries.filter(s => !s.survtype || s.survtype === sourceChart.survtypeFilter);
+        }
+
+        // Apply age group filter from source chart
+        if (sourceChart.ageGroupFilter) {
+            sourceSeries = sourceSeries.filter(s => !s.ageGroup || s.ageGroup === sourceChart.ageGroupFilter);
         }
         
         // Find the series by normalized name
