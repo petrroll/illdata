@@ -277,6 +277,7 @@ function buildAveragedSeriesMetadata(series: DataSeries, windowSizeInDays: numbe
         frequencyInDays: series.frequencyInDays,
         ...(series.country ? { country: series.country } : {}),
         ...(series.survtype ? { survtype: series.survtype } : {}),
+        ...(series.ageGroup ? { ageGroup: series.ageGroup } : {}),
         ...(isScalarSeries(series) && series.valueFormat ? { valueFormat: series.valueFormat } : {})
     };
 }

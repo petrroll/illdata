@@ -28,6 +28,9 @@ test.describe('Germany SARI Hospitalization Incidence chart', () => {
     await expect(legend).toContainText('Overall SARI Hospitalization Incidence');
     await expect(legend).toContainText('Influenza SARI Hospitalization Incidence');
     await expect(legend).toContainText('RSV SARI Hospitalization Incidence');
+
+    const legendText = await legend.textContent();
+    expect(legendText?.match(/Overall SARI Hospitalization Incidence/g)?.length).toBe(1);
   });
 
   test('filters DE-ARE series by selected age group', async ({ page }) => {
@@ -40,6 +43,36 @@ test.describe('Germany SARI Hospitalization Incidence chart', () => {
 
     const legend = page.locator('#deAreContainer-legend');
     await expect(legend).toContainText('Overall SARI Hospitalization Incidence');
+    expect(await legend.locator('> span').count()).toBeLessThanOrEqual(4);
+
+    const legendText = await legend.textContent();
+    expect(legendText?.match(/Overall SARI Hospitalization Incidence/g)?.length).toBe(1);
+  });
+
+  test('restores age-group selection from shared URL state', async ({ page }) => {
+    const stateData = {
+      s: {
+        timeRange: '365',
+        includeFuture: true,
+        showExtremes: false,
+        showShifted: true,
+        showTestNumbers: true,
+        showShiftedTestNumbers: false,
+        showNonAveragedSeries: false,
+        shiftOverride: 1,
+        alignByExtreme: 'maxima'
+      },
+      v: {},
+      c: {},
+      a: { deAgeGroupFilter: '5-14' },
+      l: 'en'
+    };
+    const encoded = Buffer.from(JSON.stringify(stateData)).toString('base64');
+
+    await page.goto(`/?state=${encoded}`);
+    await page.waitForSelector('#deAreContainer-ageGroup-select');
+
+    await expect(page.locator('#deAreContainer-ageGroup-select')).toHaveValue('5-14');
   });
 
   test('persists DE-ARE series visibility toggling in localStorage', async ({ page }) => {
