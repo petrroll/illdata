@@ -51,9 +51,9 @@ test.describe('Legend trend indicator dots', () => {
 
     // Every rendered dot must use one of the three known indicator colors.
     const allowed = new Set([
-      'rgb(229, 57, 53)', // negative / rising
-      'rgb(67, 160, 71)', // positive / falling
-      'rgba(255, 255, 255, 0.55)', // neutral / stable
+      'rgb(215, 90, 86)', // negative / rising
+      'rgb(90, 162, 94)', // positive / falling
+      'rgb(154, 160, 166)', // neutral / stable
     ]);
     expect(colors.length).toBeGreaterThan(0);
     for (const color of colors) {

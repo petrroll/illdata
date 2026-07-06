@@ -80,11 +80,14 @@ export function updatePillVisibility(
 }
 
 // Trend indicator colors mirror the trends table (rising incidence is a negative
-// signal shown in red, falling incidence a positive signal shown in green).
+// signal shown in red, falling incidence a positive signal shown in green). Colors
+// are slightly desaturated so they read nicely on the colored series pills, and the
+// neutral dot is a solid gray rather than a translucent tint that would otherwise
+// pick up the underlying pill's color.
 const TREND_DOT_COLORS: Record<'positive' | 'negative' | 'neutral', string> = {
-    negative: '#e53935', // rising / bad
-    positive: '#43a047', // falling / good
-    neutral: 'rgba(255, 255, 255, 0.55)', // stable
+    negative: '#d75a56', // rising / bad
+    positive: '#5aa25e', // falling / good
+    neutral: '#9aa0a6', // stable
 };
 
 /**
