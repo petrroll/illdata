@@ -38,6 +38,7 @@ export interface Translations {
     chartTitleEuViruses: string;
     chartTitleDeWastewater: string;
     chartTitleNlInfectieradar: string;
+    chartTitleCzSzuAriViruses: string;
     chartTitleCustomGraph: string;
     countryLabel: string;
     survtypeLabel: string;
@@ -238,6 +239,7 @@ const en: Translations = {
     chartTitleEuViruses: 'EU ECDC Respiratory Viruses',
     chartTitleDeWastewater: 'Germany Wastewater Surveillance (AMELAG)',
     chartTitleNlInfectieradar: 'Netherlands Infectieradar Pathogens',
+    chartTitleCzSzuAriViruses: 'Czech SZU Respiratory Viruses',
     chartTitleCustomGraph: 'Custom Graph',
     countryLabel: 'Country:',
     survtypeLabel: 'Surveillance Type:',
@@ -406,6 +408,7 @@ const cs: Translations = {
     chartTitleEuViruses: 'Respirační viry EU ECDC',
     chartTitleDeWastewater: 'Sledování odpadních vod v Německu (AMELAG)',
     chartTitleNlInfectieradar: 'Patogeny Infectieradar Nizozemsko',
+    chartTitleCzSzuAriViruses: 'Respirační viry ČR SZÚ',
     chartTitleCustomGraph: 'Vlastní graf',
     countryLabel: 'Země:',
     survtypeLabel: 'Typ sledování:',
@@ -711,4 +714,3 @@ export function normalizeSeriesName(seriesName: string): string {
     
     return normalized;
 }
-
