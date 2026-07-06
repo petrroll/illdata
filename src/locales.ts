@@ -45,6 +45,7 @@ export interface Translations {
     survtypeBoth: string;
     survtypeSentinel: string;
     survtypeNonSentinel: string;
+    ageGroupLabel: string;
     customGraphSelectSeries: string;
     customGraphNoSeriesSelected: string;
     customGraphClearAll: string;
@@ -182,29 +183,21 @@ const seriesNameMap: SeriesNameMap = {
         en: 'SARS-CoV-2 Wastewater',
         cs: 'SARS-CoV-2 odpadní vody'
     },
-    'ARE Consultations (00+)': {
-        en: 'ARE Consultations (00+)',
-        cs: 'ARE konzultace (00+)'
+    'Overall SARI Hospitalization Incidence': {
+        en: 'Overall SARI Hospitalization Incidence',
+        cs: 'Celková SARI hospitalizační incidence'
     },
-    'ARE Consultations (0-4)': {
-        en: 'ARE Consultations (0-4)',
-        cs: 'ARE konzultace (0-4)'
+    'COVID-19 SARI Hospitalization Incidence': {
+        en: 'COVID-19 SARI Hospitalization Incidence',
+        cs: 'COVID-19 SARI hospitalizační incidence'
     },
-    'ARE Consultations (5-14)': {
-        en: 'ARE Consultations (5-14)',
-        cs: 'ARE konzultace (5-14)'
+    'Influenza SARI Hospitalization Incidence': {
+        en: 'Influenza SARI Hospitalization Incidence',
+        cs: 'Chřipka SARI hospitalizační incidence'
     },
-    'ARE Consultations (15-34)': {
-        en: 'ARE Consultations (15-34)',
-        cs: 'ARE konzultace (15-34)'
-    },
-    'ARE Consultations (35-59)': {
-        en: 'ARE Consultations (35-59)',
-        cs: 'ARE konzultace (35-59)'
-    },
-    'ARE Consultations (60+)': {
-        en: 'ARE Consultations (60+)',
-        cs: 'ARE konzultace (60+)'
+    'RSV SARI Hospitalization Incidence': {
+        en: 'RSV SARI Hospitalization Incidence',
+        cs: 'RSV SARI hospitalizační incidence'
     },
     'Adenovirus Positivity': {
         en: 'Adenovirus Positivity',
@@ -262,7 +255,7 @@ const en: Translations = {
     chartTitleCzechCovid: 'COVID Test Positivity (MZCR Data)',
     chartTitleEuViruses: 'EU ECDC Respiratory Viruses',
     chartTitleDeWastewater: 'Germany Wastewater Surveillance (AMELAG)',
-    chartTitleDeAre: 'Germany ARE Consultation Incidence',
+    chartTitleDeAre: 'Germany SARI Hospitalization Incidence',
     chartTitleNlInfectieradar: 'Netherlands Infectieradar Pathogens',
     chartTitleCustomGraph: 'Custom Graph',
     countryLabel: 'Country:',
@@ -270,6 +263,7 @@ const en: Translations = {
     survtypeBoth: 'Both',
     survtypeSentinel: 'Sentinel',
     survtypeNonSentinel: 'Non-Sentinel',
+    ageGroupLabel: 'Age Group:',
     customGraphSelectSeries: 'Select series to display:',
     customGraphNoSeriesSelected: 'No series selected. Use checkboxes above to add series to this graph.',
     customGraphClearAll: 'Clear All',
@@ -330,7 +324,7 @@ const en: Translations = {
     aboutPositivityVsWastewaterTitle: 'Positivity Data vs Wastewater Data',
     aboutPositivityVsWastewaterDescription: 'Positivity Data: Shows the percentage of tests that are positive. Depends on testing behavior and policies. Values are shown as percentages. Wastewater Data: Measures viral RNA in sewage. Independent of testing behavior, provides population-level surveillance. Values are shown as normalized viral load (scientific notation).',
     aboutCountrySpecificTitle: 'Country-Specific vs Aggregate Data',
-    aboutCountrySpecificDescription: 'Czech MZCR: Specific to Czech Republic only. EU ECDC: Offers both EU/EEA aggregate data and individual country data (use the country selector). Germany Wastewater: Specific to Germany only. Netherlands Infectieradar: Specific to the Netherlands only.',
+    aboutCountrySpecificDescription: 'Czech MZCR: Specific to Czech Republic only. EU ECDC: Offers both EU/EEA aggregate data and individual country data (use the country selector). Germany Wastewater and SARI: Specific to Germany only. Netherlands Infectieradar: Specific to the Netherlands only.',
     aboutHowToUseTitle: 'How to Use the Dashboard',
     aboutBasicControlsTitle: 'Basic Controls',
     aboutBasicControlsItems: [
@@ -431,7 +425,7 @@ const cs: Translations = {
     chartTitleCzechCovid: 'Pozitivita testů COVID (data MZČR)',
     chartTitleEuViruses: 'Respirační viry EU ECDC',
     chartTitleDeWastewater: 'Sledování odpadních vod v Německu (AMELAG)',
-    chartTitleDeAre: 'Německá konzultační incidence ARE',
+    chartTitleDeAre: 'Německá hospitalizační incidence SARI',
     chartTitleNlInfectieradar: 'Patogeny Infectieradar Nizozemsko',
     chartTitleCustomGraph: 'Vlastní graf',
     countryLabel: 'Země:',
@@ -439,6 +433,7 @@ const cs: Translations = {
     survtypeBoth: 'Obě',
     survtypeSentinel: 'Sentinelové',
     survtypeNonSentinel: 'Non-sentinelové',
+    ageGroupLabel: 'Věková skupina:',
     customGraphSelectSeries: 'Vyberte série k zobrazení:',
     customGraphNoSeriesSelected: 'Nejsou vybrány žádné série. Použijte zaškrtávací políčka výše pro přidání sérií do tohoto grafu.',
     customGraphClearAll: 'Vymazat vše',
@@ -499,7 +494,7 @@ const cs: Translations = {
     aboutPositivityVsWastewaterTitle: 'Data o pozitivitě vs. data z odpadních vod',
     aboutPositivityVsWastewaterDescription: 'Data o pozitivitě: Zobrazují procento testů, které jsou pozitivní. Závisí na testovacím chování a politikách. Hodnoty jsou zobrazeny jako procenta. Data z odpadních vod: Měří virovou RNA v odpadních vodách. Nezávislé na testovacím chování, poskytuje populační úroveň sledování. Hodnoty jsou zobrazeny jako normalizovaná virová nálož (vědecká notace).',
     aboutCountrySpecificTitle: 'Země-specifická vs. agregovaná data',
-    aboutCountrySpecificDescription: 'Česká MZČR: Specifické pouze pro Českou republiku. EU ECDC: Nabízí jak agregovaná data EU/EEA, tak individuální data zemí (použijte výběr země). Německé odpadní vody: Specifické pouze pro Německo. Nizozemský Infectieradar: Specifické pouze pro Nizozemsko.',
+    aboutCountrySpecificDescription: 'Česká MZČR: Specifické pouze pro Českou republiku. EU ECDC: Nabízí jak agregovaná data EU/EEA, tak individuální data zemí (použijte výběr země). Německé odpadní vody a SARI: Specifické pouze pro Německo. Nizozemský Infectieradar: Specifické pouze pro Nizozemsko.',
     aboutHowToUseTitle: 'Jak používat dashboard',
     aboutBasicControlsTitle: 'Základní ovládací prvky',
     aboutBasicControlsItems: [
@@ -735,12 +730,10 @@ export function normalizeSeriesName(seriesName: string): string {
         .replace(/chřipka odpadní vody/g, 'Influenza Wastewater')
         .replace(/RSV odpadní vody/g, 'RSV Wastewater')
         .replace(/SARS-CoV-2 odpadní vody/g, 'SARS-CoV-2 Wastewater')
-        .replace(/ARE konzultace \(00\+\)/g, 'ARE Consultations (00+)')
-        .replace(/ARE konzultace \(0-4\)/g, 'ARE Consultations (0-4)')
-        .replace(/ARE konzultace \(5-14\)/g, 'ARE Consultations (5-14)')
-        .replace(/ARE konzultace \(15-34\)/g, 'ARE Consultations (15-34)')
-        .replace(/ARE konzultace \(35-59\)/g, 'ARE Consultations (35-59)')
-        .replace(/ARE konzultace \(60\+\)/g, 'ARE Consultations (60+)');
+        .replace(/Celková SARI hospitalizační incidence/g, 'Overall SARI Hospitalization Incidence')
+        .replace(/COVID-19 SARI hospitalizační incidence/g, 'COVID-19 SARI Hospitalization Incidence')
+        .replace(/Chřipka SARI hospitalizační incidence/g, 'Influenza SARI Hospitalization Incidence')
+        .replace(/RSV SARI hospitalizační incidence/g, 'RSV SARI Hospitalization Incidence');
     
     return normalized;
 }

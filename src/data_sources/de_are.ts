@@ -3,9 +3,16 @@ import type { ScalarSeries, TimeseriesData } from "../utils";
 import { promises as fs } from "fs";
 import path from "path";
 
-const AGE_GROUP_ORDER = ["00+", "0-4", "5-14", "15-34", "35-59", "60+"];
+const AGE_GROUP_ORDER = ["00+", "0-4", "5-14", "15-34", "35-59", "60-79", "80+"];
+const PATHOGEN_ORDER = ["Gesamt", "COVID-19", "Influenza", "RSV"];
+const PATHOGEN_LABELS: Record<string, string> = {
+    "Gesamt": "Overall SARI",
+    "COVID-19": "COVID-19 SARI",
+    "Influenza": "Influenza SARI",
+    "RSV": "RSV SARI"
+};
 
-export async function downloadDeAreData(filename: string = "ARE-Konsultationsinzidenz.tsv") {
+export async function downloadDeAreData(filename: string = "SARI-Hospitalisierungsinzidenz.tsv") {
     const filePath = getAbsolutePath(`./data/${filename}`);
 
     if (await fs.access(filePath).then(() => true).catch(() => false)) {
@@ -13,7 +20,7 @@ export async function downloadDeAreData(filename: string = "ARE-Konsultationsinz
         return;
     }
 
-    const url = `https://raw.githubusercontent.com/robert-koch-institut/ARE-Konsultationsinzidenz/main/${filename}`;
+    const url = `https://raw.githubusercontent.com/robert-koch-institut/SARI-Hospitalisierungsinzidenz/main/${filename}`;
     const tsvContent = await downloadCsv(url);
 
     const dir = path.dirname(filePath);
@@ -25,45 +32,66 @@ export async function downloadDeAreData(filename: string = "ARE-Konsultationsinz
 export function computeDeAreData(data: Record<string, string>[]): TimeseriesData {
     const groupedData = new Map<string, Map<string, number>>();
     const ageGroups = new Set<string>();
+    const pathogens = new Set<string>();
 
     data.forEach(row => {
-        if (row["Bundesland_ID"] !== "0") return;
-
         const date = isoWeekToDate(row["Kalenderwoche"] || "");
         const ageGroup = row["Altersgruppe"] || "";
-        const incidence = parseInt(row["ARE_Konsultationsinzidenz"] || "", 10);
+        const pathogen = row["SARI"] || "";
+        const incidence = parseFloat(row["Hospitalisierungsinzidenz"] || "");
 
-        if (!date || !ageGroup || isNaN(incidence)) {
+        if (!date || !ageGroup || !pathogen || isNaN(incidence)) {
             return;
         }
 
         ageGroups.add(ageGroup);
+        pathogens.add(pathogen);
         if (!groupedData.has(date)) {
             groupedData.set(date, new Map());
         }
-        groupedData.get(date)!.set(ageGroup, incidence);
+        groupedData.get(date)!.set(seriesKey(pathogen, ageGroup), incidence);
     });
 
     const dates = [...groupedData.keys()].sort();
-    const orderedAgeGroups = [...ageGroups].sort((a, b) => {
-        const aIndex = AGE_GROUP_ORDER.indexOf(a);
-        const bIndex = AGE_GROUP_ORDER.indexOf(b);
-        return (aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex) -
-            (bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex);
+    const orderedAgeGroups = [...ageGroups].sort(compareByOrder(AGE_GROUP_ORDER));
+    const orderedPathogens = [...pathogens].sort(compareByOrder(PATHOGEN_ORDER));
+    const series: ScalarSeries[] = [];
+
+    orderedAgeGroups.forEach(ageGroup => {
+        orderedPathogens.forEach(pathogen => {
+            const hasValue = dates.some(date => groupedData.get(date)?.has(seriesKey(pathogen, ageGroup)));
+            if (!hasValue) {
+                return;
+            }
+
+            series.push({
+                name: `${PATHOGEN_LABELS[pathogen] ?? pathogen} Hospitalization Incidence`,
+                values: dates.map(date => ({
+                    virusLoad: groupedData.get(date)?.get(seriesKey(pathogen, ageGroup)) ?? 0
+                })),
+                type: 'raw' as const,
+                frequencyInDays: 7,
+                dataType: 'scalar' as const,
+                valueFormat: 'number' as const,
+                ageGroup
+            });
+        });
     });
 
-    const series: ScalarSeries[] = orderedAgeGroups.map(ageGroup => ({
-        name: `ARE Consultations (${ageGroup})`,
-        values: dates.map(date => ({
-            virusLoad: groupedData.get(date)?.get(ageGroup) ?? 0
-        })),
-        type: 'raw' as const,
-        frequencyInDays: 7,
-        dataType: 'scalar' as const,
-        valueFormat: 'number' as const
-    }));
-
     return { dates, series };
+}
+
+function compareByOrder(order: string[]) {
+    return (a: string, b: string) => {
+        const aIndex = order.indexOf(a);
+        const bIndex = order.indexOf(b);
+        return (aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex) -
+            (bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex);
+    };
+}
+
+function seriesKey(pathogen: string, ageGroup: string): string {
+    return `${pathogen}\t${ageGroup}`;
 }
 
 function isoWeekToDate(isoWeek: string): string {

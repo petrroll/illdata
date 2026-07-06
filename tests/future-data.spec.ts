@@ -262,7 +262,7 @@ test.describe('Future Data Display', () => {
     // The future projection is built by overlaying the previous seasonal wave, so
     // its length depends on the gap between a dataset's last two detected peaks.
     // Charts with a dominant annual cycle fill the full 2x window; datasets without
-    // a clear annual peak (e.g. Germany ARE consultations) legitimately project a
+    // a clear annual peak (e.g. Germany SARI hospitalizations) legitimately project a
     // shorter future horizon. Assert the invariants that hold for every chart (correct
     // past window, never exceeding the 2x future cap) and that the projection logic
     // still fills the full 2x window for the seasonal charts.
