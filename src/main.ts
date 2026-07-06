@@ -278,6 +278,20 @@ function trendMarkerColor(marker: TrendSuffixMarker): string {
     return '#999';
 }
 
+function trendMarkerSquare(marker: TrendSuffixMarker): string {
+    // Flat colored squares mirror the trends table rules: red square when
+    // incidence is rising (ratio > 1.1), green when falling (ratio < 0.9),
+    // white for neutral/unknown. In fixed I, R, S order.
+    if (marker.trend === 'negative') return '🟥';
+    if (marker.trend === 'positive') return '🟩';
+    return '⬜';
+}
+
+function formatTrendSuffixSquares(markers: TrendSuffixMarker[] | undefined): string {
+    if (!markers || markers.length === 0) return '';
+    return markers.map(trendMarkerSquare).join('');
+}
+
 function trendMarkerTitle(marker: TrendSuffixMarker): string {
     return `${marker.letter}: ${marker.ratio28days === null ? 'n/a' : `${marker.ratio28days.toFixed(2)}x`}`;
 }
@@ -301,14 +315,16 @@ function updateSelectedTrendSuffix(suffix: HTMLElement, markers: TrendSuffixMark
 }
 
 function setFilterOptions(select: HTMLSelectElement, options: FilterOption[], selectedValue: string, suffix?: HTMLElement): void {
-    // Native <option> elements cannot render per-letter colors, so the dropdown list
-    // keeps plain labels (with ratios in the tooltip); the colored IRS letters next to
-    // the select convey the trend for the current selection.
+    // Native <option> elements cannot render per-letter colors, so each option
+    // label carries flat colored squares (I, R, S order) so trends are visible
+    // in the dropdown list; the colored IRS letters next to the select convey
+    // the trend for the current selection with per-pathogen ratios in tooltips.
     select.replaceChildren();
     options.forEach(opt => {
         const option = document.createElement('option');
         option.value = opt.value;
-        option.textContent = opt.label;
+        const squares = formatTrendSuffixSquares(opt.trendMarkers);
+        option.textContent = squares ? `${opt.label} ${squares}` : opt.label;
         const title = formatTrendSuffixTitle(opt.trendMarkers);
         if (title) option.title = title;
         select.appendChild(option);
