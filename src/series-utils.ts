@@ -53,7 +53,8 @@ export function isTestNumberSeries(label: string): boolean {
  * @returns True if the series is a min/max series
  */
 export function isMinMaxSeries(label: string): boolean {
-    return MIN_MAX_IDENTIFIER.some(id => normalizedLabelIncludes(label, id));
+    const normalized = normalizeSeriesName(label).toLowerCase();
+    return MIN_MAX_IDENTIFIER.some(id => normalized.includes(id));
 }
 
 /**

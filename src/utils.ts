@@ -86,11 +86,14 @@ export function isScalarSeries(series: DataSeries): series is ScalarSeries {
  * Values not present in the list are sorted to the end (keeping their relative order).
  */
 export function compareByPreferredOrder(order: string[]) {
+    const orderIndex = new Map<string, number>();
+    order.forEach((item, index) => {
+        if (!orderIndex.has(item)) orderIndex.set(item, index);
+    });
     return (a: string, b: string) => {
-        const aIndex = order.indexOf(a);
-        const bIndex = order.indexOf(b);
-        return (aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex) -
-            (bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex);
+        const aIndex = orderIndex.get(a) ?? Number.MAX_SAFE_INTEGER;
+        const bIndex = orderIndex.get(b) ?? Number.MAX_SAFE_INTEGER;
+        return aIndex - bIndex;
     };
 }
 
@@ -363,20 +366,20 @@ export function filterExtremesByMedianThreshold(series: DataSeries, maximaSeries
     const allMaximaIndices = maximaSeries.flatMap(extremeSeries => extremeSeries.indices);
     const allMinimaIndices = minimaSeries.flatMap(extremeSeries => extremeSeries.indices);
 
-    // Filter maxima
+    // Filter maxima and minima once (filterExtremes is independent of the individual
+    // extreme series being mapped), then intersect with each series' own indices.
+    const filteredMaximaIndices = new Set(filterExtremes(series, allMaximaIndices, allMinimaIndices, 'maxima'));
+    const filteredMinimaIndices = new Set(filterExtremes(series, allMaximaIndices, allMinimaIndices, 'minima'));
+
     const filteredMaximaSeries = maximaSeries.map(extremeSeries => ({
         ...extremeSeries,
-        indices: filterExtremes(series, allMaximaIndices, allMinimaIndices, 'maxima').filter(index => 
-            extremeSeries.indices.includes(index)
-        )
+        indices: extremeSeries.indices.filter(index => filteredMaximaIndices.has(index))
     })).filter(extremeSeries => extremeSeries.indices.length > 0);
 
     // Filter minima
     const filteredMinimaSeries = minimaSeries.map(extremeSeries => ({
         ...extremeSeries,
-        indices: filterExtremes(series, allMaximaIndices, allMinimaIndices, 'minima').filter(index => 
-            extremeSeries.indices.includes(index)
-        )
+        indices: extremeSeries.indices.filter(index => filteredMinimaIndices.has(index))
     })).filter(extremeSeries => extremeSeries.indices.length > 0);
 
     return {

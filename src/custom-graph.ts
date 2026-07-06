@@ -107,13 +107,22 @@ export function assembleCustomGraphData(
     
     const allDates = Array.from(allDatesSet).sort();
     const allDatesMs = allDates.map(date => Date.parse(date));
-    
+
+    // Multiple series can share the same source data; build each source's
+    // date->index lookup only once instead of rebuilding it per series.
+    const dateToIndexMapCache = new Map<string[], Map<string, number>>();
+    const getDateToIndexMap = (dates: string[]): Map<string, number> => {
+        let map = dateToIndexMapCache.get(dates);
+        if (!map) {
+            map = new Map<string, number>();
+            dates.forEach((date, idx) => map!.set(date, idx));
+            dateToIndexMapCache.set(dates, map);
+        }
+        return map;
+    };
+
     const allSeries: DataSeries[] = seriesWithMeta.map(({ series, sourceData, newName }) => {
-        const dateToIndexMap = new Map<string, number>();
-        sourceData.dates.forEach((date, idx) => {
-            dateToIndexMap.set(date, idx);
-        });
-        
+        const dateToIndexMap = getDateToIndexMap(sourceData.dates);
         const alignedValues = allDates.map((date, idx) => {
             const sourceIndex = dateToIndexMap.get(date);
             if (sourceIndex !== undefined && sourceIndex < series.values.length) {

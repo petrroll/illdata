@@ -273,4 +273,42 @@ test.describe('URL State Management', () => {
     // We just verify the button is clickable here
     await expect(shareLinkButton).toBeVisible();
   });
+
+  test('should render EU chart from a shared link with no country filter (no stack overflow)', async ({ page }) => {
+    // Regression test: a shared link whose country-filter map is empty must default
+    // the EU chart to "EU/EEA". Otherwise the chart keeps every country's series,
+    // whose extremes cross-match and overflow the stack while aligning waves.
+    const consoleErrors: string[] = [];
+    page.on('pageerror', err => consoleErrors.push(err.message));
+    page.on('console', msg => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+
+    const stateData = {
+      s: {
+        timeRange: "180",
+        includeFuture: false,
+        showExtremes: false,
+        showShifted: true,
+        showTestNumbers: true,
+        showShiftedTestNumbers: false,
+        shiftOverride: 1,
+        alignByExtreme: 'maxima'
+      },
+      v: {},
+      c: {}, // No country filter encoded -> must fall back to EU/EEA default
+      l: 'en'
+    };
+    const encoded = Buffer.from(JSON.stringify(stateData)).toString('base64');
+
+    await page.goto(`/?state=${encoded}`);
+    await page.waitForSelector('#euDataContainer-legend');
+    await page.waitForSelector('canvas');
+
+    // The EU chart's country selector should default to EU/EEA
+    await expect(page.locator('#euDataContainer-country-select')).toHaveValue('EU/EEA');
+
+    // No stack-overflow (or any other) error should have been thrown during render
+    expect(consoleErrors.filter(e => /Maximum call stack size exceeded/i.test(e))).toEqual([]);
+  });
 });
