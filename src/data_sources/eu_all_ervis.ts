@@ -80,9 +80,11 @@ function calculate28DayRatio(values: Datapoint[], frequencyInDays: number): numb
 }
 
 function trendFromRatio(ratio: number | null): TrendSuffixMarker['trend'] {
+    // Mirror the trends table (header) thresholds: rising incidence (ratio > 1.1) is a
+    // negative signal, falling incidence (ratio < 0.9) is a positive one.
     if (ratio === null) return 'unknown';
-    if (ratio > 1) return 'positive';
-    if (ratio < 1) return 'negative';
+    if (ratio > 1.1) return 'negative';
+    if (ratio < 0.9) return 'positive';
     return 'neutral';
 }
 

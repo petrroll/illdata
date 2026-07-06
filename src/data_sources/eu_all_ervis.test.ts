@@ -142,11 +142,11 @@ describe('computeEuEcdcData Tests', () => {
 
         expect(result.filterTrendSuffixes?.countries['primary care sentinel'].Spain[0]).toMatchObject({
             letter: 'I',
-            trend: 'positive'
+            trend: 'negative'
         });
         expect(result.filterTrendSuffixes?.survtypes.Spain['non-sentinel'][1]).toMatchObject({
             letter: 'R',
-            trend: 'negative'
+            trend: 'positive'
         });
         expect(result.filterTrendSuffixes?.survtypes.Spain['primary care sentinel']).toHaveLength(3);
     });
