@@ -1,6 +1,7 @@
 import mzcrPositivityImport from "../data_processed/cr_cov_mzcr/positivity_data.json" with { type: "json" };
 import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_data.json" with { type: "json" };
 import deWastewaterImport from "../data_processed/de_wastewater_amelag/wastewater_data.json" with { type: "json" };
+import deAreImport from "../data_processed/de_are/are_data.json" with { type: "json" };
 import nlInfectieradarImport from "../data_processed/nl_infectieradar/positivity_data.json" with { type: "json" };
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
@@ -30,8 +31,8 @@ import { assembleCustomGraphData, type CustomGraphSelection, type SourceChartInf
 const averagingWindows = [28];
 const extremesForWindow = 28;
 const extremeWindow = 3*28;
-const dataSources = [mzcrPositivityImport, euPositivityImport, deWastewaterImport, nlInfectieradarImport] as const;
-const [mzcrPositivityEnhanced, euPositivityEnhanced, deWastewaterEnhanced, nlInfectieradarEnhanced] = 
+const dataSources = [mzcrPositivityImport, euPositivityImport, deWastewaterImport, deAreImport, nlInfectieradarImport] as const;
+const [mzcrPositivityEnhanced, euPositivityEnhanced, deWastewaterEnhanced, deAreEnhanced, nlInfectieradarEnhanced] = 
     dataSources.map(d => computeMovingAverageTimeseries(d as TimeseriesData, averagingWindows));
 
 // Constants for chart styling
@@ -43,6 +44,7 @@ const EU_DATASET_VISIBILITY_KEY = "euDatasetVisibility";
 const EU_COUNTRY_FILTER_KEY = "euCountryFilter";
 const EU_SURVTYPE_FILTER_KEY = "euSurvtypeFilter";
 const DE_WASTEWATER_VISIBILITY_KEY = "deWastewaterVisibility";
+const DE_ARE_VISIBILITY_KEY = "deAreVisibility";
 const NL_INFECTIERADAR_VISIBILITY_KEY = "nlInfectieradarVisibility";
 const CUSTOM_GRAPH_VISIBILITY_KEY = "customGraphVisibility";
 const CUSTOM_GRAPH_SELECTIONS_KEY = "customGraphSelections";
@@ -118,6 +120,16 @@ const chartConfigs : ChartConfig[] = [
         datasetVisibility: { }
     },
     {
+        containerId: "deAreContainer",
+        canvasId: "deAreChart",
+        data: deAreEnhanced,
+        title: "Germany ARE Consultation Incidence",
+        shortTitle: "DE-ARE",
+        visibilityKey: DE_ARE_VISIBILITY_KEY,
+        chartHolder: { chart: undefined as Chart | undefined },
+        datasetVisibility: { }
+    },
+    {
         containerId: "customGraphContainer",
         canvasId: "customGraphChart",
         data: { dates: [], series: [] }, // Start with empty data
@@ -160,7 +172,8 @@ function updateAllUITexts() {
     chartConfigs[1].title = t.chartTitleEuViruses;
     chartConfigs[2].title = t.chartTitleDeWastewater;
     chartConfigs[3].title = t.chartTitleNlInfectieradar;
-    chartConfigs[4].title = t.chartTitleCustomGraph;
+    chartConfigs[4].title = t.chartTitleDeAre;
+    chartConfigs[5].title = t.chartTitleCustomGraph;
 }
 
 // Initialize UI texts
@@ -525,6 +538,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         'euDataContainer',
         'deWastewaterContainer',
         'nlInfectieradarContainer',
+        'deAreContainer',
         'customGraphContainer',
         'hideAllButton'
     ];
@@ -1434,8 +1448,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             if (isNaN(value)) {
                                 formattedValue = 'N/A';
                             } else if (isScalarSeries(context.dataset)) {
-                                // For scalar series (e.g., wastewater), use scientific notation
-                                formattedValue = value.toExponential(3);
+                                formattedValue = context.dataset.valueFormat === 'number'
+                                    ? value.toLocaleString()
+                                    : value.toExponential(3);
                             } else {
                                 // For positivity data, show as decimal (values are percentages like 5.123 meaning 5.123%)
                                 formattedValue = value.toFixed(3);
@@ -1524,8 +1539,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                                 // Check if this is a scalar series chart (e.g., wastewater)
                                 const hasScalarSeries = cfg.data.series.some(s => isScalarSeries(s));
                                 if (hasScalarSeries) {
-                                    // For scalar series, show the value with scientific notation if needed
-                                    return tickValue.toExponential(2);
+                                    const usesNumberFormat = cfg.data.series.some(s => isScalarSeries(s) && s.valueFormat === 'number');
+                                    return usesNumberFormat ? tickValue.toLocaleString() : tickValue.toExponential(2);
                                 } else {
                                     // For positivity data, show as percentage
                                     return tickValue.toFixed(2) + "%";
@@ -1829,6 +1844,8 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
             borderWidth: 1,
             pointRadius: 0,
             spanGaps: false, // Don't connect across null values
+            dataType: series.dataType,
+            ...(isScalarSeries(series) && series.valueFormat ? { valueFormat: series.valueFormat } : {}),
         };
     });
 }

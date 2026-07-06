@@ -2,6 +2,7 @@ import { loadAndParseCsv, loadAndParseTsv, saveData, saveTimeStamp } from "./dat
 import { computeCzCovPositivityData, downloadCzCovPositivity} from "./data_sources/cr_cov_mzcr";
 import { computeEuEcdcData, downloadEuEcdcData } from "./data_sources/eu_all_ervis";
 import { computeDeWastewaterData, downloadDeWastewaterData } from "./data_sources/de_wastewater_amelag";
+import { computeDeAreData, downloadDeAreData } from "./data_sources/de_are";
 import { computeNlInfectieradarData, downloadNlInfectieradarData, parseSemicolonCsv } from "./data_sources/nl_infectieradar";
 import { promises as fs } from "fs";
 import { getAbsolutePath } from "./data_sources/ioUtils";
@@ -10,6 +11,7 @@ import { getAbsolutePath } from "./data_sources/ioUtils";
 const CR_COV_MZCR_POSITIVITY = "./data_processed/cr_cov_mzcr/positivity_data.json";
 const EU_ALLSENTINEL_ERVIS_POSITIVITY = "./data_processed/eu_sentinel_ervis/positivity_data.json";
 const DE_WASTEWATER_AMELAG = "./data_processed/de_wastewater_amelag/wastewater_data.json";
+const DE_ARE = "./data_processed/de_are/are_data.json";
 const NL_INFECTIERADAR_POSITIVITY = "./data_processed/nl_infectieradar/positivity_data.json";
 const TIMESTAMP_FILE = "./data_processed/timestamp.json";
 
@@ -40,6 +42,8 @@ const combinedEuData = [...sentinelData, ...nonSentinelData];
 await saveData(computeEuEcdcData(combinedEuData, true), EU_ALLSENTINEL_ERVIS_POSITIVITY);
 
 await processSource(downloadDeWastewaterData, "amelag_aggregierte_kurve.tsv", loadAndParseTsv, computeDeWastewaterData, DE_WASTEWATER_AMELAG);
+
+await processSource(downloadDeAreData, "ARE-Konsultationsinzidenz.tsv", loadAndParseTsv, computeDeAreData, DE_ARE);
 
 await processSource(
     downloadNlInfectieradarData,
