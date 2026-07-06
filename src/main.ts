@@ -894,9 +894,15 @@ function renderPage(rootDiv: HTMLElement | null) {
             }
         }
         
-        // Clear extremes cache for all charts so extremes are recalculated
-        // from the current filtered data (e.g. after country/survtype filter changes)
-        chartConfigs.forEach(cfg => cfg.extremesCache = undefined);
+        // Clear extremes cache for all charts so extremes are recalculated from the current
+        // filtered data. Only data-affecting filters (country/survtype/age group) change the
+        // series the extremes are derived from, and those selectors call onSettingsChange()
+        // without a key. Global appSettings toggles pass a key and never alter the pre-shift
+        // data used for extremes, so we keep the cache to avoid recomputing local extremes for
+        // every chart on each toggle (an O(series x window) scan per chart).
+        if (key === undefined) {
+            chartConfigs.forEach(cfg => cfg.extremesCache = undefined);
+        }
                 
         chartConfigs.forEach(cfg => {
             if ((cfg as any).canvas) {
