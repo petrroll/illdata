@@ -27,8 +27,8 @@ interface VirusDefinition {
 
 const VIRUS_DEFINITIONS: VirusDefinition[] = [
     { name: "SARS-CoV-2", regex: /\bSARS\s*[- ]?CoV\s*[- ]?2\b/i },
-    { name: "Influenza A", regex: /(?:ch[řr]ipka\s*)?\b(?:influenza\s*)?A\b(?:\s*\(?H[135N\s]+\)?)?/i },
-    { name: "Influenza B", regex: /(?:ch[řr]ipka\s*)?\b(?:influenza\s*)?B\b/i },
+    { name: "Influenza A", regex: /\b(?:ch[řr]ipka|influenza)\s*A\b|\bA\s*\(\s*H[135N\s]+\)/i },
+    { name: "Influenza B", regex: /\b(?:ch[řr]ipka|influenza)\s*B\b/i },
     { name: "RSV", regex: /\bRSV\b|respira[čc]n[íi]\s+syncyti[áa]ln[íi]\s+virus/i },
     { name: "Adenovirus", regex: /adenovir/i },
     { name: "Rhinovirus", regex: /rhinovir|rinovir/i },
