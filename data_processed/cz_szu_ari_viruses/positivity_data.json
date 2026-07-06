@@ -44,43 +44,43 @@
       "values": [
         {
           "positive": 0,
-          "tests": 0
+          "tests": 639
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 912
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 850
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 983
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 466
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 663
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 764
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 516
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 898
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 975
         },
         {
           "positive": 44,
@@ -100,251 +100,95 @@
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1298
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1401
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1346
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1064
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1365
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1148
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 872
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1064
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 782
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 882
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1044
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 557
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 517
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 717
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 580
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 598
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 507
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 473
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 500
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 462
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 441
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 430
         },
         {
           "positive": 0,
-          "tests": 0
-        }
-      ],
-      "type": "raw",
-      "frequencyInDays": 7,
-      "dataType": "positivity"
-    },
-    {
-      "name": "Coronavirus Positivity",
-      "values": [
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 452,
-          "tests": 1555
-        },
-        {
-          "positive": 452,
-          "tests": 1280
-        },
-        {
-          "positive": 452,
-          "tests": 1583
-        },
-        {
-          "positive": 452,
-          "tests": 1634
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
-        },
-        {
-          "positive": 0,
-          "tests": 0
+          "tests": 235
         }
       ],
       "type": "raw",
@@ -356,43 +200,43 @@
       "values": [
         {
           "positive": 0,
-          "tests": 0
+          "tests": 639
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 912
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 850
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 983
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 466
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 663
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 764
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 516
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 898
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 975
         },
         {
           "positive": 34,
@@ -512,43 +356,43 @@
       "values": [
         {
           "positive": 0,
-          "tests": 0
+          "tests": 639
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 912
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 850
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 983
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 466
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 663
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 764
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 516
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 898
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 975
         },
         {
           "positive": 1,
@@ -568,95 +412,95 @@
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1298
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1401
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1346
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1064
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1365
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1148
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 872
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1064
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 782
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 882
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1044
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 557
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 517
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 717
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 580
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 598
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 507
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 473
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 500
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 462
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 441
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 430
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 235
         }
       ],
       "type": "raw",
@@ -668,43 +512,43 @@
       "values": [
         {
           "positive": 0,
-          "tests": 0
+          "tests": 639
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 912
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 850
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 983
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 466
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 663
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 764
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 516
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 898
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 975
         },
         {
           "positive": 9,
@@ -724,95 +568,95 @@
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1298
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1401
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1346
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1064
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1365
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1148
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 872
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1064
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 782
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 882
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 1044
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 557
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 517
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 717
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 580
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 598
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 507
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 473
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 500
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 462
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 441
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 430
         },
         {
           "positive": 0,
-          "tests": 0
+          "tests": 235
         }
       ],
       "type": "raw",
@@ -968,6 +812,162 @@
         },
         {
           "positive": 9,
+          "tests": 235
+        }
+      ],
+      "type": "raw",
+      "frequencyInDays": 7,
+      "dataType": "positivity"
+    },
+    {
+      "name": "Seasonal Coronaviruses Positivity",
+      "values": [
+        {
+          "positive": 0,
+          "tests": 639
+        },
+        {
+          "positive": 0,
+          "tests": 912
+        },
+        {
+          "positive": 0,
+          "tests": 850
+        },
+        {
+          "positive": 0,
+          "tests": 983
+        },
+        {
+          "positive": 0,
+          "tests": 466
+        },
+        {
+          "positive": 0,
+          "tests": 663
+        },
+        {
+          "positive": 0,
+          "tests": 764
+        },
+        {
+          "positive": 0,
+          "tests": 516
+        },
+        {
+          "positive": 0,
+          "tests": 898
+        },
+        {
+          "positive": 0,
+          "tests": 975
+        },
+        {
+          "positive": 452,
+          "tests": 1555
+        },
+        {
+          "positive": 452,
+          "tests": 1280
+        },
+        {
+          "positive": 452,
+          "tests": 1583
+        },
+        {
+          "positive": 452,
+          "tests": 1634
+        },
+        {
+          "positive": 0,
+          "tests": 1298
+        },
+        {
+          "positive": 0,
+          "tests": 1401
+        },
+        {
+          "positive": 0,
+          "tests": 1346
+        },
+        {
+          "positive": 0,
+          "tests": 1064
+        },
+        {
+          "positive": 0,
+          "tests": 1365
+        },
+        {
+          "positive": 0,
+          "tests": 1148
+        },
+        {
+          "positive": 0,
+          "tests": 872
+        },
+        {
+          "positive": 0,
+          "tests": 1064
+        },
+        {
+          "positive": 0,
+          "tests": 782
+        },
+        {
+          "positive": 0,
+          "tests": 882
+        },
+        {
+          "positive": 0,
+          "tests": 1044
+        },
+        {
+          "positive": 0,
+          "tests": 557
+        },
+        {
+          "positive": 0,
+          "tests": 517
+        },
+        {
+          "positive": 0,
+          "tests": 717
+        },
+        {
+          "positive": 0,
+          "tests": 580
+        },
+        {
+          "positive": 0,
+          "tests": 598
+        },
+        {
+          "positive": 0,
+          "tests": 507
+        },
+        {
+          "positive": 0,
+          "tests": 473
+        },
+        {
+          "positive": 0,
+          "tests": 500
+        },
+        {
+          "positive": 0,
+          "tests": 462
+        },
+        {
+          "positive": 0,
+          "tests": 441
+        },
+        {
+          "positive": 0,
+          "tests": 430
+        },
+        {
+          "positive": 0,
           "tests": 235
         }
       ],

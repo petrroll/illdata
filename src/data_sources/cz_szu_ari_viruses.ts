@@ -37,7 +37,7 @@ const VIRUS_DEFINITIONS: VirusDefinition[] = [
     { name: "Metapneumovirus", regex: /metapneumovir/i },
     { name: "Bocavirus", regex: /bocavir/i },
     { name: "Enterovirus", regex: /enterovir/i },
-    { name: "Coronavirus", regex: /\bcoronavir/i },
+    { name: "Seasonal Coronaviruses", regex: /\bcoronavir/i },
 ];
 const NUMBER_TOKEN_PATTERN = /\d(?:[ \u00a0]\d{3})+|\d{1,5}/g;
 
@@ -146,6 +146,7 @@ export function parseVirusResultPdfText(text: string, entry: SzuVirusPdfEntry): 
 
 export function computeCzSzuAriVirusesData(rows: SzuVirusDetectionRow[]): TimeseriesData {
     const grouped = new Map<string, Map<string, { positive: number, tests: number }>>();
+    const testsByDate = new Map<string, number>();
     const pathogens = new Set<string>();
 
     for (const row of rows) {
@@ -154,6 +155,7 @@ export function computeCzSzuAriVirusesData(rows: SzuVirusDetectionRow[]): Timese
         }
         const pathogen = aggregatePathogenName(row.pathogen);
         pathogens.add(pathogen);
+        testsByDate.set(row.date, Math.max(testsByDate.get(row.date) ?? 0, row.tests));
         let dateGroup = grouped.get(row.date);
         if (!dateGroup) { dateGroup = new Map(); grouped.set(row.date, dateGroup); }
         let stats = dateGroup.get(pathogen);
@@ -169,7 +171,7 @@ export function computeCzSzuAriVirusesData(rows: SzuVirusDetectionRow[]): Timese
             const stats = grouped.get(date)?.get(pathogen);
             return {
                 positive: stats ? stats.positive : 0,
-                tests: stats ? stats.tests : 0,
+                tests: stats ? stats.tests : testsByDate.get(date) ?? 0,
             };
         }),
         type: "raw" as const,
@@ -186,7 +188,7 @@ function extractVirusCounts(text: string): Map<string, number> {
 
     for (const line of lines) {
         for (const definition of VIRUS_DEFINITIONS) {
-            if (definition.name === "Coronavirus" && /SARS\s*[- ]?CoV\s*[- ]?2/i.test(line)) continue;
+            if (definition.name === "Seasonal Coronaviruses" && /SARS\s*[- ]?CoV\s*[- ]?2/i.test(line)) continue;
             const match = definition.regex.exec(line);
             if (!match) continue;
             const tail = line.slice(match.index + match[0].length);
@@ -269,7 +271,9 @@ function selectCurrentWeekValue(numbers: number[]): number {
 }
 
 function aggregatePathogenName(pathogen: string): string {
-    return pathogen === "Influenza A" || pathogen === "Influenza B" ? "Influenza" : pathogen;
+    if (pathogen === "Influenza A" || pathogen === "Influenza B") return "Influenza";
+    if (pathogen === "Coronavirus" || pathogen === "Seasonal Coronavirus") return "Seasonal Coronaviruses";
+    return pathogen;
 }
 
 function isoWeekStartDate(year: number, week: number): string {

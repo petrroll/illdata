@@ -84,6 +84,7 @@ describe("computeCzSzuAriVirusesData", () => {
             { date: "2026-01-19", pathogen: "SARS-CoV-2", positive: 12, tests: 200, sourceUrl: "" },
             { date: "2026-01-19", pathogen: "Influenza A", positive: 6, tests: 200, sourceUrl: "" },
             { date: "2026-01-19", pathogen: "Influenza B", positive: 4, tests: 200, sourceUrl: "" },
+            { date: "2026-01-19", pathogen: "Coronavirus", positive: 2, tests: 200, sourceUrl: "" },
             { date: "2026-01-26", pathogen: "SARS-CoV-2", positive: 5, tests: 100, sourceUrl: "" },
         ];
 
@@ -92,9 +93,12 @@ describe("computeCzSzuAriVirusesData", () => {
         expect(result.dates).toEqual(["2026-01-19", "2026-01-26"]);
         const covid = result.series.find(series => series.name === "SARS-CoV-2 Positivity");
         const influenza = result.series.find(series => series.name === "Influenza Positivity");
+        const coronavirus = result.series.find(series => series.name === "Seasonal Coronaviruses Positivity");
         expect((covid?.values[0] as Datapoint)).toEqual({ positive: 12, tests: 200 });
         expect((covid?.values[1] as Datapoint)).toEqual({ positive: 5, tests: 100 });
         expect((influenza?.values[0] as Datapoint)).toEqual({ positive: 10, tests: 200 });
-        expect((influenza?.values[1] as Datapoint)).toEqual({ positive: 0, tests: 0 });
+        expect((influenza?.values[1] as Datapoint)).toEqual({ positive: 0, tests: 100 });
+        expect((coronavirus?.values[0] as Datapoint)).toEqual({ positive: 2, tests: 200 });
+        expect((coronavirus?.values[1] as Datapoint)).toEqual({ positive: 0, tests: 100 });
     });
 });

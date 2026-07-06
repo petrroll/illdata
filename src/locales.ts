@@ -201,6 +201,10 @@ const seriesNameMap: SeriesNameMap = {
     'Seizoenscoronavirussen Positivity': {
         en: 'Seasonal Coronavirus Positivity',
         cs: 'Sezónní koronavirus pozitivita'
+    },
+    'Seasonal Coronaviruses Positivity': {
+        en: 'Seasonal Coronaviruses Positivity',
+        cs: 'Sezónní koronaviry pozitivita'
     }
 };
 
@@ -706,6 +710,7 @@ export function normalizeSeriesName(seriesName: string): string {
         .replace(/HMPV pozitivita/g, 'Humaan metapneumovirus Positivity')
         .replace(/Parainfluenza pozitivita/g, 'Parainfluenza Positivity')
         .replace(/Rhinovirus\/Enterovirus pozitivita/g, 'Rhino-/enterovirus Positivity')
+        .replace(/Sezónní koronaviry pozitivita/g, 'Seasonal Coronaviruses Positivity')
         .replace(/Sezónní koronavirus pozitivita/g, 'Seizoenscoronavirussen Positivity')
         .replace(/Chřipka odpadní vody/g, 'Influenza Wastewater')
         .replace(/chřipka odpadní vody/g, 'Influenza Wastewater')
