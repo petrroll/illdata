@@ -360,6 +360,69 @@ describe('computeMovingAverageTimeseries Tests', () => {
         expect(result.series[1].name).toBe('Age Filtered Scalar (28d avg)');
         expect(result.series[1].ageGroup).toBe('0-4');
     });
+
+    test('does not create derived averages from already averaged series', () => {
+        const input: TimeseriesData = {
+            dates: ['2022-01-01', '2022-01-02', '2022-01-03'],
+            series: [
+                {
+                    name: 'Raw Series',
+                    values: [
+                        { positive: 10, tests: 100 },
+                        { positive: 20, tests: 100 },
+                        { positive: 30, tests: 100 }
+                    ],
+                    type: 'raw',
+                    frequencyInDays: 1,
+                    dataType: 'positivity' as const
+                },
+                {
+                    name: 'Existing Average',
+                    values: [
+                        { positive: 15, tests: 100 },
+                        { positive: 20, tests: 100 },
+                        { positive: 25, tests: 100 }
+                    ],
+                    type: 'averaged',
+                    windowSizeInDays: 3,
+                    frequencyInDays: 1,
+                    dataType: 'positivity' as const
+                }
+            ]
+        };
+
+        const result = computeMovingAverageTimeseries(input, [3]);
+
+        expect(result.series.map(series => series.name)).toEqual([
+            'Raw Series',
+            'Existing Average',
+            'Raw Series (3d avg)'
+        ]);
+    });
+
+    test('recovers after non-finite values leave the moving window', () => {
+        const input: TimeseriesData = {
+            dates: ['2022-01-01', '2022-01-02', '2022-01-03'],
+            series: [{
+                name: 'Series With Placeholder',
+                values: [
+                    { positive: 0, tests: NaN },
+                    { positive: 10, tests: 100 },
+                    { positive: 20, tests: 100 }
+                ],
+                type: 'raw',
+                frequencyInDays: 1,
+                dataType: 'positivity' as const
+            }]
+        };
+
+        const result = computeMovingAverageTimeseries(input, [1]);
+        const values = result.series[1].values as Datapoint[];
+
+        expect(values[0].tests).toBeNaN();
+        expect(values[1]).toEqual({ positive: 10, tests: 100 });
+        expect(values[2]).toEqual({ positive: 20, tests: 100 });
+    });
 });
 
 describe('addShiftedToAlignExtremeDates Tests', () => {

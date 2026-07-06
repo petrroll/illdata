@@ -256,16 +256,105 @@ export function windowSizeDaysToIndex(windowSizeInDays: number | undefined, freq
     return Math.round((windowSizeInDays ?? 1) / frequencyInDays);
 }
 
-function computeWindowValues<T, R>(
-    values: T[],
-    windowSizeInIndex: number,
-    aggregateFn: (windowSlice: T[]) => R
-): R[] {
+function computeWindowBounds(length: number, windowSizeInIndex: number, index: number): { start: number; end: number } {
     const halfWindow = Math.floor(windowSizeInIndex / 2);
-    return values.map((_, j) => {
-        const start = Math.max(0, j - halfWindow);
-        const end = Math.min(values.length, j + halfWindow + 1);
-        return aggregateFn(values.slice(start, end));
+    return {
+        start: Math.max(0, index - halfWindow),
+        end: Math.min(length, index + halfWindow + 1)
+    };
+}
+
+function computeScalarWindowValues(values: ScalarDatapoint[], windowSizeInIndex: number): ScalarDatapoint[] {
+    let sumLoad = 0;
+    let count = 0;
+    let previousStart = 0;
+    let previousEnd = 0;
+
+    function recompute(start: number, end: number) {
+        sumLoad = 0;
+        count = 0;
+        for (let i = start; i < end; i++) {
+            const load = values[i].virusLoad;
+            if (load > 0) {
+                sumLoad += load;
+                count++;
+            }
+        }
+    }
+
+    return values.map((_, index) => {
+        const { start, end } = computeWindowBounds(values.length, windowSizeInIndex, index);
+        let needsRecompute = false;
+
+        for (let i = previousStart; i < start; i++) {
+            const load = values[i].virusLoad;
+            if (load > 0) {
+                if (Number.isFinite(load)) {
+                    sumLoad -= load;
+                    count--;
+                } else {
+                    needsRecompute = true;
+                }
+            }
+        }
+        for (let i = previousEnd; i < end; i++) {
+            const load = values[i].virusLoad;
+            if (load > 0) {
+                sumLoad += load;
+                count++;
+            }
+        }
+        if (needsRecompute) {
+            recompute(start, end);
+        }
+
+        previousStart = start;
+        previousEnd = end;
+
+        return { virusLoad: count > 0 ? sumLoad / count : 0 };
+    });
+}
+
+function computePositivityWindowValues(values: Datapoint[], windowSizeInIndex: number): Datapoint[] {
+    let sumPos = 0;
+    let sumTotal = 0;
+    let previousStart = 0;
+    let previousEnd = 0;
+
+    function recompute(start: number, end: number) {
+        sumPos = 0;
+        sumTotal = 0;
+        for (let i = start; i < end; i++) {
+            sumPos += values[i].positive;
+            sumTotal += values[i].tests;
+        }
+    }
+
+    return values.map((_, index) => {
+        const { start, end } = computeWindowBounds(values.length, windowSizeInIndex, index);
+        let needsRecompute = false;
+
+        for (let i = previousStart; i < start; i++) {
+            const { positive, tests } = values[i];
+            if (Number.isFinite(positive) && Number.isFinite(tests)) {
+                sumPos -= positive;
+                sumTotal -= tests;
+            } else {
+                needsRecompute = true;
+            }
+        }
+        for (let i = previousEnd; i < end; i++) {
+            sumPos += values[i].positive;
+            sumTotal += values[i].tests;
+        }
+        if (needsRecompute) {
+            recompute(start, end);
+        }
+
+        previousStart = start;
+        previousEnd = end;
+
+        return { positive: sumPos, tests: sumTotal };
     });
 }
 
@@ -283,30 +372,20 @@ function buildAveragedSeriesMetadata(series: DataSeries, windowSizeInDays: numbe
 }
 
 export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes: number[]): TimeseriesData {
-    const averagedSeries: DataSeries[] = data.series.flatMap((series): DataSeries[] => {
+    const averagedSeries: DataSeries[] = data.series.filter(series => series.type === 'raw').flatMap((series): DataSeries[] => {
         const adjustedWindowSizes = windowSizes.map(w => windowSizeDaysToIndex(w, series.frequencyInDays));
         
         if (isScalarSeries(series)) {
             return adjustedWindowSizes.map((windowSizeInIndex, i) => ({
                 ...buildAveragedSeriesMetadata(series, windowSizes[i]),
-                values: computeWindowValues(series.values, windowSizeInIndex, (window) => {
-                    let sumLoad = 0, count = 0;
-                    for (const dp of window) {
-                        if (dp.virusLoad > 0) { sumLoad += dp.virusLoad; count++; }
-                    }
-                    return { virusLoad: count > 0 ? sumLoad / count : 0 };
-                }),
+                values: computeScalarWindowValues(series.values, windowSizeInIndex),
                 dataType: 'scalar' as const
             } as ScalarSeries));
         }
         
         return adjustedWindowSizes.map((windowSizeInIndex, i) => ({
             ...buildAveragedSeriesMetadata(series, windowSizes[i]),
-            values: computeWindowValues(series.values, windowSizeInIndex, (window) => {
-                let sumPos = 0, sumTotal = 0;
-                for (const dp of window) { sumPos += dp.positive; sumTotal += dp.tests; }
-                return { positive: sumPos, tests: sumTotal };
-            }),
+            values: computePositivityWindowValues(series.values, windowSizeInIndex),
             dataType: 'positivity' as const
         } as PositivitySeries));
     });
