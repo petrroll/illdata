@@ -2022,6 +2022,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig, processedData: T
  * - SARS-CoV-2: Reds palette (index 2) - all data sources
  * - RSV: Blues palette (index 0) - EU/NL/DE data sources
  * - Influenza: Greens palette (index 1) - EU/NL/DE data sources
+ * - Germany SARI: COVID-19 Reds, RSV Blues, Influenza Greens, Overall Grays
  * - Netherlands-specific pathogens: Each gets unique color family (Purples, Oranges, Browns, Pinks, Grays)
  * 
  * @param series - Array of all series in the dataset
@@ -2052,6 +2053,13 @@ function createStablePaletteMapping(series: DataSeries[], numPalettes: number): 
         'RSV Wastewater': 0,                      // Blues
         'Influenza Positivity': 1,                // Greens
         'Influenza Wastewater': 1,                // Greens
+
+        // Germany SARI hospitalization incidence - match pathogen colors above
+        'SARS-CoV-2 SARI Hospitalization Incidence': 2,  // Reds
+        'COVID-19 SARI Hospitalization Incidence': 2,    // Reds
+        'RSV SARI Hospitalization Incidence': 0,         // Blues
+        'Influenza SARI Hospitalization Incidence': 1,   // Greens
+        'Overall SARI Hospitalization Incidence': 7,     // Grays (neutral aggregate)
         
         // Netherlands-specific pathogens - each gets unique color family
         'Adenovirus Positivity': 3,               // Purples
