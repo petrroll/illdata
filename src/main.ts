@@ -1747,7 +1747,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     });
 
     // Create custom HTML legend with colored background boxes
-    createCustomHtmlLegend(newChart, cfg);
+    createCustomHtmlLegend(newChart, cfg, data);
     
     return newChart;
 }
@@ -1755,11 +1755,13 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
 /**
  * Builds a lookup that returns the 28-day trend ratio for a legend dataset label.
  *
- * The ratio is computed from the underlying raw series (mirroring the trends table), so
- * pill indicators stay consistent with the trends table regardless of averaging/shift.
+ * Non-shifted pills use the underlying raw series (mirroring the trends table), so their
+ * indicators stay consistent with the trends table regardless of averaging. Shifted pills
+ * instead use their own shifted series' 28-day trend (computed from the plotted, post-shift
+ * data), so the dot reflects the direction of the shifted line rather than the base series.
  * For the country-filtered EU chart only the currently selected country is considered.
  */
-function buildTrendRatioLookup(cfg: ChartConfig): TrendRatioLookup {
+function buildTrendRatioLookup(cfg: ChartConfig, processedData: TimeseriesData): TrendRatioLookup {
     const selectedCountry = cfg.hasCountryFilter && cfg.countryFilterKey
         ? loadFilter(cfg.countryFilterKey, "EU/EEA")
         : undefined;
@@ -1780,18 +1782,30 @@ function buildTrendRatioLookup(cfg: ChartConfig): TrendRatioLookup {
         ratioByRawName.set(rawKey, ratio.ratio28days);
     });
     
+    // Compute each shifted series' own 28-day trend from the plotted (post-shift) data so the
+    // shifted pill's dot reflects where the shifted line is heading, not the base series.
+    const shiftedSeries = processedData.series.filter(series => isShiftedSeries(series.name));
+    const shiftedRatios = calculateRatios(processedData, shiftedSeries.map(series => series.name));
+    const ratioByShiftedName = new Map<string, number | null>();
+    shiftedRatios.forEach(ratio => {
+        ratioByShiftedName.set(normalizeSeriesName(ratio.seriesName), ratio.ratio28days);
+    });
+    
     return (datasetLabel: string): number | null => {
         // Strip test-number suffixes first so positive/negative test pills map back to the
         // underlying positivity series, then strip averaging/shift/extreme decoration.
         const withoutTestSuffix = normalizeSeriesName(datasetLabel)
             .replace(' - Positive Tests', '')
             .replace(' - Negative Tests', '');
+        if (isShiftedSeries(withoutTestSuffix)) {
+            return ratioByShiftedName.get(withoutTestSuffix) ?? null;
+        }
         const rawKey = getExtremeMatchSeriesName(withoutTestSuffix);
         return ratioByRawName.get(rawKey) ?? null;
     };
 }
 
-function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
+function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig, processedData: TimeseriesData) {
     // Find or create legend container
     const containerId = cfg.containerId;
     let legendContainer = document.getElementById(`${containerId}-legend`);
@@ -1839,7 +1853,7 @@ function createCustomHtmlLegend(chart: Chart, cfg: ChartConfig) {
     
     // Build the per-series 28-day trend lookup so each legend pill can show a red/green
     // indicator mirroring the trends table (rising incidence = red, falling = green).
-    const getTrendRatio = buildTrendRatioLookup(cfg);
+    const getTrendRatio = buildTrendRatioLookup(cfg, processedData);
     
     // Helper: find a dataset by normalized label match
     const findDataset = (predicate: (normalizedLabel: string, rawLabel: string) => boolean) =>

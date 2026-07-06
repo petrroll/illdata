@@ -29,7 +29,8 @@ test.describe('Legend trend indicator dots', () => {
     const perPillDotCounts = await page.evaluate(() => {
       const legend = document.getElementById('czechDataContainer-legend');
       if (!legend) return [];
-      // Pill wrappers use inline-flex; regular buttons are inline-block spans.
+      // Pill parts and wrappers use inline-flex spans; a split pill wrapper nests two
+      // buttons, so its dot count reflects both halves.
       const wrappers = Array.from(legend.querySelectorAll('span')).filter(
         (el) => (el as HTMLElement).style.display === 'inline-flex'
       );

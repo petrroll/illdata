@@ -22,7 +22,8 @@ export function createStyledButton(
     const button = document.createElement('span');
     const borderRight = options?.hasBorderRight ? 'border-right: 1px solid rgba(255, 255, 255, 0.3);' : '';
     button.style.cssText = `
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
         padding: 4px 8px;
         background-color: ${backgroundColor};
         color: white;
