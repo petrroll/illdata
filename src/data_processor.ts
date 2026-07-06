@@ -2,6 +2,7 @@ import { loadAndParseCsv, loadAndParseTsv, saveData } from "./data_sources/ioUti
 import { computeCzCovPositivityData, downloadCzCovPositivity} from "./data_sources/cr_cov_mzcr";
 import { computeEuEcdcData, downloadEuEcdcData } from "./data_sources/eu_all_ervis";
 import { computeDeWastewaterData, downloadDeWastewaterData } from "./data_sources/de_wastewater_amelag";
+import { computeDeAreData, downloadDeAreData } from "./data_sources/de_are";
 import { computeNlInfectieradarData, downloadNlInfectieradarData, parseSemicolonCsv } from "./data_sources/nl_infectieradar";
 import { promises as fs } from "fs";
 import { getAbsolutePath } from "./data_sources/ioUtils";
@@ -11,6 +12,7 @@ import type { TimeseriesData } from "./utils";
 const CR_COV_MZCR_POSITIVITY = "./data_processed/cr_cov_mzcr/positivity_data.json";
 const EU_ALLSENTINEL_ERVIS_POSITIVITY = "./data_processed/eu_sentinel_ervis/positivity_data.json";
 const DE_WASTEWATER_AMELAG = "./data_processed/de_wastewater_amelag/wastewater_data.json";
+const DE_ARE = "./data_processed/de_are/are_data.json";
 const NL_INFECTIERADAR_POSITIVITY = "./data_processed/nl_infectieradar/positivity_data.json";
 const TIMESTAMP_FILE = "./data_processed/timestamp.json";
 const EMPTY_TIMESERIES: TimeseriesData = { dates: [], series: [] };
@@ -87,9 +89,10 @@ async function processEuEcdcSource(): Promise<DataSourceStatus> {
 export async function runDataProcessor() {
     const sourceStatuses: DataSourceStatus[] = [];
 
-    sourceStatuses.push(await processSource("Czech MZCR COVID positivity", downloadCzCovPositivity, "testy-pcr-antigenni.csv", loadAndParseCsv, computeCzCovPositivityData, CR_COV_MZCR_POSITIVITY, EMPTY_TIMESERIES));
+sourceStatuses.push(await processSource("Czech MZCR COVID positivity", downloadCzCovPositivity, "testy-pcr-antigenni.csv", loadAndParseCsv, computeCzCovPositivityData, CR_COV_MZCR_POSITIVITY, EMPTY_TIMESERIES));
     sourceStatuses.push(await processEuEcdcSource());
     sourceStatuses.push(await processSource("Germany Wastewater Surveillance (AMELAG)", downloadDeWastewaterData, "amelag_aggregierte_kurve.tsv", loadAndParseTsv, computeDeWastewaterData, DE_WASTEWATER_AMELAG, EMPTY_TIMESERIES));
+    sourceStatuses.push(await processSource("Germany SARI Hospitalization Incidence", downloadDeAreData, "SARI-Hospitalisierungsinzidenz.tsv", loadAndParseTsv, computeDeAreData, DE_ARE, EMPTY_TIMESERIES));
     sourceStatuses.push(await processSource(
         "Netherlands Infectieradar Pathogens",
         downloadNlInfectieradarData,

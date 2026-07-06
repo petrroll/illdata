@@ -37,6 +37,7 @@ export interface Translations {
     chartTitleCzechCovid: string;
     chartTitleEuViruses: string;
     chartTitleDeWastewater: string;
+    chartTitleDeAre: string;
     chartTitleNlInfectieradar: string;
     chartTitleCustomGraph: string;
     countryLabel: string;
@@ -181,6 +182,30 @@ const seriesNameMap: SeriesNameMap = {
         en: 'SARS-CoV-2 Wastewater',
         cs: 'SARS-CoV-2 odpadní vody'
     },
+    'ARE Consultations (00+)': {
+        en: 'ARE Consultations (00+)',
+        cs: 'ARE konzultace (00+)'
+    },
+    'ARE Consultations (0-4)': {
+        en: 'ARE Consultations (0-4)',
+        cs: 'ARE konzultace (0-4)'
+    },
+    'ARE Consultations (5-14)': {
+        en: 'ARE Consultations (5-14)',
+        cs: 'ARE konzultace (5-14)'
+    },
+    'ARE Consultations (15-34)': {
+        en: 'ARE Consultations (15-34)',
+        cs: 'ARE konzultace (15-34)'
+    },
+    'ARE Consultations (35-59)': {
+        en: 'ARE Consultations (35-59)',
+        cs: 'ARE konzultace (35-59)'
+    },
+    'ARE Consultations (60+)': {
+        en: 'ARE Consultations (60+)',
+        cs: 'ARE konzultace (60+)'
+    },
     'Adenovirus Positivity': {
         en: 'Adenovirus Positivity',
         cs: 'Adenovirus pozitivita'
@@ -237,6 +262,7 @@ const en: Translations = {
     chartTitleCzechCovid: 'COVID Test Positivity (MZCR Data)',
     chartTitleEuViruses: 'EU ECDC Respiratory Viruses',
     chartTitleDeWastewater: 'Germany Wastewater Surveillance (AMELAG)',
+    chartTitleDeAre: 'Germany ARE Consultation Incidence',
     chartTitleNlInfectieradar: 'Netherlands Infectieradar Pathogens',
     chartTitleCustomGraph: 'Custom Graph',
     countryLabel: 'Country:',
@@ -405,6 +431,7 @@ const cs: Translations = {
     chartTitleCzechCovid: 'Pozitivita testů COVID (data MZČR)',
     chartTitleEuViruses: 'Respirační viry EU ECDC',
     chartTitleDeWastewater: 'Sledování odpadních vod v Německu (AMELAG)',
+    chartTitleDeAre: 'Německá konzultační incidence ARE',
     chartTitleNlInfectieradar: 'Patogeny Infectieradar Nizozemsko',
     chartTitleCustomGraph: 'Vlastní graf',
     countryLabel: 'Země:',
@@ -707,8 +734,13 @@ export function normalizeSeriesName(seriesName: string): string {
         .replace(/Chřipka odpadní vody/g, 'Influenza Wastewater')
         .replace(/chřipka odpadní vody/g, 'Influenza Wastewater')
         .replace(/RSV odpadní vody/g, 'RSV Wastewater')
-        .replace(/SARS-CoV-2 odpadní vody/g, 'SARS-CoV-2 Wastewater');
+        .replace(/SARS-CoV-2 odpadní vody/g, 'SARS-CoV-2 Wastewater')
+        .replace(/ARE konzultace \(00\+\)/g, 'ARE Consultations (00+)')
+        .replace(/ARE konzultace \(0-4\)/g, 'ARE Consultations (0-4)')
+        .replace(/ARE konzultace \(5-14\)/g, 'ARE Consultations (5-14)')
+        .replace(/ARE konzultace \(15-34\)/g, 'ARE Consultations (15-34)')
+        .replace(/ARE konzultace \(35-59\)/g, 'ARE Consultations (35-59)')
+        .replace(/ARE konzultace \(60\+\)/g, 'ARE Consultations (60+)');
     
     return normalized;
 }
-
