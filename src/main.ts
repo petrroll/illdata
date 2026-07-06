@@ -67,8 +67,11 @@ interface ChartConfig {
     chartHolder: { chart: Chart | undefined };
     datasetVisibility: { [key: string]: boolean };
     canvas?: HTMLCanvasElement | null;
-    // Cache for extremes calculations to avoid recalculating on every render
+    // Cache for extremes calculations to avoid recalculating on every render.
+    // filterSignature records the country/survtype/ageGroup filter values the extremes
+    // were computed from; the cache is reused only while that signature is unchanged.
     extremesCache?: {
+        filterSignature: string;
         localMaximaSeries: ExtremeSeries[][];
         localMinimaSeries: ExtremeSeries[][];
         filteredMaximaSeries: ExtremeSeries[];
@@ -894,15 +897,9 @@ function renderPage(rootDiv: HTMLElement | null) {
             }
         }
         
-        // Clear extremes cache for all charts so extremes are recalculated from the current
-        // filtered data. Only data-affecting filters (country/survtype/age group) change the
-        // series the extremes are derived from, and those selectors call onSettingsChange()
-        // without a key. Global appSettings toggles pass a key and never alter the pre-shift
-        // data used for extremes, so we keep the cache to avoid recomputing local extremes for
-        // every chart on each toggle (an O(series x window) scan per chart).
-        if (key === undefined) {
-            chartConfigs.forEach(cfg => cfg.extremesCache = undefined);
-        }
+        // Extremes are cached per filter combination inside updateChart (keyed by the
+        // country/survtype/ageGroup filter signature), so no manual invalidation is needed
+        // here: unaffected changes reuse the cache and filter changes recompute automatically.
                 
         chartConfigs.forEach(cfg => {
             if ((cfg as any).canvas) {
@@ -1427,8 +1424,13 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         cutoffDateString = cutoffDate.toISOString().split('T')[0]; // YYYY-MM-DD
     }
 
-    // Calculate extremes only once and cache them
-    if (!cfg.extremesCache) {
+    // Calculate extremes only once per filter combination and cache them.
+    // The extremes derive solely from cfg.data plus the country/survtype/ageGroup filters
+    // (the window sizes are constants), so a signature of those filter values is a complete
+    // cache key: the cache is reused for any change that leaves it unchanged (e.g. global
+    // settings toggles) and recomputed whenever a filter alters the underlying data.
+    const extremesFilterSignature = `${countryFilter ?? ''}|${survtypeFilter ?? ''}|${ageGroupFilter ?? ''}`;
+    if (!cfg.extremesCache || cfg.extremesCache.filterSignature !== extremesFilterSignature) {
         const averagedForExtremes = data.series
             .filter(series => series.type === 'averaged')
             .filter(series => extremesForWindow == series.windowSizeInDays);
@@ -1450,6 +1452,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         const filteredMinimaSeries = filteredExtremesResults.flatMap(result => result.filteredMinima);
         
         cfg.extremesCache = {
+            filterSignature: extremesFilterSignature,
             localMaximaSeries,
             localMinimaSeries,
             filteredMaximaSeries,
