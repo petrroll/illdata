@@ -3,6 +3,7 @@ import { computeCzCovPositivityData, downloadCzCovPositivity} from "./data_sourc
 import { computeEuEcdcData, downloadEuEcdcData } from "./data_sources/eu_all_ervis";
 import { computeDeWastewaterData, downloadDeWastewaterData } from "./data_sources/de_wastewater_amelag";
 import { computeNlInfectieradarData, downloadNlInfectieradarData, parseSemicolonCsv } from "./data_sources/nl_infectieradar";
+import { computeCzSzuAriVirusesData, downloadCzSzuAriVirusesData, type SzuVirusDetectionRow } from "./data_sources/cz_szu_ari_viruses";
 import { promises as fs } from "fs";
 import { getAbsolutePath } from "./data_sources/ioUtils";
 
@@ -11,6 +12,7 @@ const CR_COV_MZCR_POSITIVITY = "./data_processed/cr_cov_mzcr/positivity_data.jso
 const EU_ALLSENTINEL_ERVIS_POSITIVITY = "./data_processed/eu_sentinel_ervis/positivity_data.json";
 const DE_WASTEWATER_AMELAG = "./data_processed/de_wastewater_amelag/wastewater_data.json";
 const NL_INFECTIERADAR_POSITIVITY = "./data_processed/nl_infectieradar/positivity_data.json";
+const CZ_SZU_ARI_VIRUSES_POSITIVITY = "./data_processed/cz_szu_ari_viruses/positivity_data.json";
 const TIMESTAMP_FILE = "./data_processed/timestamp.json";
 
 // Common pipeline: download → load → compute → save
@@ -50,6 +52,14 @@ await processSource(
     },
     computeNlInfectieradarData,
     NL_INFECTIERADAR_POSITIVITY
+);
+
+await processSource(
+    downloadCzSzuAriVirusesData,
+    "cz_szu_ari_viruses.json",
+    async (file) => JSON.parse(await fs.readFile(getAbsolutePath(`./data/${file}`), "utf-8")) as SzuVirusDetectionRow[],
+    computeCzSzuAriVirusesData,
+    CZ_SZU_ARI_VIRUSES_POSITIVITY
 );
 
 await saveTimeStamp(TIMESTAMP_FILE);

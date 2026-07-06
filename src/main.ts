@@ -2,6 +2,7 @@ import mzcrPositivityImport from "../data_processed/cr_cov_mzcr/positivity_data.
 import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_data.json" with { type: "json" };
 import deWastewaterImport from "../data_processed/de_wastewater_amelag/wastewater_data.json" with { type: "json" };
 import nlInfectieradarImport from "../data_processed/nl_infectieradar/positivity_data.json" with { type: "json" };
+import czSzuAriVirusesImport from "../data_processed/cz_szu_ari_viruses/positivity_data.json" with { type: "json" };
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
@@ -30,8 +31,8 @@ import { assembleCustomGraphData, type CustomGraphSelection, type SourceChartInf
 const averagingWindows = [28];
 const extremesForWindow = 28;
 const extremeWindow = 3*28;
-const dataSources = [mzcrPositivityImport, euPositivityImport, deWastewaterImport, nlInfectieradarImport] as const;
-const [mzcrPositivityEnhanced, euPositivityEnhanced, deWastewaterEnhanced, nlInfectieradarEnhanced] = 
+const dataSources = [mzcrPositivityImport, euPositivityImport, deWastewaterImport, nlInfectieradarImport, czSzuAriVirusesImport] as const;
+const [mzcrPositivityEnhanced, euPositivityEnhanced, deWastewaterEnhanced, nlInfectieradarEnhanced, czSzuAriVirusesEnhanced] =
     dataSources.map(d => computeMovingAverageTimeseries(d as TimeseriesData, averagingWindows));
 
 // Constants for chart styling
@@ -44,6 +45,7 @@ const EU_COUNTRY_FILTER_KEY = "euCountryFilter";
 const EU_SURVTYPE_FILTER_KEY = "euSurvtypeFilter";
 const DE_WASTEWATER_VISIBILITY_KEY = "deWastewaterVisibility";
 const NL_INFECTIERADAR_VISIBILITY_KEY = "nlInfectieradarVisibility";
+const CZ_SZU_ARI_VIRUSES_VISIBILITY_KEY = "czSzuAriVirusesVisibility";
 const CUSTOM_GRAPH_VISIBILITY_KEY = "customGraphVisibility";
 const CUSTOM_GRAPH_SELECTIONS_KEY = "customGraphSelections";
 
@@ -118,6 +120,16 @@ const chartConfigs : ChartConfig[] = [
         datasetVisibility: { }
     },
     {
+        containerId: "czSzuAriVirusesContainer",
+        canvasId: "czSzuAriVirusesChart",
+        data: czSzuAriVirusesEnhanced,
+        title: "Czech SZU Respiratory Viruses",
+        shortTitle: "CZ-SZU",
+        visibilityKey: CZ_SZU_ARI_VIRUSES_VISIBILITY_KEY,
+        chartHolder: { chart: undefined as Chart | undefined },
+        datasetVisibility: { }
+    },
+    {
         containerId: "customGraphContainer",
         canvasId: "customGraphChart",
         data: { dates: [], series: [] }, // Start with empty data
@@ -160,7 +172,8 @@ function updateAllUITexts() {
     chartConfigs[1].title = t.chartTitleEuViruses;
     chartConfigs[2].title = t.chartTitleDeWastewater;
     chartConfigs[3].title = t.chartTitleNlInfectieradar;
-    chartConfigs[4].title = t.chartTitleCustomGraph;
+    chartConfigs[4].title = t.chartTitleCzSzuAriViruses;
+    chartConfigs[5].title = t.chartTitleCustomGraph;
 }
 
 // Initialize UI texts
@@ -525,6 +538,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         'euDataContainer',
         'deWastewaterContainer',
         'nlInfectieradarContainer',
+        'czSzuAriVirusesContainer',
         'customGraphContainer',
         'hideAllButton'
     ];
