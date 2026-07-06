@@ -316,6 +316,28 @@ describe('computeMovingAverageTimeseries Tests', () => {
         expect(result.series[1].frequencyInDays).toBe(2);
         expect(result.series[1].windowSizeInDays).toBe(4);
     });
+
+    test('preserves age-group metadata on averaged series', () => {
+        const input: TimeseriesData = {
+            dates: ['2022-01-01', '2022-01-08'],
+            series: [{
+                name: 'Age Filtered Scalar',
+                values: [
+                    { virusLoad: 10 },
+                    { virusLoad: 20 }
+                ],
+                type: 'raw',
+                frequencyInDays: 7,
+                dataType: 'scalar' as const,
+                ageGroup: '0-4'
+            }]
+        };
+
+        const result = computeMovingAverageTimeseries(input, [28]);
+
+        expect(result.series[1].name).toBe('Age Filtered Scalar (28d avg)');
+        expect(result.series[1].ageGroup).toBe('0-4');
+    });
 });
 
 describe('addShiftedToAlignExtremeDates Tests', () => {

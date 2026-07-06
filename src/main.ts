@@ -987,7 +987,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     }
     
     // Create and attach "Get Link" functionality
-    createGetLinkButton(appSettings, chartConfigs, countryFilters);
+    createGetLinkButton(appSettings, chartConfigs, countryFilters, ageGroupFilters);
     
     // Setup global click handler to close tooltips when clicking outside charts
     // This is especially important for Safari/iOS where tooltips can get stuck
@@ -999,7 +999,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     }
 }
 
-function createGetLinkButton(appSettings: AppSettings, chartConfigs: ChartConfig[], countryFilters: Map<string, string>) {
+function createGetLinkButton(appSettings: AppSettings, chartConfigs: ChartConfig[], countryFilters: Map<string, string>, ageGroupFilters: Map<string, string>) {
     const getLinkElement = document.getElementById('getLinkButton');
     if (!getLinkElement) {
         console.error("Get Link button not found");
@@ -1008,7 +1008,7 @@ function createGetLinkButton(appSettings: AppSettings, chartConfigs: ChartConfig
     
     getLinkElement.addEventListener('click', () => {
         // Encode current state
-        const encoded = encodeUrlState(appSettings, chartConfigs, countryFilters);
+        const encoded = encodeUrlState(appSettings, chartConfigs, countryFilters, ageGroupFilters);
         
         // Create URL with state parameter
         const url = new URL(window.location.href);

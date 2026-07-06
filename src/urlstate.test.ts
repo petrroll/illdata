@@ -121,6 +121,28 @@ describe('URL State Management Tests', () => {
         expect(decoded!.countryFilters["euCountryFilter"]).toBe("Germany");
     });
 
+    test('encodes and decodes age-group filters correctly', () => {
+        const settings = DEFAULT_APP_SETTINGS;
+        const chartConfigs: UrlChartConfig[] = [
+            {
+                containerId: "deAreContainer",
+                visibilityKey: "deAreVisibility",
+                datasetVisibility: {},
+                ageGroupFilterKey: "deAgeGroupFilter"
+            }
+        ];
+        const countryFilters = new Map<string, string>();
+        const ageGroupFilters = new Map<string, string>([
+            ["deAreContainer", "5-14"]
+        ]);
+
+        const encoded = encodeUrlState(settings, chartConfigs, countryFilters, ageGroupFilters);
+        const decoded = decodeUrlState(encoded);
+
+        expect(decoded).not.toBeNull();
+        expect(decoded!.ageGroupFilters!["deAgeGroupFilter"]).toBe("5-14");
+    });
+
     test('encodes complete state with all components', () => {
         const settings: AppSettings = {
             timeRange: "180",
