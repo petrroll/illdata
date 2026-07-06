@@ -292,11 +292,11 @@ function stripHtml(html: string): string {
 
 function decodeHtml(text: string): string {
     return text
-        .replace(/&amp;/g, "&")
         .replace(/&quot;/g, '"')
         .replace(/&#039;|&apos;/g, "'")
         .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">");
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&");
 }
 
 function removeDiacritics(text: string): string {
