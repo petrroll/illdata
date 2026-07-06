@@ -1,10 +1,16 @@
 import { downloadAndSaveCsv, getAbsolutePath, toFloat } from "./ioUtils";
-import type { TimeseriesData, PositivitySeries } from "../utils";
+import { datapointToPercentage, type Datapoint, type TimeseriesData, type PositivitySeries, type TrendSuffixMarker } from "../utils";
 
 // Country name ECDC uses for the pre-aggregated Europe-wide row. This aggregate is
 // unreliable for non-sentinel data (it only ships per-subtype detections and no test
 // counts), so we drop it and synthesize our own aggregate from the member countries.
 const AGGREGATE_COUNTRY = "EU/EEA";
+const TREND_PERIOD_DAYS = 28;
+const TREND_PATHOGENS = [
+    { pathogen: "Influenza", letter: "I" },
+    { pathogen: "RSV", letter: "R" },
+    { pathogen: "SARS-CoV-2", letter: "S" },
+] as const;
 
 export async function downloadEuEcdcData(filename: string = "nonSentinelTestsDetections.csv") {
     const filePath = getAbsolutePath(`./data/${filename}`);
@@ -33,6 +39,51 @@ function emptyStats(): Stats {
 // countries, only ship subtype breakdowns without a total row).
 function detectionsOf(stats: Stats): number {
     return stats.hasTotalDetections ? stats.totalDetections : stats.subtypeDetections;
+}
+
+function sumValues(series: PositivitySeries[]): Datapoint[] {
+    if (series.length === 0) return [];
+    return series[0].values.map((_, index) =>
+        series.reduce((sum, current) => {
+            const value = current.values[index];
+            return {
+                positive: sum.positive + (value?.positive ?? 0),
+                tests: sum.tests + (value?.tests ?? 0)
+            };
+        }, { positive: 0, tests: 0 })
+    );
+}
+
+function calculate28DayRatio(values: Datapoint[], frequencyInDays: number): number | null {
+    const endIndex = values.length - 1;
+    const periodIndices = Math.floor(TREND_PERIOD_DAYS / frequencyInDays);
+    const currentStart = Math.max(0, endIndex - periodIndices + 1);
+    const currentEnd = endIndex + 1;
+    const previousStart = Math.max(0, currentStart - periodIndices);
+    const previousEnd = currentStart;
+
+    if (previousStart >= previousEnd || currentStart >= currentEnd) return null;
+
+    const current = values.slice(currentStart, currentEnd).reduce((sum, val) => ({
+        positive: sum.positive + val.positive,
+        tests: sum.tests + val.tests
+    }), { positive: 0, tests: 0 });
+    const previous = values.slice(previousStart, previousEnd).reduce((sum, val) => ({
+        positive: sum.positive + val.positive,
+        tests: sum.tests + val.tests
+    }), { positive: 0, tests: 0 });
+
+    const currentAvg = datapointToPercentage(current);
+    const previousAvg = datapointToPercentage(previous);
+    const ratio = currentAvg / previousAvg;
+    return Number.isFinite(ratio) ? ratio : null;
+}
+
+function trendFromRatio(ratio: number | null): TrendSuffixMarker['trend'] {
+    if (ratio === null) return 'unknown';
+    if (ratio > 1) return 'positive';
+    if (ratio < 1) return 'negative';
+    return 'neutral';
 }
 
 export function computeEuEcdcData(data: Record<string, string>[], preserveSurvtype: boolean = false): TimeseriesData {
@@ -162,8 +213,34 @@ export function computeEuEcdcData(data: Record<string, string>[], preserveSurvty
         )
     );
 
+    const survtypeOptions = preserveSurvtype ? ["both", ...survtypeKeys] : [];
+    const seriesFor = (country: string, pathogen: string, survtype: string): PositivitySeries[] =>
+        allSeries.filter(series =>
+            series.country === country &&
+            series.name.startsWith(`${pathogen} Positivity`) &&
+            (survtype === "both" || series.survtype === survtype)
+        );
+    const trendMarkersFor = (country: string, survtype: string): TrendSuffixMarker[] =>
+        TREND_PATHOGENS.map(({ pathogen, letter }) => {
+            const matchingSeries = seriesFor(country, pathogen, survtype);
+            const ratio28days = calculate28DayRatio(sumValues(matchingSeries), matchingSeries[0]?.frequencyInDays ?? 7);
+            return { letter, trend: trendFromRatio(ratio28days), ratio28days };
+        });
+
+    const filterTrendSuffixes = preserveSurvtype ? {
+        countries: Object.fromEntries(survtypeOptions.map(survtype => [
+            survtype,
+            Object.fromEntries(countries.map(country => [country, trendMarkersFor(country, survtype)]))
+        ])),
+        survtypes: Object.fromEntries(countries.map(country => [
+            country,
+            Object.fromEntries(survtypeOptions.map(survtype => [survtype, trendMarkersFor(country, survtype)]))
+        ]))
+    } : undefined;
+
     return {
         dates,
-        series: allSeries
+        series: allSeries,
+        ...(filterTrendSuffixes ? { filterTrendSuffixes } : {})
     };
 }

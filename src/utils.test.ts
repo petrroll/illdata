@@ -316,6 +316,26 @@ describe('computeMovingAverageTimeseries Tests', () => {
         expect(result.series[1].frequencyInDays).toBe(2);
         expect(result.series[1].windowSizeInDays).toBe(4);
     });
+
+    test('preserves precomputed filter trend suffix metadata', () => {
+        const input: TimeseriesData = {
+            dates: ['2022-01-01'],
+            series: [{
+                name: 'Test Series',
+                values: [{ positive: 10, tests: 100 }],
+                type: 'raw',
+                frequencyInDays: 1,
+                dataType: 'positivity' as const
+            }],
+            filterTrendSuffixes: {
+                countries: { both: { Spain: [{ letter: 'I', trend: 'positive', ratio28days: 1.2 }] } },
+                survtypes: { Spain: { both: [{ letter: 'I', trend: 'positive', ratio28days: 1.2 }] } }
+            }
+        };
+
+        const result = computeMovingAverageTimeseries(input, [1]);
+        expect(result.filterTrendSuffixes).toEqual(input.filterTrendSuffixes);
+    });
 });
 
 describe('addShiftedToAlignExtremeDates Tests', () => {

@@ -15,6 +15,18 @@ export type DataSeries = PositivitySeries | ScalarSeries;
 export interface TimeseriesData {
     dates: string[];
     series: DataSeries[];
+    filterTrendSuffixes?: FilterTrendSuffixes;
+}
+
+export interface TrendSuffixMarker {
+    letter: string;
+    trend: 'positive' | 'negative' | 'neutral' | 'unknown';
+    ratio28days: number | null;
+}
+
+export interface FilterTrendSuffixes {
+    countries: Record<string, Record<string, TrendSuffixMarker[]>>;
+    survtypes: Record<string, Record<string, TrendSuffixMarker[]>>;
 }
 
 export interface Datapoint {
@@ -294,7 +306,7 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
     });
 
     return {
-        dates: data.dates,
+        ...data,
         series: [...data.series, ...averagedSeries]
     };
 }
