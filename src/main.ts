@@ -818,7 +818,8 @@ function renderPage(rootDiv: HTMLElement | null) {
             const legendContainer = document.getElementById(`${customGraphConfig.containerId}-legend`);
             const hasSelections = selections.length > 0;
             if (chartWrapper) chartWrapper.style.display = hasSelections ? '' : 'none';
-            if (legendContainer) legendContainer.style.display = hasSelections ? '' : 'none';
+            // Restore the legend's flex layout (not ''/block) so the inter-pill gap is preserved.
+            if (legendContainer) legendContainer.style.display = hasSelections ? 'flex' : 'none';
 
             // Rebuild the series selector UI so checkboxes stay in sync
             const existingSelector = document.getElementById('customGraphSeriesSelector');

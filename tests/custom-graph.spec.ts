@@ -37,6 +37,25 @@ test.describe('Custom Graph', () => {
     expect(count).toBeGreaterThan(0);
   });
 
+  test('legend keeps flex layout so pills stay spaced out', async ({ page }) => {
+    // Regression for issue #176: toggling the legend visible reset display to ''
+    // (block) which dropped the flex `gap`, bunching the pills together.
+    await page.locator('#customGraphToggleButton').click();
+    const checkboxes = page.locator('#customGraphSeriesSelector input[type="checkbox"]');
+    await checkboxes.first().check();
+    await checkboxes.nth(1).check();
+    await page.waitForTimeout(300);
+
+    const legend = page.locator('#customGraphContainer-legend');
+    await expect(legend).toBeVisible();
+
+    const display = await legend.evaluate((el) => getComputedStyle(el).display);
+    expect(display).toBe('flex');
+
+    const gap = await legend.evaluate((el) => getComputedStyle(el).columnGap);
+    expect(parseFloat(gap)).toBeGreaterThan(0);
+  });
+
   test('clears selections and hides the chart', async ({ page }) => {
     await page.locator('#customGraphToggleButton').click();
     const firstCheckbox = page.locator('#customGraphSeriesSelector input[type="checkbox"]').first();
