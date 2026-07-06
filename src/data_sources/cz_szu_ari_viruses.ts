@@ -5,6 +5,7 @@ import { getAbsolutePath } from "./ioUtils";
 import type { PositivitySeries, TimeseriesData } from "../utils";
 
 const SZU_ARI_PAGE_URL = "https://szu.gov.cz/publikace-szu/data/akutni-respiracni-infekce-chripka/";
+const MAX_WEEKLY_TESTS = 100000;
 
 export interface SzuVirusPdfEntry {
     year: number;
@@ -38,6 +39,7 @@ const VIRUS_DEFINITIONS: VirusDefinition[] = [
     { name: "Enterovirus", regex: /enterovir/i },
     { name: "Coronavirus", regex: /\bcoronavir/i },
 ];
+const NUMBER_TOKEN_PATTERN = /\d(?:[ \u00a0]\d{3})+|\d{1,5}/g;
 
 export async function downloadCzSzuAriVirusesData(filename: string = "cz_szu_ari_viruses.json") {
     const filePath = getAbsolutePath(`./data/${filename}`);
@@ -117,9 +119,12 @@ function collectEntriesFromHtmlFragment(fragment: string, pageUrl: string, entri
 }
 
 export function parseVirusResultPdfText(text: string, entry: SzuVirusPdfEntry): SzuVirusDetectionRow[] {
-    const tests = extractTestCount(text);
+    const tests = extractTestCount(text, entry);
     if (!tests || tests <= 0) {
         throw new Error(`Cannot find total tested sample count for ${entry.week}.KT ${entry.year}`);
+    }
+    if (tests > MAX_WEEKLY_TESTS) {
+        throw new Error(`Implausible tested sample count ${tests} for ${entry.week}.KT ${entry.year}`);
     }
 
     const counts = extractVirusCounts(text);
@@ -144,7 +149,7 @@ export function computeCzSzuAriVirusesData(rows: SzuVirusDetectionRow[]): Timese
     const pathogens = new Set<string>();
 
     for (const row of rows) {
-        if (!row.date || !row.pathogen || !Number.isFinite(row.positive) || !Number.isFinite(row.tests) || row.tests <= 0) {
+        if (!row.date || !row.pathogen || !Number.isFinite(row.positive) || !Number.isFinite(row.tests) || row.tests <= 0 || row.tests > MAX_WEEKLY_TESTS) {
             continue;
         }
         const pathogen = aggregatePathogenName(row.pathogen);
@@ -187,7 +192,7 @@ function extractVirusCounts(text: string): Map<string, number> {
             const tail = line.slice(match.index + match[0].length);
             const numbers = extractIntegers(tail);
             if (numbers.length === 0) continue;
-            const value = numbers.length >= 4 ? numbers[numbers.length - 1] : numbers[0];
+            const value = selectCurrentWeekValue(numbers);
             counts.set(definition.name, Math.max(counts.get(definition.name) ?? 0, value));
         }
     }
@@ -220,12 +225,25 @@ function extractCountsFromColumnTable(text: string): Map<string, number> {
     return counts;
 }
 
-function extractTestCount(text: string): number | undefined {
-    const normalized = removeDiacritics(text.replace(/\s+/g, " "));
+function extractTestCount(text: string, entry: SzuVirusPdfEntry): number | undefined {
+    const lines = removeDiacritics(text)
+        .split(/\r?\n/)
+        .map(line => line.replace(/\s+/g, " ").trim())
+        .filter(Boolean);
+
+    for (const line of lines) {
+        if (!/(?:vysetren|vzorku|vzorku|testu|testovan)/i.test(line)) continue;
+        const numbers = extractIntegers(line);
+        const plausibleCounts = numbers.filter(value => value < MAX_WEEKLY_TESTS && value !== entry.year && value !== entry.week);
+        if (plausibleCounts.length > 0) return selectCurrentWeekValue(plausibleCounts);
+    }
+
+    const normalized = lines.join(" ");
+    const numberPattern = NUMBER_TOKEN_PATTERN.source;
     const patterns = [
-        /celkem\s+(?:bylo\s+)?(?:vysetreno|vysetrenych|vysetreni)\D{0,80}(\d[\d\s]*)/i,
-        /(?:pocet|celkem)\s+(?:vysetrenych\s+)?(?:vzorku|vzorku|vysetreni)\D{0,80}(\d[\d\s]*)/i,
-        /vysetreno\s+(?:bylo\s+)?\D{0,80}(\d[\d\s]*)\s+(?:vzorku|vzorku|osob|pacientu)/i,
+        new RegExp(`celkem\\s+(?:bylo\\s+)?(?:vysetreno|vysetrenych|vysetreni)\\D{0,80}(${numberPattern})`, "i"),
+        new RegExp(`(?:pocet|celkem)\\s+(?:vysetrenych\\s+)?(?:vzorku|vzorku|vysetreni)\\D{0,80}(${numberPattern})`, "i"),
+        new RegExp(`vysetreno\\s+(?:bylo\\s+)?\\D{0,80}(${numberPattern})\\s+(?:vzorku|vzorku|osob|pacientu)`, "i"),
     ];
 
     for (const pattern of patterns) {
@@ -236,7 +254,18 @@ function extractTestCount(text: string): number | undefined {
 }
 
 function extractIntegers(text: string): number[] {
-    return [...text.matchAll(/(?<![\d,.])(\d{1,5})(?![\d,.])/g)].map(match => parseInt(match[1].replace(/\s/g, ""), 10));
+    return [...text.matchAll(NUMBER_TOKEN_PATTERN)].map(match => parseInt(match[0].replace(/[ \u00a0]/g, ""), 10));
+}
+
+function selectCurrentWeekValue(numbers: number[]): number {
+    if (numbers.length >= 2) {
+        const current = numbers[numbers.length - 2];
+        const trailingTotal = numbers[numbers.length - 1];
+        if (trailingTotal >= current) {
+            return current;
+        }
+    }
+    return numbers[numbers.length - 1];
 }
 
 function aggregatePathogenName(pathogen: string): string {

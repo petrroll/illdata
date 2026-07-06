@@ -15,6 +15,18 @@ export type DataSeries = PositivitySeries | ScalarSeries;
 export interface TimeseriesData {
     dates: string[];
     series: DataSeries[];
+    filterTrendSuffixes?: FilterTrendSuffixes;
+}
+
+export interface TrendSuffixMarker {
+    letter: string;
+    trend: 'positive' | 'negative' | 'neutral' | 'unknown';
+    ratio28days: number | null;
+}
+
+export interface FilterTrendSuffixes {
+    countries: Record<string, Record<string, TrendSuffixMarker[]>>;
+    survtypes: Record<string, Record<string, TrendSuffixMarker[]>>;
 }
 
 export interface Datapoint {
@@ -294,7 +306,7 @@ export function computeMovingAverageTimeseries(data: TimeseriesData, windowSizes
     });
 
     return {
-        dates: data.dates,
+        ...data,
         series: [...data.series, ...averagedSeries]
     };
 }
@@ -413,6 +425,20 @@ export interface RatioData {
     ratio7days: number | null;
     ratio28days: number | null;
     lastDataDate: Date | null;
+}
+
+/**
+ * Maps a period ratio (recent average / prior average) to a trend classification.
+ *
+ * Mirrors the trends table (header) thresholds: rising incidence (ratio > 1.1) is a
+ * negative signal (red), falling incidence (ratio < 0.9) is a positive one (green),
+ * values in between are neutral, and a missing ratio is unknown.
+ */
+export function trendFromRatio(ratio: number | null): TrendSuffixMarker['trend'] {
+    if (ratio === null || !Number.isFinite(ratio)) return 'unknown';
+    if (ratio > 1.1) return 'negative';
+    if (ratio < 0.9) return 'positive';
+    return 'neutral';
 }
 
 export function calculateRatios(data: TimeseriesData, visibleMainSeries: string[]): RatioData[] {

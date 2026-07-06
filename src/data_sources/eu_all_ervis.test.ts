@@ -96,4 +96,58 @@ describe('computeEuEcdcData Tests', () => {
         // The synthesized aggregate equals the member-country sum, not the 999 ECDC row.
         expect(eu.values[idx]).toEqual({ positive: 5, tests: 100 });
     });
+
+    test('precomputes filter trend suffixes by country and surveillance type', () => {
+        const weeks = ['2026-W01', '2026-W02', '2026-W03', '2026-W04', '2026-W05', '2026-W06', '2026-W07', '2026-W08'];
+        const input = weeks.flatMap((yearweek, index) => [
+            row({
+                countryname: 'Spain',
+                survtype: 'primary care sentinel',
+                yearweek,
+                pathogen: 'Influenza',
+                pathogentype: 'Influenza',
+                indicator: 'detections',
+                value: (index < 4 ? 1 : 4).toString()
+            }),
+            row({
+                countryname: 'Spain',
+                survtype: 'primary care sentinel',
+                yearweek,
+                pathogen: 'Influenza',
+                pathogentype: 'Influenza',
+                indicator: 'tests',
+                value: '100'
+            }),
+            row({
+                countryname: 'Spain',
+                survtype: 'non-sentinel',
+                yearweek,
+                pathogen: 'RSV',
+                pathogentype: 'RSV',
+                indicator: 'detections',
+                value: (index < 4 ? 4 : 1).toString()
+            }),
+            row({
+                countryname: 'Spain',
+                survtype: 'non-sentinel',
+                yearweek,
+                pathogen: 'RSV',
+                pathogentype: 'RSV',
+                indicator: 'tests',
+                value: '100'
+            }),
+        ]);
+
+        const result = computeEuEcdcData(input, true);
+
+        expect(result.filterTrendSuffixes?.countries['primary care sentinel'].Spain[0]).toMatchObject({
+            letter: 'I',
+            trend: 'negative'
+        });
+        expect(result.filterTrendSuffixes?.survtypes.Spain['non-sentinel'][1]).toMatchObject({
+            letter: 'R',
+            trend: 'positive'
+        });
+        expect(result.filterTrendSuffixes?.survtypes.Spain['primary care sentinel']).toHaveLength(3);
+    });
 });

@@ -2,7 +2,7 @@
 // Extracted from main.ts to reduce duplication
 
 import { Chart } from 'chart.js/auto';
-import { createStyledButton, createPillWrapper, updatePillVisibility } from './ui-utils';
+import { createStyledButton, createPillWrapper, updatePillVisibility, createTrendDot } from './ui-utils';
 import { getLanguage, getTranslations, normalizeSeriesName, translateSeriesName } from '../locales';
 import { extractShiftSuffix } from '../series-utils';
 
@@ -22,6 +22,23 @@ export interface ChartConfig {
     extremesCache?: any;
     hasCountryFilter?: boolean;
     countryFilterKey?: string;
+}
+
+/**
+ * Looks up the 28-day trend ratio for a dataset label. Returns null when unknown.
+ */
+export type TrendRatioLookup = (datasetLabel: string) => number | null;
+
+/**
+ * Builds a trend indicator dot for a dataset, or null when no lookup / trend is available.
+ */
+function buildTrendDot(getTrendRatio: TrendRatioLookup | undefined, datasetLabel: string): HTMLSpanElement | null {
+    if (!getTrendRatio) return null;
+    const ratio = getTrendRatio(datasetLabel);
+    const title = ratio === null || !Number.isFinite(ratio)
+        ? undefined
+        : `${getTranslations().trendsPeriod28d}: ${ratio.toFixed(2)}x`;
+    return createTrendDot(ratio, title);
 }
 
 /**
@@ -63,7 +80,8 @@ export function createRegularLegendButton(
     cfg: ChartConfig,
     dataset: any,
     index: number,
-    updateRatioTable: () => void
+    updateRatioTable: () => void,
+    getTrendRatio?: TrendRatioLookup
 ) {
     const datasetLabel = dataset.label || `Dataset ${index}`;
     const normalizedLabel = normalizeSeriesName(datasetLabel);
@@ -90,6 +108,9 @@ export function createRegularLegendButton(
     legendItem.style.opacity = isHidden ? '0.5' : '1';
     legendItem.style.fontFamily = 'Arial, sans-serif';
     
+    const trendDot = buildTrendDot(getTrendRatio, datasetLabel);
+    if (trendDot) legendItem.insertBefore(trendDot, legendItem.firstChild);
+    
     container.appendChild(legendItem);
 }
 
@@ -105,7 +126,8 @@ export function createSplitTestPill(
     negativeDataset: any,
     negativeIndex: number,
     baseSeriesName: string,
-    updateRatioTable: () => void
+    updateRatioTable: () => void,
+    getTrendRatio?: TrendRatioLookup
 ) {
     const t = getTranslations();
     
@@ -195,6 +217,10 @@ export function createSplitTestPill(
     
     // Assemble the split pill
     pillWrapper.appendChild(prefixButton);
+    const positiveDot = buildTrendDot(getTrendRatio, positiveDataset.label || '');
+    if (positiveDot) positiveButton.insertBefore(positiveDot, positiveButton.firstChild);
+    const negativeDot = buildTrendDot(getTrendRatio, negativeDataset.label || '');
+    if (negativeDot) negativeButton.insertBefore(negativeDot, negativeButton.firstChild);
     pillWrapper.appendChild(positiveButton);
     pillWrapper.appendChild(negativeButton);
     
@@ -244,7 +270,8 @@ export function createSplitShiftedPill(
     shiftedDataset: any,
     shiftedIndex: number,
     baseSeriesName: string,
-    updateRatioTable: () => void
+    updateRatioTable: () => void,
+    getTrendRatio?: TrendRatioLookup
 ) {
     // Get visibility states
     const baseLabel = normalizeSeriesName(baseDataset.label || '');
@@ -314,6 +341,10 @@ export function createSplitShiftedPill(
     });
     
     // Assemble the split pill (2 parts: base + shifted)
+    const baseDot = buildTrendDot(getTrendRatio, baseDataset.label || '');
+    if (baseDot) baseButton.insertBefore(baseDot, baseButton.firstChild);
+    const shiftedDot = buildTrendDot(getTrendRatio, shiftedDataset.label || '');
+    if (shiftedDot) shiftedButton.insertBefore(shiftedDot, shiftedButton.firstChild);
     pillWrapper.appendChild(baseButton);
     pillWrapper.appendChild(shiftedButton);
     

@@ -7,6 +7,7 @@ import {
     getExtremeMatchSeriesName,
     compareLabels,
     isScalarSeries,
+    trendFromRatio,
     type PositivitySeries, 
     type ScalarSeries,
     type ExtremeSeries,
@@ -316,6 +317,26 @@ describe('computeMovingAverageTimeseries Tests', () => {
         expect(result.series[1].frequencyInDays).toBe(2);
         expect(result.series[1].windowSizeInDays).toBe(4);
     });
+
+    test('preserves precomputed filter trend suffix metadata', () => {
+        const input: TimeseriesData = {
+            dates: ['2022-01-01'],
+            series: [{
+                name: 'Test Series',
+                values: [{ positive: 10, tests: 100 }],
+                type: 'raw',
+                frequencyInDays: 1,
+                dataType: 'positivity' as const
+            }],
+            filterTrendSuffixes: {
+                countries: { both: { Spain: [{ letter: 'I', trend: 'positive', ratio28days: 1.2 }] } },
+                survtypes: { Spain: { both: [{ letter: 'I', trend: 'positive', ratio28days: 1.2 }] } }
+            }
+        };
+
+        const result = computeMovingAverageTimeseries(input, [1]);
+        expect(result.filterTrendSuffixes).toEqual(input.filterTrendSuffixes);
+    });
 });
 
 describe('addShiftedToAlignExtremeDates Tests', () => {
@@ -525,6 +546,27 @@ describe('getExtremeMatchSeriesName Tests', () => {
     });
     test('strips shift suffix', () => {
         expect(getExtremeMatchSeriesName('PCR Positivity (28d avg) shifted by 1 wave -347d')).toBe('PCR Positivity');
+    });
+});
+
+describe('trendFromRatio Tests', () => {
+    test('rising incidence (ratio > 1.1) is a negative trend', () => {
+        expect(trendFromRatio(1.11)).toBe('negative');
+        expect(trendFromRatio(2)).toBe('negative');
+    });
+    test('falling incidence (ratio < 0.9) is a positive trend', () => {
+        expect(trendFromRatio(0.89)).toBe('positive');
+        expect(trendFromRatio(0.1)).toBe('positive');
+    });
+    test('ratios between thresholds are neutral', () => {
+        expect(trendFromRatio(1)).toBe('neutral');
+        expect(trendFromRatio(0.9)).toBe('neutral');
+        expect(trendFromRatio(1.1)).toBe('neutral');
+    });
+    test('null and non-finite ratios are unknown', () => {
+        expect(trendFromRatio(null)).toBe('unknown');
+        expect(trendFromRatio(Infinity)).toBe('unknown');
+        expect(trendFromRatio(NaN)).toBe('unknown');
     });
 });
 

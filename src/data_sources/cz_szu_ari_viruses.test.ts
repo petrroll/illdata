@@ -34,9 +34,32 @@ describe("parseVirusResultPdfText", () => {
         const rows = parseVirusResultPdfText(text, { year: 2026, week: 4, url: "https://example.test/viry.pdf" });
 
         expect(rows).toContainEqual({ date: "2026-01-19", pathogen: "SARS-CoV-2", positive: 12, tests: 200, sourceUrl: "https://example.test/viry.pdf" });
-        expect(rows).toContainEqual({ date: "2026-01-19", pathogen: "Influenza", positive: 6, tests: 200, sourceUrl: "https://example.test/viry.pdf" });
+        expect(rows).toContainEqual({ date: "2026-01-19", pathogen: "Influenza", positive: 3, tests: 200, sourceUrl: "https://example.test/viry.pdf" });
         expect(rows).toContainEqual({ date: "2026-01-19", pathogen: "Influenza", positive: 4, tests: 200, sourceUrl: "https://example.test/viry.pdf" });
         expect(rows).toContainEqual({ date: "2026-01-19", pathogen: "RSV", positive: 8, tests: 200, sourceUrl: "https://example.test/viry.pdf" });
+    });
+
+    test("uses weekly values instead of cumulative totals from season tables", () => {
+        const text = `
+            Laboratorní vyšetření podle typu viru
+            Celkem vyšetřeno 639 912 1 076 2 627
+            SARS-CoV-2 28 46 203 277
+            Rhinovirus 1 2 5 8`;
+
+        const rows = parseVirusResultPdfText(text, { year: 2025, week: 42, url: "https://example.test/viry.pdf" });
+
+        expect(rows).toContainEqual({ date: "2025-10-13", pathogen: "SARS-CoV-2", positive: 203, tests: 1076, sourceUrl: "https://example.test/viry.pdf" });
+        expect(rows).toContainEqual({ date: "2025-10-13", pathogen: "Rhinovirus", positive: 5, tests: 1076, sourceUrl: "https://example.test/viry.pdf" });
+    });
+
+    test("does not concatenate adjacent sample-count columns into a huge number", () => {
+        const text = `
+            Celkem vyšetřeno 639 912 1 551 vzorků
+            SARS-CoV-2 28 46 74`;
+
+        const rows = parseVirusResultPdfText(text, { year: 2025, week: 41, url: "https://example.test/viry.pdf" });
+
+        expect(rows).toContainEqual({ date: "2025-10-06", pathogen: "SARS-CoV-2", positive: 46, tests: 912, sourceUrl: "https://example.test/viry.pdf" });
     });
 
     test("parses compact column-oriented virus counts from extracted PDF text", () => {
