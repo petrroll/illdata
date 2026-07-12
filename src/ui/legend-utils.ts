@@ -85,7 +85,7 @@ export function createRegularLegendButton(
 ) {
     const datasetLabel = dataset.label || `Dataset ${index}`;
     const normalizedLabel = normalizeSeriesName(datasetLabel);
-    const isHidden = !cfg.datasetVisibility[normalizedLabel];
+    const isHidden = cfg.datasetVisibility[normalizedLabel] === false;
     
     const legendItem = createStyledButton(
         datasetLabel,
@@ -93,8 +93,8 @@ export function createRegularLegendButton(
         {
             textDecoration: isHidden ? 'line-through' : 'none',
             onClick: () => {
-                const currentlyHidden = !cfg.datasetVisibility[normalizedLabel];
-                const newVisibility = currentlyHidden;
+                const currentlyVisible = cfg.datasetVisibility[normalizedLabel] !== false;
+                const newVisibility = !currentlyVisible;
                 
                 updateDatasetVisibility(cfg, chart, index, dataset, normalizedLabel, newVisibility, updateRatioTable);
                 

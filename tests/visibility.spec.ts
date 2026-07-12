@@ -11,30 +11,32 @@ test.describe('Series Visibility', () => {
 
   test('should toggle individual series visibility by clicking legend item', async ({ page }) => {
     const czechLegend = page.locator('#czechDataContainer-legend');
-    // Use direct children (> span) to avoid nested spans in split pills
-    const legendItems = czechLegend.locator('> span');
-    
-    // Get the first legend item
-    const firstItem = legendItems.first();
-    await expect(firstItem).toBeVisible();
-    
-    // Check initial opacity (should be visible, opacity 1)
-    const initialOpacity = await firstItem.evaluate(el => window.getComputedStyle(el).opacity);
-    expect(initialOpacity).toBe('1');
-    
-    // For split pills, clicking once toggles only the base series
-    // Click to hide the base part
-    await firstItem.click();
-    await page.waitForTimeout(100);
-    
-    // For split pills, opacity might still be 1 if shifted series is visible
-    // Click again to toggle (this will show base if it was hidden, or hide if shown)
-    await firstItem.click();
-    await page.waitForTimeout(100);
-    
-    // Check opacity back to 1 (visible state)
-    const visibleOpacity = await firstItem.evaluate(el => window.getComputedStyle(el).opacity);
-    expect(visibleOpacity).toBe('1');
+    const firstPill = czechLegend.locator('> span').first();
+    const firstSeries = firstPill.locator('> span').first();
+    await expect(firstSeries).toBeVisible();
+
+    const visibilityBefore = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('datasetVisibility') || '{}')
+    );
+
+    await firstSeries.click();
+
+    const visibilityAfterHide = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('datasetVisibility') || '{}')
+    );
+    const hiddenSeries = Object.keys(visibilityAfterHide).filter(
+      key => visibilityBefore[key] === true && visibilityAfterHide[key] === false
+    );
+    expect(hiddenSeries).toHaveLength(1);
+    await expect(firstSeries).toHaveCSS('text-decoration-line', 'line-through');
+
+    await firstSeries.click();
+
+    const visibilityAfterShow = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('datasetVisibility') || '{}')
+    );
+    expect(visibilityAfterShow[hiddenSeries[0]]).toBe(true);
+    await expect(firstSeries).toHaveCSS('text-decoration-line', 'none');
   });
 
   test('should persist series visibility in localStorage', async ({ page }) => {
