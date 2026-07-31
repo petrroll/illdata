@@ -753,6 +753,29 @@ describe('computeRatioTimeseries Tests', () => {
         expect(series.ageGroup).toBe('00+');
     });
 
+    test('averaged series use their raw source so ratios match the trends table', () => {
+        const dates = makeDates(30);
+        const raw: PositivitySeries = {
+            name: 'PCR Positivity',
+            values: Array.from({ length: 30 }, (_, i) => ({ positive: i + 1, tests: 100 })),
+            type: 'raw',
+            frequencyInDays: 1,
+            dataType: 'positivity'
+        };
+        const data = computeMovingAverageTimeseries({ dates, series: [raw] }, [7]);
+
+        const result = computeRatioTimeseries(data, 7);
+        const rawRatio = result.series[0] as ScalarSeries;
+        const averagedRatio = result.series[1] as ScalarSeries;
+
+        expect(averagedRatio.name).toBe('PCR Positivity (7d avg)');
+        // The averaged variant is only a smoothed view of the raw series, so its ratio has to
+        // match the raw one - which is the number shown in the trends table.
+        expect(averagedRatio.values.map(v => v.virusLoad)).toEqual(rawRatio.values.map(v => v.virusLoad));
+        // Last point: positivity of days 24-30 vs days 17-23
+        expect(averagedRatio.values[29].virusLoad).toBeCloseTo(189 / 140, 10);
+    });
+
     test('ratios of a shifted series match the ratios of its base series', () => {
         const base: TimeseriesData = {
             dates: makeDates(20),

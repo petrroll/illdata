@@ -494,26 +494,54 @@ export function calculateRatios(data: TimeseriesData, visibleMainSeries: string[
  * Series names and metadata are preserved so visibility, colors, extremes matching and
  * shifting keep working; the resulting series are scalar with a `ratio` value format.
  * Points without a computable ratio are NaN so the chart leaves a gap.
+ *
+ * Averaged series are only smoothed views of a raw series, so their ratio is computed from
+ * the underlying raw series when it is available. Using the averaged values would average
+ * the data twice (and the centered moving average truncates at the end of the series),
+ * which would disagree with the numbers shown in the trends table.
  */
 export function computeRatioTimeseries(data: TimeseriesData, periodDays: number): TimeseriesData {
-    const ratioSeries = data.series.map((series): ScalarSeries => ({
-        name: series.name,
-        type: series.type,
-        frequencyInDays: series.frequencyInDays,
-        ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {}),
-        ...(series.shiftedByIndexes !== undefined ? { shiftedByIndexes: series.shiftedByIndexes } : {}),
-        ...(series.country ? { country: series.country } : {}),
-        ...(series.survtype ? { survtype: series.survtype } : {}),
-        ...(series.ageGroup ? { ageGroup: series.ageGroup } : {}),
-        values: series.values.map((_, index) => {
-            const ratio = calculatePeriodRatio(series, index, periodDays);
-            return { virusLoad: ratio !== null && Number.isFinite(ratio) ? ratio : NaN };
-        }),
-        dataType: 'scalar' as const,
-        valueFormat: 'ratio' as const
-    }));
+    const rawSeriesByKey = new Map<string, DataSeries>(
+        data.series.filter(series => series.type === 'raw').map(series => [ratioSourceKey(series), series])
+    );
+
+    const ratioSeries = data.series.map((series): ScalarSeries => {
+        const source = series.type === 'averaged'
+            ? (rawSeriesByKey.get(ratioSourceKey(series)) ?? series)
+            : series;
+
+        return {
+            name: series.name,
+            type: series.type,
+            frequencyInDays: series.frequencyInDays,
+            ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {}),
+            ...(series.shiftedByIndexes !== undefined ? { shiftedByIndexes: series.shiftedByIndexes } : {}),
+            ...(series.country ? { country: series.country } : {}),
+            ...(series.survtype ? { survtype: series.survtype } : {}),
+            ...(series.ageGroup ? { ageGroup: series.ageGroup } : {}),
+            values: series.values.map((_, index) => {
+                const ratio = calculatePeriodRatio(source, index, periodDays);
+                return { virusLoad: ratio !== null && Number.isFinite(ratio) ? ratio : NaN };
+            }),
+            dataType: 'scalar' as const,
+            valueFormat: 'ratio' as const
+        };
+    });
 
     return { ...data, series: ratioSeries };
+}
+
+/**
+ * Key identifying the underlying raw series of an averaged series (name without the averaging
+ * window plus the metadata that distinguishes otherwise identically named series).
+ */
+function ratioSourceKey(series: DataSeries): string {
+    return [
+        getExtremeMatchSeriesName(series.name),
+        series.country ?? '',
+        series.survtype ?? '',
+        series.ageGroup ?? ''
+    ].join('|');
 }
 
 function calculateLatestFinitePeriodRatio(series: DataSeries, endIndex: number, periodDays: number): { ratio: number | null; endIndex: number | null } {
