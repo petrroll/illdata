@@ -38,7 +38,8 @@ describe('Unified Settings Tests', () => {
             showShiftedTestNumbers: false,
             showNonAveragedSeries: true,
             shiftOverride: 1,
-            alignByExtreme: 'maxima'
+            alignByExtreme: 'maxima',
+            derivativeView: 'off'
         };
         
         saveAppSettings(customSettings);
@@ -131,7 +132,8 @@ describe('Unified Settings Tests', () => {
             showShiftedTestNumbers: false,
             showNonAveragedSeries: false,  // Test with default value
             shiftOverride: 1,
-            alignByExtreme: 'maxima'
+            alignByExtreme: 'maxima',
+            derivativeView: 'off'
         };
         
         saveAppSettings(customSettings);
@@ -151,7 +153,8 @@ describe('Unified Settings Tests', () => {
             showShiftedTestNumbers: true,  // Enable the new setting
             showNonAveragedSeries: true,
             shiftOverride: 1,
-            alignByExtreme: 'maxima'
+            alignByExtreme: 'maxima',
+            derivativeView: 'off'
         };
         
         saveAppSettings(customSettings);

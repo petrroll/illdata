@@ -31,6 +31,10 @@ export interface Translations {
     shiftByDays: string;
     shiftByMaxima: string;
     shiftByMinima: string;
+    derivativeViewLabel: string;
+    derivativeViewOff: string;
+    derivativeViewRatio7d: string;
+    derivativeViewRatio28d: string;
     hideAllButton: string;
     
     // Charts
@@ -249,6 +253,10 @@ const en: Translations = {
     shiftByDays: 'Days',
     shiftByMaxima: 'Maxima',
     shiftByMinima: 'Minima',
+    derivativeViewLabel: 'View:',
+    derivativeViewOff: 'Absolute Values',
+    derivativeViewRatio7d: '7d Ratio',
+    derivativeViewRatio28d: '28d Ratio',
     hideAllButton: 'Hide All Series',
     
     // Charts
@@ -419,6 +427,10 @@ const cs: Translations = {
     shiftByDays: 'Dny',
     shiftByMaxima: 'Maxima',
     shiftByMinima: 'Minima',
+    derivativeViewLabel: 'Zobrazení:',
+    derivativeViewOff: 'Absolutní hodnoty',
+    derivativeViewRatio7d: 'Poměr 7 dní',
+    derivativeViewRatio28d: 'Poměr 28 dní',
     hideAllButton: 'Skrýt všechny série',
     
     // Charts

@@ -34,7 +34,8 @@ describe('URL State Management Tests', () => {
             showShiftedTestNumbers: true,
             showNonAveragedSeries: true,
             shiftOverride: 2,
-            alignByExtreme: 'minima'
+            alignByExtreme: 'minima',
+            derivativeView: 'off'
         };
         
         const chartConfigs: UrlChartConfig[] = [];
@@ -153,7 +154,8 @@ describe('URL State Management Tests', () => {
             showShiftedTestNumbers: false,
             showNonAveragedSeries: true,
             shiftOverride: 3,
-            alignByExtreme: 'days'
+            alignByExtreme: 'days',
+            derivativeView: 'off'
         };
         
         const chartConfigs: UrlChartConfig[] = [
@@ -237,7 +239,8 @@ describe('URL State Management Tests', () => {
             showShiftedTestNumbers: false,
             showNonAveragedSeries: true,
             shiftOverride: 1,
-            alignByExtreme: 'maxima'
+            alignByExtreme: 'maxima',
+            derivativeView: 'off'
         };
         
         const chartConfigs: UrlChartConfig[] = [
