@@ -58,7 +58,7 @@ export interface PositivitySeries extends LinearSeries {
 export interface ScalarSeries extends LinearSeries {
     values: ScalarDatapoint[];
     dataType: 'scalar';
-    valueFormat?: 'scientific' | 'number';
+    valueFormat?: 'scientific' | 'number' | 'ratio';
 }
 
 export interface ExtremeSeries {
@@ -484,6 +484,36 @@ export function calculateRatios(data: TimeseriesData, visibleMainSeries: string[
             lastDataDate: new Date(data.dates[lastRatioIndex])
         };
     });
+}
+
+/**
+ * Converts every series into a "derivative" (ratio) series where each point is the ratio
+ * between the average of the last `periodDays` ending at that point and the average of the
+ * `periodDays` before it - the same measure as the trends table, computed for every date.
+ *
+ * Series names and metadata are preserved so visibility, colors, extremes matching and
+ * shifting keep working; the resulting series are scalar with a `ratio` value format.
+ * Points without a computable ratio are NaN so the chart leaves a gap.
+ */
+export function computeRatioTimeseries(data: TimeseriesData, periodDays: number): TimeseriesData {
+    const ratioSeries = data.series.map((series): ScalarSeries => ({
+        name: series.name,
+        type: series.type,
+        frequencyInDays: series.frequencyInDays,
+        ...(series.windowSizeInDays ? { windowSizeInDays: series.windowSizeInDays } : {}),
+        ...(series.shiftedByIndexes !== undefined ? { shiftedByIndexes: series.shiftedByIndexes } : {}),
+        ...(series.country ? { country: series.country } : {}),
+        ...(series.survtype ? { survtype: series.survtype } : {}),
+        ...(series.ageGroup ? { ageGroup: series.ageGroup } : {}),
+        values: series.values.map((_, index) => {
+            const ratio = calculatePeriodRatio(series, index, periodDays);
+            return { virusLoad: ratio !== null && Number.isFinite(ratio) ? ratio : NaN };
+        }),
+        dataType: 'scalar' as const,
+        valueFormat: 'ratio' as const
+    }));
+
+    return { ...data, series: ratioSeries };
 }
 
 function calculateLatestFinitePeriodRatio(series: DataSeries, endIndex: number, periodDays: number): { ratio: number | null; endIndex: number | null } {

@@ -9,6 +9,7 @@ import {
     isScalarSeries,
     compareByPreferredOrder,
     calculateRatios,
+    computeRatioTimeseries,
     trendFromRatio,
     type PositivitySeries, 
     type ScalarSeries,
@@ -671,6 +672,106 @@ describe('calculateRatios Tests', () => {
 
         expect(ratio.ratio28days).toBe(0);
         expect(ratio.lastDataDate?.toISOString().split('T')[0]).toBe(data.dates[18]);
+    });
+});
+
+describe('computeRatioTimeseries Tests', () => {
+    const makeDates = (count: number) => Array.from({ length: count }, (_, i) => {
+        const date = new Date(Date.UTC(2025, 0, 1 + i));
+        return date.toISOString().split('T')[0];
+    });
+
+    test('converts a scalar series into now vs previous period ratios', () => {
+        const data: TimeseriesData = {
+            dates: makeDates(14),
+            series: [{
+                name: 'Wastewater',
+                // First week all 1s, second week all 2s => ratio of 2 at the end
+                values: [...Array(7).fill(1), ...Array(7).fill(2)].map(virusLoad => ({ virusLoad })),
+                type: 'raw',
+                frequencyInDays: 1,
+                dataType: 'scalar'
+            }]
+        };
+
+        const result = computeRatioTimeseries(data, 7);
+        const series = result.series[0] as ScalarSeries;
+
+        expect(result.dates).toEqual(data.dates);
+        expect(series.name).toBe('Wastewater');
+        expect(series.dataType).toBe('scalar');
+        expect(series.valueFormat).toBe('ratio');
+        expect(series.values).toHaveLength(14);
+        expect(series.values[13].virusLoad).toBeCloseTo(2, 10);
+        // Not enough history for the very first point
+        expect(Number.isNaN(series.values[0].virusLoad)).toBe(true);
+    });
+
+    test('converts a positivity series using positivity percentages', () => {
+        const data: TimeseriesData = {
+            dates: makeDates(14),
+            series: [{
+                name: 'COVID Positivity',
+                values: [
+                    ...Array(7).fill({ positive: 10, tests: 100 }),
+                    ...Array(7).fill({ positive: 30, tests: 100 })
+                ],
+                type: 'raw',
+                frequencyInDays: 1,
+                dataType: 'positivity'
+            }]
+        };
+
+        const series = computeRatioTimeseries(data, 7).series[0] as ScalarSeries;
+
+        expect(series.dataType).toBe('scalar');
+        expect(series.values[13].virusLoad).toBeCloseTo(3, 10);
+    });
+
+    test('preserves metadata so shifting and filtering keep working', () => {
+        const data: TimeseriesData = {
+            dates: makeDates(10),
+            series: [{
+                name: 'Influenza (7d avg)',
+                values: Array.from({ length: 10 }, (_, i) => ({ virusLoad: i + 1 })),
+                type: 'averaged',
+                windowSizeInDays: 7,
+                frequencyInDays: 1,
+                country: 'Czechia',
+                survtype: 'sentinel',
+                ageGroup: '00+',
+                dataType: 'scalar'
+            }]
+        };
+
+        const series = computeRatioTimeseries(data, 7).series[0] as ScalarSeries;
+
+        expect(series.type).toBe('averaged');
+        expect(series.windowSizeInDays).toBe(7);
+        expect(series.country).toBe('Czechia');
+        expect(series.survtype).toBe('sentinel');
+        expect(series.ageGroup).toBe('00+');
+    });
+
+    test('ratios of a shifted series match the ratios of its base series', () => {
+        const base: TimeseriesData = {
+            dates: makeDates(20),
+            series: [{
+                name: 'Wastewater',
+                values: Array.from({ length: 20 }, (_, i) => ({ virusLoad: i + 1 })),
+                type: 'raw',
+                frequencyInDays: 1,
+                dataType: 'scalar'
+            }]
+        };
+
+        const ratios = computeRatioTimeseries(base, 7);
+        const shiftedRatios = getNewWithCustomShift(ratios, -3, false);
+        const shifted = shiftedRatios.series.find(s => s.name.includes('shifted')) as ScalarSeries;
+        const unshifted = ratios.series[0] as ScalarSeries;
+
+        // The shifted ratio series is just the ratio series translated in time
+        expect(shifted.values[10].virusLoad).toBeCloseTo(unshifted.values[7].virusLoad, 10);
     });
 });
 

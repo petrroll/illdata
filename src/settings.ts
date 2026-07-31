@@ -4,6 +4,10 @@
 // Alignment method type: 'days' for manual shift by days, 'maxima'/'minima' for automatic wave alignment
 export type AlignByExtreme = 'days' | 'maxima' | 'minima';
 
+// Derivative view: 'off' shows absolute values, '7'/'28' show the ratio between the last
+// 7 (resp. 28) days and the 7 (resp. 28) days before them - the same measure as the trends table
+export type DerivativeView = 'off' | '7' | '28';
+
 export interface AppSettings {
     timeRange: string;
     includeFuture: boolean;
@@ -18,6 +22,8 @@ export interface AppSettings {
     shiftOverride: number | null;
     // Alignment method: 'days' for manual shift, 'maxima'/'minima' for automatic alignment
     alignByExtreme: AlignByExtreme;
+    // Derivative (ratio) view: show the now vs previous period ratio instead of absolute values
+    derivativeView: DerivativeView;
 }
 
 // Default values for app settings
@@ -30,7 +36,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
     showShiftedTestNumbers: false,
     showNonAveragedSeries: false, // Hide non-averaged series by default
     shiftOverride: 1, // Default to 1 wave for maxima/minima alignment
-    alignByExtreme: 'maxima'
+    alignByExtreme: 'maxima',
+    derivativeView: 'off'
 };
 
 // Settings manager

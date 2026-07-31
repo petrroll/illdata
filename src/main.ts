@@ -6,7 +6,7 @@ import nlInfectieradarImport from "../data_processed/nl_infectieradar/positivity
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, type ScalarSeries, type Datapoint, type ScalarDatapoint, type TrendSuffixMarker, datapointToPercentage, compareLabels, getColorBaseSeriesName, getExtremeMatchSeriesName, isScalarSeries, compareByPreferredOrder } from "./utils";
+import { findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, type ScalarSeries, type Datapoint, type ScalarDatapoint, type TrendSuffixMarker, datapointToPercentage, compareLabels, getColorBaseSeriesName, getExtremeMatchSeriesName, isScalarSeries, compareByPreferredOrder, computeRatioTimeseries } from "./utils";
 import { getLanguage, setLanguage, getTranslations, translateSeriesName, normalizeSeriesName, type Language } from "./locales";
 import { createRegularLegendButton, createSplitTestPill, createSplitShiftedPill, type TrendRatioLookup, type ChartConfig as LegendChartConfig } from "./ui/legend-utils";
 import { 
@@ -21,7 +21,7 @@ import {
     getVisibilityDefault,
     shouldIncludeShiftedSeries
 } from "./series-utils";
-import { type AppSettings, type AlignByExtreme, DEFAULT_APP_SETTINGS, APP_SETTINGS_KEY, loadAppSettings, saveAppSettings, migrateOldSettings } from "./settings";
+import { type AppSettings, type AlignByExtreme, type DerivativeView, DEFAULT_APP_SETTINGS, APP_SETTINGS_KEY, loadAppSettings, saveAppSettings, migrateOldSettings } from "./settings";
 import { type UrlState, type UrlChartConfig, encodeUrlState, decodeUrlState, loadStateFromUrl, applyUrlState } from "./urlstate";
 import { extractShiftFromLabel } from "./tooltip";
 import { adjustColorForTestBars } from "./color";
@@ -928,7 +928,8 @@ function renderPage(rootDiv: HTMLElement | null) {
                     appSettings.alignByExtreme,
                     countryFilter,
                     survtypeFilter,
-                    ageGroupFilter
+                    ageGroupFilter,
+                    appSettings.derivativeView
                 );
             }
         });
@@ -1090,6 +1091,23 @@ function renderPage(rootDiv: HTMLElement | null) {
         }
     });
   
+    // Derivative (ratio) view selector: switch charts between absolute values and
+    // the now vs last 7/28 days ratio (same measure as the trends table)
+    createUnifiedSettingsControl({
+        type: 'select',
+        id: 'derivativeViewSelect',
+        label: translations.derivativeViewLabel,
+        container: rootDiv,
+        settingKey: 'derivativeView',
+        values: [
+            { value: 'off', label: translations.derivativeViewOff },
+            { value: '7', label: translations.derivativeViewRatio7d },
+            { value: '28', label: translations.derivativeViewRatio28d }
+        ],
+        settings: appSettings,
+        onChange: onSettingsChange
+    });
+
     // Create country selectors for charts that have them
     chartConfigs.forEach(cfg => {
         if (cfg.hasCountryFilter && cfg.countryFilterKey) {
@@ -1377,7 +1395,16 @@ function getSortedSeriesWithIndices(series: DataSeries[]): { series: DataSeries,
     return seriesWithIndices;
 }
 
-function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false, showNonAveragedSeries: boolean = false, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima', countryFilter?: string, survtypeFilter?: string, ageGroupFilter?: string) {
+/**
+ * Maps the derivative view setting to the ratio period in days (null when disabled).
+ */
+function derivativeViewPeriodDays(derivativeView: DerivativeView): number | null {
+    if (derivativeView === '7') return 7;
+    if (derivativeView === '28') return 28;
+    return null;
+}
+
+function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false, showNonAveragedSeries: boolean = false, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima', countryFilter?: string, survtypeFilter?: string, ageGroupFilter?: string, derivativeView: DerivativeView = 'off') {
     // Destroy existing chart if it exists
     if (cfg.chartHolder.chart) {
         cfg.chartHolder.chart.destroy();
@@ -1485,12 +1512,13 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     }
     
     // Apply shift based on settings
-    if (alignByExtreme === 'days') {
-        // Manual shift by specified number of days (use 0 if null)
-        // Negate the value so positive inputs shift backward (show past data)
-        const shiftDays = -(shiftOverride ?? 0);
-        data = getNewWithCustomShift(data, shiftDays, true);
-    } else {
+    const applyShift = (input: TimeseriesData): TimeseriesData => {
+        if (alignByExtreme === 'days') {
+            // Manual shift by specified number of days (use 0 if null)
+            // Negate the value so positive inputs shift backward (show past data)
+            const shiftDays = -(shiftOverride ?? 0);
+            return getNewWithCustomShift(input, shiftDays, true);
+        }
         // Use automatic alignment based on extreme type preference and wave count
         const extremesToAlign = alignByExtreme === 'maxima' ? filteredMaximaSeries : filteredMinimaSeries;
         // Use shiftOverride to specify how many waves back to align to the last wave
@@ -1498,8 +1526,17 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         // waveCount = 2 means align the 2nd wave back (3rd-to-last) to the last wave
         const waveCount = (shiftOverride && shiftOverride > 0) ? shiftOverride : 1;
         // Always align to the last wave (index 1), from wave at index (1 + waveCount)
-        data = getNewWithSifterToAlignExtremeDates(data, extremesToAlign, 1, 1 + waveCount, true);
-    }
+        return getNewWithSifterToAlignExtremeDates(input, extremesToAlign, 1, 1 + waveCount, true);
+    };
+
+    // In derivative view every series is replaced by its now-vs-previous-period ratio.
+    // The ratio is computed before shifting (shifting only translates values in time) and
+    // extremes are still derived from the absolute values, so wave alignment is unaffected.
+    const derivativePeriodDays = derivativeViewPeriodDays(derivativeView);
+    const absoluteShiftedData = applyShift(data);
+    data = derivativePeriodDays === null
+        ? absoluteShiftedData
+        : applyShift(computeRatioTimeseries(data, derivativePeriodDays));
 
     // End cutoff based on future inclusion flag
     const todayString = new Date().toISOString().split('T')[0];
@@ -1667,15 +1704,19 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     });
     
     // Clean up visibility state for series that no longer exist
-    // This prevents localStorage from growing indefinitely with old shift values
-    Object.keys(cfg.datasetVisibility).forEach(storedName => {
-        if (!normalizedValidNames.has(storedName)) {
-            // Remove entries that are not in the current valid series list
-            // The visibility state has already been transferred to new series above
-            console.log(`Removing visibility for non-existing series: ${storedName}`);
-            delete cfg.datasetVisibility[storedName];
-        }
-    });
+    // This prevents localStorage from growing indefinitely with old shift values.
+    // Skipped in derivative view: it has no test-number bars, so cleaning up would drop
+    // their visibility state and leave them hidden after switching back to absolute values.
+    if (derivativePeriodDays === null) {
+        Object.keys(cfg.datasetVisibility).forEach(storedName => {
+            if (!normalizedValidNames.has(storedName)) {
+                // Remove entries that are not in the current valid series list
+                // The visibility state has already been transferred to new series above
+                console.log(`Removing visibility for non-existing series: ${storedName}`);
+                delete cfg.datasetVisibility[storedName];
+            }
+        });
+    }
     localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
 
     if (showExtremes) {
@@ -1717,7 +1758,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
             plugins: {
                 title: {
                     display: true,
-                    text: cfg.title
+                    text: derivativePeriodDays === null
+                        ? cfg.title
+                        : `${cfg.title} - ${derivativePeriodDays === 7 ? translations.derivativeViewRatio7d : translations.derivativeViewRatio28d}`
                 },
                 legend: {
                     display: false // We'll create a custom HTML legend instead
@@ -1741,9 +1784,13 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                             if (isNaN(value)) {
                                 formattedValue = 'N/A';
                             } else if (isScalarSeries(context.dataset)) {
-                                formattedValue = context.dataset.valueFormat === 'number'
-                                    ? value.toLocaleString()
-                                    : value.toExponential(3);
+                                if (context.dataset.valueFormat === 'ratio') {
+                                    formattedValue = `${value.toFixed(2)}x`;
+                                } else {
+                                    formattedValue = context.dataset.valueFormat === 'number'
+                                        ? value.toLocaleString()
+                                        : value.toExponential(3);
+                                }
                             } else {
                                 // For positivity data, show as decimal (values are percentages like 5.123 meaning 5.123%)
                                 formattedValue = value.toFixed(3);
@@ -1829,6 +1876,10 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     ticks: {
                         callback: function(tickValue: string | number) {
                             if (typeof tickValue === 'number') {
+                                // In derivative view all series are unitless ratios
+                                if (derivativePeriodDays !== null) {
+                                    return `${tickValue.toFixed(2)}x`;
+                                }
                                 // Check if this is a scalar series chart (e.g., wastewater)
                                 if (hasScalarSeries) {
                                     return usesNumberFormat ? tickValue.toLocaleString() : tickValue.toExponential(2);
@@ -1862,7 +1913,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     });
 
     // Create custom HTML legend with colored background boxes
-    createCustomHtmlLegend(newChart, cfg, data);
+    // Trend dots always reflect the absolute series, not the ratio view
+    createCustomHtmlLegend(newChart, cfg, absoluteShiftedData);
     
     return newChart;
 }
@@ -2185,6 +2237,11 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
             // For scalar series, use the value directly (no percentage conversion)
             chartData = series.values.slice(startIdx, endIdx).map((dp) => {
                 if (!dp) return 0;
+                // Ratio (derivative view) series have no meaningful zero: missing ratios and
+                // shift padding are rendered as gaps instead of dropping the line to zero.
+                if (series.valueFormat === 'ratio') {
+                    return Number.isFinite(dp.virusLoad) && dp.virusLoad > 0 ? dp.virusLoad : NaN;
+                }
                 return dp.virusLoad || 0;
             });
         } else {
