@@ -1745,13 +1745,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            transitions: {
-                active: {
-                    animation: {
-                        duration: 0
-                    }
-                }
-            },
+            animation: false,
             layout: {
                 padding: {
                     bottom: 10  // Add padding to accommodate rotated x-axis labels

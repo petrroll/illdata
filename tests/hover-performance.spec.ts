@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('hovering test-number bars does not keep redrawing the chart', async ({ page }) => {
+test('hovering and toggling test-number bars does not keep redrawing the chart', async ({ page }) => {
   await page.addInitScript(() => {
     const originalClearRect = CanvasRenderingContext2D.prototype.clearRect;
     (window as typeof window & { chartClears: number }).chartClears = 0;
@@ -19,7 +19,7 @@ test('hovering test-number bars does not keep redrawing the chart', async ({ pag
 
   const box = await canvas.boundingBox();
   expect(box).not.toBeNull();
-  await page.mouse.move(box!.x + box!.width / 3, box!.y + box!.height / 2);
+  await page.mouse.move(box!.x + box!.width - 1, box!.y + box!.height / 2);
   await page.waitForTimeout(50);
   await page.evaluate(() => {
     (window as typeof window & { chartClears: number }).chartClears = 0;
@@ -30,4 +30,18 @@ test('hovering test-number bars does not keep redrawing the chart', async ({ pag
     () => (window as typeof window & { chartClears: number }).chartClears
   );
   expect(redrawsAfterHover).toBe(0);
+
+  const showTestNumbersCheckbox = page.locator('#showTestNumbersCheckbox');
+  await showTestNumbersCheckbox.uncheck();
+  await showTestNumbersCheckbox.check();
+  await page.waitForTimeout(50);
+  await page.evaluate(() => {
+    (window as typeof window & { chartClears: number }).chartClears = 0;
+  });
+
+  await page.waitForTimeout(500);
+  const redrawsAfterToggle = await page.evaluate(
+    () => (window as typeof window & { chartClears: number }).chartClears
+  );
+  expect(redrawsAfterToggle).toBe(0);
 });
