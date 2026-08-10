@@ -1,5 +1,15 @@
 import { test, expect } from '@playwright/test';
 
+test('about pages explain the Infectieradar publication delay', async ({ page }) => {
+  await page.goto('/about.html');
+  const englishSource = page.locator('.data-source').filter({ hasText: 'Netherlands Infectieradar Pathogens' });
+  await expect(englishSource).toContainText('published after an approximately two-week laboratory processing delay');
+
+  await page.goto('/about-cs.html');
+  const czechSource = page.locator('.data-source').filter({ hasText: 'Patogeny Infectieradar Nizozemsko' });
+  await expect(czechSource).toContainText('zveřejňováno přibližně s dvoutýdenním zpožděním kvůli laboratornímu zpracování');
+});
+
 // Helper function to change language via DOM interaction
 async function changeLanguage(page: any, lang: 'en' | 'cs') {
   const languageSelect = page.locator('#languageSelect');

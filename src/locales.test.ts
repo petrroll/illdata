@@ -17,14 +17,7 @@ Object.defineProperty(global, 'localStorage', {
     writable: true
 });
 
-import { translateSeriesName, normalizeSeriesName, setLanguage, getLanguage, getTranslations } from './locales';
-
-describe('Source Information Tests', () => {
-    test('explains the Infectieradar laboratory publication delay in both languages', () => {
-        expect(getTranslations('en').aboutNlInfectieradarFrequency).toContain('two-week');
-        expect(getTranslations('cs').aboutNlInfectieradarFrequency).toContain('dvoutýdenní');
-    });
-});
+import { translateSeriesName, normalizeSeriesName, setLanguage, getLanguage } from './locales';
 
 describe('Series Name Translation Tests', () => {
     beforeEach(() => {
