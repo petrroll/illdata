@@ -1745,6 +1745,13 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            transitions: {
+                active: {
+                    animation: {
+                        duration: 0
+                    }
+                }
+            },
             layout: {
                 padding: {
                     bottom: 10  // Add padding to accommodate rotated x-axis labels
@@ -1766,6 +1773,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     display: false // We'll create a custom HTML legend instead
                 },
                 tooltip: {
+                    animation: false,
                     mode: 'index', // Snap tooltip to vertical line
                     intersect: false,
                     axis: 'x',
