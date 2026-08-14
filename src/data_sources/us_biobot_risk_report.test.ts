@@ -11,7 +11,7 @@ const feed = `
       <category><![CDATA[Risk Reports]]></category>
       <content:encoded><![CDATA[
         <img src="https://substackcdn.com/image/fetch/thumbnail.png" width="1200" height="630">
-        <img src="https://substack-post-media.s3.amazonaws.com/public/images/report.png" width="4086" height="3300">
+        <img src="https://biobot.io/wp-content/uploads/report.png" width="4086" height="3300">
       ]]></content:encoded>
     </item>
     <item>
@@ -31,7 +31,7 @@ describe("parseLatestBiobotRiskReport", () => {
         expect(parseLatestBiobotRiskReport(feed)).toEqual({
             title: "Respiratory Risk Report Week ending August 1, 2026",
             postUrl: "https://biobotanalytics.substack.com/p/latest-report?utm_source=feed&utm_medium=web",
-            imageUrl: "https://substack-post-media.s3.amazonaws.com/public/images/report.png",
+            imageUrl: "https://biobot.io/wp-content/uploads/report.png",
             publishedAt: "2026-08-07T12:00:00.000Z"
         });
     });
@@ -52,7 +52,7 @@ describe("parseLatestBiobotRiskReport", () => {
     test("rejects feeds without a safe report image", () => {
         const unsafe = feed
             .replace(/https:\/\/substackcdn\.com\/image\/fetch\/thumbnail\.png/g, "javascript:alert(1)")
-            .replace(/https:\/\/substack-post-media\.s3\.amazonaws\.com\/public\/images\/report\.png/g, "https://example.com/report.png")
+            .replace(/https:\/\/biobot\.io\/wp-content\/uploads\/report\.png/g, "https://example.com/report.png")
             .replace(/https:\/\/substackcdn\.com\/image\/fetch\/older\.png/g, "https://example.com/older.png");
 
         expect(() => parseLatestBiobotRiskReport(unsafe))

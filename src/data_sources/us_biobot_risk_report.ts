@@ -2,9 +2,9 @@ import { promises as fs } from "fs";
 import path from "path";
 import { getAbsolutePath } from "./ioUtils";
 
-const BIOBOT_FEED_URL = "https://biobotanalytics.substack.com/feed";
+const BIOBOT_FEED_URL = "https://biobot.io/risk-reports/feed/";
 const BIOBOT_POST_HOSTS = new Set(["biobotanalytics.substack.com", "biobot.io", "www.biobot.io"]);
-const BIOBOT_IMAGE_HOSTS = new Set(["substackcdn.com", "substack-post-media.s3.amazonaws.com"]);
+const BIOBOT_IMAGE_HOSTS = new Set(["substackcdn.com", "substack-post-media.s3.amazonaws.com", "biobot.io", "www.biobot.io"]);
 
 export interface BiobotRiskReport {
     title: string;
