@@ -30,11 +30,6 @@ function extractTag(xml: string, tag: string): string {
     return decodeEntities(match[1].replace(/^<!\[CDATA\[|\]\]>$/g, "").trim());
 }
 
-function extractTags(xml: string, tag: string): string[] {
-    return [...xml.matchAll(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, "gi"))]
-        .map(match => decodeEntities(match[1].replace(/^<!\[CDATA\[|\]\]>$/g, "").trim()));
-}
-
 function getAttribute(tag: string, name: string): string {
     const match = tag.match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i"));
     return decodeEntities(match?.[1] ?? match?.[2] ?? "");
@@ -71,14 +66,11 @@ export function parseLatestBiobotRiskReport(feedXml: string): BiobotRiskReport {
             const title = extractTag(item, "title");
             const postUrl = extractTag(item, "link");
             const publishedAt = new Date(extractTag(item, "pubDate"));
-            const categories = extractTags(item, "category");
-            const isRiskReport = /risk report/i.test(title)
-                || categories.some(category => /^risk reports?$/i.test(category));
             const imageUrl = extractLargestReportImage(
                 extractTag(item, "content:encoded") || extractTag(item, "description")
             );
 
-            if (!isRiskReport || !imageUrl || !isAllowedUrl(postUrl, BIOBOT_POST_HOSTS)
+            if (!imageUrl || !isAllowedUrl(postUrl, BIOBOT_POST_HOSTS)
                 || Number.isNaN(publishedAt.getTime())) {
                 return undefined;
             }
