@@ -3,6 +3,7 @@ import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_d
 import deWastewaterImport from "../data_processed/de_wastewater_amelag/wastewater_data.json" with { type: "json" };
 import deAreImport from "../data_processed/de_are/are_data.json" with { type: "json" };
 import nlInfectieradarImport from "../data_processed/nl_infectieradar/positivity_data.json" with { type: "json" };
+import biobotRiskReportImport from "../data_processed/us_biobot/latest_risk_report.json" with { type: "json" };
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
@@ -28,6 +29,7 @@ import { extractShiftFromLabel } from "./tooltip";
 import { adjustColorForTestBars } from "./color";
 import { compareTooltipItems, type TooltipItem } from "./tooltip-formatting";
 import { assembleCustomGraphData, getCustomGraphYAxisID, type CustomGraphSelection, type CustomGraphView, type SourceChartInfo } from "./custom-graph";
+import type { BiobotRiskReport } from "./data_sources/us_biobot_risk_report";
 
 interface DataSourceStatus {
     name: string;
@@ -42,6 +44,7 @@ const euPositivityEnhanced = euPositivityImport as TimeseriesData;
 const deWastewaterEnhanced = deWastewaterImport as TimeseriesData;
 const nlInfectieradarEnhanced = nlInfectieradarImport as TimeseriesData;
 const deAreEnhanced = deAreImport as TimeseriesData;
+const biobotRiskReport = biobotRiskReportImport as BiobotRiskReport | null;
 
 // Constants for chart styling
 const SHIFTED_LINE_DASH_PATTERN = [15, 1]; // Dash pattern for shifted series: [dash length, gap length] - very subtle, almost solid pattern
@@ -215,6 +218,42 @@ function updateDataSourceStatusNotice(rootDiv: HTMLElement) {
     notice.title = failedSources
         .map(source => `${source.name}: ${source.error ?? "Unknown error"}`)
         .join("\n");
+}
+
+function renderBiobotRiskReport() {
+    const reportContainer = document.getElementById("biobotRiskReportContainer");
+    if (!reportContainer) return;
+
+    reportContainer.replaceChildren();
+    reportContainer.hidden = !biobotRiskReport;
+    if (!biobotRiskReport) return;
+
+    const heading = document.createElement("h3");
+    heading.textContent = translations.biobotReportHeading;
+
+    const reportLink = document.createElement("a");
+    reportLink.href = biobotRiskReport.postUrl;
+    reportLink.target = "_blank";
+    reportLink.rel = "noopener noreferrer";
+
+    const image = document.createElement("img");
+    image.src = biobotRiskReport.imageUrl;
+    image.alt = biobotRiskReport.title;
+    image.loading = "lazy";
+    image.style.cssText = "display: block; width: 100%; height: auto;";
+    reportLink.appendChild(image);
+
+    const caption = document.createElement("p");
+    caption.append(`${translations.biobotReportAttribution} · `);
+    const originalLink = document.createElement("a");
+    originalLink.href = biobotRiskReport.postUrl;
+    originalLink.target = "_blank";
+    originalLink.rel = "noopener noreferrer";
+    originalLink.textContent = `${translations.biobotViewReport}: ${biobotRiskReport.title}`;
+    caption.appendChild(originalLink);
+
+    reportContainer.style.cssText = "width: min(960px, calc(100vw - 30px));";
+    reportContainer.append(heading, reportLink, caption);
 }
 
 // Initialize UI texts
@@ -760,6 +799,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         'czechDataContainer',
         'euDataContainer',
         'deWastewaterContainer',
+        'biobotRiskReportContainer',
         'nlInfectieradarContainer',
         'deAreContainer',
         'customGraphContainer',
@@ -874,6 +914,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         console.error("Last update span not found");
     }
     updateDataSourceStatusNotice(rootDiv);
+    renderBiobotRiskReport();
 
     // Prepare chart canvases and holders
     chartConfigs.forEach(cfg => {
