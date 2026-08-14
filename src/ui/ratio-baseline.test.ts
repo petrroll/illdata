@@ -54,7 +54,7 @@ describe("drawRatioBaseline Tests", () => {
         expect(ctx.calls[ctx.calls.length - 1]?.op).toBe('restore');
     });
 
-    test("uses a stronger, solid line than regular grid lines", () => {
+    test("uses a solid line that is thicker than regular grid lines", () => {
         const ctx = createMockContext();
         const chart = {
             ctx,

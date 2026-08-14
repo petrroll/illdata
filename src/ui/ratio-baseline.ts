@@ -1,14 +1,14 @@
 // Chart.js plugin drawing an emphasized horizontal baseline at the 1x level.
 // Used in the derivative (ratio) view where 1x marks "no change" and therefore
-// deserves a stronger line than a regular grid line.
+// deserves a slightly more visible line than a regular grid line.
 
 import type { Plugin } from 'chart.js';
 
 /** The ratio value ("no change") the baseline is drawn at. */
 export const RATIO_BASELINE_VALUE = 1;
 
-const BASELINE_COLOR = 'rgba(0, 0, 0, 0.55)';
-const BASELINE_WIDTH = 2;
+const BASELINE_COLOR = 'rgba(0, 0, 0, 0.35)';
+const BASELINE_WIDTH = 1.5;
 
 interface BaselineDrawingContext {
     save(): void;

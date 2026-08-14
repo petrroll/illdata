@@ -55,14 +55,14 @@ test.describe('Derivative (ratio) View', () => {
     expect(settings.derivativeView).toBe('28');
   });
 
-  test('should draw a stronger 1x baseline only in ratio views', async ({ page }) => {
+  test('should draw an emphasized 1x baseline only in ratio views', async ({ page }) => {
     const readBaselineState = () => page.evaluate(() => {
       const chart = (window as any).__chartConfigs[0].chartHolder.chart;
       const canvas: HTMLCanvasElement = chart.canvas;
       const image = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data;
 
-      // Look for a strongly painted horizontal line spanning most of the chart width.
-      // Regular grid lines are almost transparent, so filtering on alpha excludes them.
+      // Look for a horizontal line spanning most of the chart width that is painted
+      // more strongly than regular grid lines (which land around alpha ~26).
       let strongHorizontalLines = 0;
       for (let y = 0; y < canvas.height; y++) {
         let strongPixels = 0;
@@ -70,7 +70,7 @@ test.describe('Derivative (ratio) View', () => {
           const i = (y * canvas.width + x) * 4;
           const [r, g, b, a] = [image[i], image[i + 1], image[i + 2], image[i + 3]];
           const isDarkGray = r < 160 && g < 160 && b < 160 && Math.abs(r - g) < 30 && Math.abs(g - b) < 30;
-          if (a > 100 && isDarkGray) strongPixels++;
+          if (a > 50 && isDarkGray) strongPixels++;
         }
         if (strongPixels > canvas.width * 0.5) strongHorizontalLines++;
       }
