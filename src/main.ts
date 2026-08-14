@@ -27,7 +27,7 @@ import { type UrlState, type UrlChartConfig, encodeUrlState, decodeUrlState, loa
 import { extractShiftFromLabel } from "./tooltip";
 import { adjustColorForTestBars } from "./color";
 import { compareTooltipItems, type TooltipItem } from "./tooltip-formatting";
-import { assembleCustomGraphData, type CustomGraphSelection, type SourceChartInfo } from "./custom-graph";
+import { assembleCustomGraphData, getCustomGraphYAxisID, type CustomGraphSelection, type CustomGraphView, type SourceChartInfo } from "./custom-graph";
 
 interface DataSourceStatus {
     name: string;
@@ -631,7 +631,7 @@ function createCustomGraphSeriesSelector(customGraphConfig: ChartConfig, showShi
     // Get current selections
     const currentSelections = loadCustomGraphSelections();
     const selectionSet = new Set(
-        currentSelections.map(s => `${s.sourceChartIndex}:${s.seriesName}`)
+        currentSelections.map(s => `${s.sourceChartIndex}:${s.seriesName}:${s.view ?? 'standard'}`)
     );
     
     // Create checkboxes for each source chart and its series
@@ -648,7 +648,6 @@ function createCustomGraphSeriesSelector(customGraphConfig: ChartConfig, showShi
         chartSection.appendChild(chartTitle);
         
         // Get available series from this chart
-        // Only show averaged positivity series (not scalar/wastewater) to keep scales compatible
         // Include/exclude shifted series based on settings toggle
         // Apply country filter from source chart so we only show series for the selected country
         let filteredSourceSeries = sourceChart.data.series;
@@ -668,7 +667,7 @@ function createCustomGraphSeriesSelector(customGraphConfig: ChartConfig, showShi
             filteredSourceSeries = filteredSourceSeries.filter(s => !s.ageGroup || s.ageGroup === ageGroup);
         }
         const availableSeries = filteredSourceSeries
-            .filter(s => s.type === 'averaged' && s.dataType === 'positivity' && (showShifted || !isShiftedSeries(s.name)))
+            .filter(s => showShifted || !isShiftedSeries(s.name))
             .sort((a, b) => compareLabels(a.name, b.name));
         
         // Deduplicate series by normalized name to avoid showing duplicates
@@ -682,45 +681,54 @@ function createCustomGraphSeriesSelector(customGraphConfig: ChartConfig, showShi
             return true;
         });
         
+        const views: Array<{ view: CustomGraphView; label?: string }> = [
+            { view: 'standard' },
+            { view: 'ratio7', label: translations.derivativeViewRatio7d },
+            { view: 'ratio28', label: translations.derivativeViewRatio28d }
+        ];
+
         uniqueSeries.forEach(series => {
             const normalizedName = normalizeSeriesName(series.name);
-            const selectionKey = `${chartIndex}:${normalizedName}`;
-            const isSelected = selectionSet.has(selectionKey);
-            
-            const checkboxWrapper = document.createElement('label');
-            checkboxWrapper.style.cssText = 'display: block; margin-left: 15px; margin-bottom: 3px;';
-            
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.checked = isSelected;
-            checkbox.style.marginRight = '5px';
-            checkbox.onchange = () => {
-                const selections = loadCustomGraphSelections();
-                if (checkbox.checked) {
-                    // Add selection
-                    selections.push({
-                        sourceChartIndex: chartIndex,
-                        seriesName: normalizedName
-                    });
-                } else {
-                    // Remove selection
-                    const index = selections.findIndex(
-                        s => s.sourceChartIndex === chartIndex && s.seriesName === normalizedName
-                    );
-                    if (index >= 0) {
-                        selections.splice(index, 1);
+            views.forEach(({ view, label: viewLabel }) => {
+                const selectionKey = `${chartIndex}:${normalizedName}:${view}`;
+                const isSelected = selectionSet.has(selectionKey);
+
+                const checkboxWrapper = document.createElement('label');
+                checkboxWrapper.style.cssText = 'display: block; margin-left: 15px; margin-bottom: 3px;';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = isSelected;
+                checkbox.style.marginRight = '5px';
+                checkbox.onchange = () => {
+                    const selections = loadCustomGraphSelections();
+                    if (checkbox.checked) {
+                        selections.push({
+                            sourceChartIndex: chartIndex,
+                            seriesName: normalizedName,
+                            ...(view === 'standard' ? {} : { view })
+                        });
+                    } else {
+                        const index = selections.findIndex(
+                            s => s.sourceChartIndex === chartIndex
+                                && s.seriesName === normalizedName
+                                && (s.view ?? 'standard') === view
+                        );
+                        if (index >= 0) {
+                            selections.splice(index, 1);
+                        }
                     }
-                }
-                saveCustomGraphSelections(selections);
-                onSelectionChange();
-            };
-            
-            const label = document.createElement('span');
-            label.textContent = translateSeriesName(series.name);
-            
-            checkboxWrapper.appendChild(checkbox);
-            checkboxWrapper.appendChild(label);
-            chartSection.appendChild(checkboxWrapper);
+                    saveCustomGraphSelections(selections);
+                    onSelectionChange();
+                };
+
+                const label = document.createElement('span');
+                label.textContent = `${translateSeriesName(series.name)}${viewLabel ? ` — ${viewLabel}` : ''}`;
+
+                checkboxWrapper.appendChild(checkbox);
+                checkboxWrapper.appendChild(label);
+                chartSection.appendChild(checkboxWrapper);
+            });
         });
         
         container.appendChild(chartSection);
@@ -930,7 +938,7 @@ function renderPage(rootDiv: HTMLElement | null) {
                     countryFilter,
                     survtypeFilter,
                     ageGroupFilter,
-                    appSettings.derivativeView
+                    cfg.isCustomGraph ? 'off' : appSettings.derivativeView
                 );
             }
         });
@@ -1594,13 +1602,15 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const paletteMap = createStablePaletteMapping(data.series, colorPalettes.length);
 
     let datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, colorPalettes, data, startIdx, endIdx, paletteMap);
-    let barDatasets = generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, colorPalettes, data, startIdx, endIdx, paletteMap, showShifted, showShiftedTestNumbers);
+    let barDatasets = cfg.isCustomGraph
+        ? []
+        : generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, colorPalettes, data, startIdx, endIdx, paletteMap, showShifted, showShiftedTestNumbers);
 
     // Filter shifted series based on showShifted setting
     datasets = datasets.filter(ds => shouldIncludeShiftedSeries(ds.label, showShifted));
 
     // Filter non-averaged (raw) series based on showNonAveragedSeries setting
-    if (!showNonAveragedSeries) {
+    if (!showNonAveragedSeries && !cfg.isCustomGraph) {
         // Find the corresponding series for each dataset and filter by type
         datasets = datasets.filter(ds => {
             const normalizedLabel = normalizeSeriesName(ds.label);
@@ -1687,7 +1697,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     cfg.datasetVisibility[normalizedName] = false;
                 } else {
                     const seriesType = normalizedNameToType.get(normalizedName);
-                    cfg.datasetVisibility[normalizedName] = getVisibilityDefault(normalizedName, showShifted, showTestNumbers, showShiftedTestNumbers, showNonAveragedSeries, seriesType);
+                    cfg.datasetVisibility[normalizedName] = cfg.isCustomGraph
+                        ? true
+                        : getVisibilityDefault(normalizedName, showShifted, showTestNumbers, showShiftedTestNumbers, showNonAveragedSeries, seriesType);
                 }
             }
         }
@@ -1877,6 +1889,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                 y: {
                     type: 'linear',
                     position: 'left',
+                    display: cfg.isCustomGraph ? 'auto' : true,
                     beginAtZero: true,
                     // Keep the 1x reference line in view even when all ratios stay below it
                     suggestedMax: derivativePeriodDays === null ? undefined : RATIO_BASELINE_VALUE,
@@ -1888,7 +1901,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                                     return `${tickValue.toFixed(2)}x`;
                                 }
                                 // Check if this is a scalar series chart (e.g., wastewater)
-                                if (hasScalarSeries) {
+                                if (hasScalarSeries && !cfg.isCustomGraph) {
                                     return usesNumberFormat ? tickValue.toLocaleString() : tickValue.toExponential(2);
                                 } else {
                                     // For positivity data, show as percentage
@@ -1902,6 +1915,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                 y1: {
                     type: 'linear',
                     position: 'right',
+                    display: !cfg.isCustomGraph,
                     beginAtZero: true,
                     ticks: {
                         callback: function(tickValue: string | number) {
@@ -1914,7 +1928,44 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     grid: {
                         drawOnChartArea: false, // Only draw grid lines for the left y-axis
                     }
-                }
+                },
+                ...(cfg.isCustomGraph ? {
+                    yRatio: {
+                        type: 'linear' as const,
+                        position: 'right' as const,
+                        display: 'auto' as const,
+                        beginAtZero: false,
+                        ticks: {
+                            callback: (tickValue: string | number) =>
+                                typeof tickValue === 'number' ? `${tickValue.toFixed(2)}x` : tickValue
+                        },
+                        grid: { drawOnChartArea: false }
+                    },
+                    yWastewater: {
+                        type: 'linear' as const,
+                        position: 'right' as const,
+                        display: 'auto' as const,
+                        beginAtZero: true,
+                        title: { display: true, text: 'DE-WW' },
+                        ticks: {
+                            callback: (tickValue: string | number) =>
+                                typeof tickValue === 'number' ? tickValue.toExponential(2) : tickValue
+                        },
+                        grid: { drawOnChartArea: false }
+                    },
+                    yIncidence: {
+                        type: 'linear' as const,
+                        position: 'right' as const,
+                        display: 'auto' as const,
+                        beginAtZero: true,
+                        title: { display: true, text: 'DE-ARE' },
+                        ticks: {
+                            callback: (tickValue: string | number) =>
+                                typeof tickValue === 'number' ? tickValue.toLocaleString() : tickValue
+                        },
+                        grid: { drawOnChartArea: false }
+                    }
+                } : {})
             }
         }
     });
@@ -2272,6 +2323,7 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
             spanGaps: false, // Don't connect across null values
             dataType: series.dataType,
             ...(isScalarSeries(series) && series.valueFormat ? { valueFormat: series.valueFormat } : {}),
+            ...(cfg.isCustomGraph ? { yAxisID: getCustomGraphYAxisID(series) } : {}),
         };
     });
 }

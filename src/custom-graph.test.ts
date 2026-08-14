@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { assembleCustomGraphData, type CustomGraphSelection, type SourceChartInfo } from './custom-graph';
+import { assembleCustomGraphData, getCustomGraphYAxisID, type CustomGraphSelection, type SourceChartInfo } from './custom-graph';
 import type { PositivitySeries, ScalarSeries, Datapoint } from './utils';
 
 // Helper to create a positivity series 
@@ -23,14 +23,15 @@ function makePositivitySeries(
 function makeScalarSeries(
     name: string, 
     values: { virusLoad: number }[], 
-    opts?: { type?: 'raw' | 'averaged' }
+    opts?: { type?: 'raw' | 'averaged'; valueFormat?: 'scientific' | 'number' }
 ): ScalarSeries {
     return {
         name,
         values,
         type: opts?.type ?? 'averaged',
         frequencyInDays: 7,
-        dataType: 'scalar'
+        dataType: 'scalar',
+        ...(opts?.valueFormat ? { valueFormat: opts.valueFormat } : {})
     };
 }
 
@@ -299,8 +300,31 @@ describe('assembleCustomGraphData', () => {
         });
     });
 
-    describe('scalar series filtering', () => {
-        test('excludes scalar/wastewater series', () => {
+    describe('series variants', () => {
+        test('includes raw and averaged versions of the same series', () => {
+            const chart: SourceChartInfo = {
+                data: {
+                    dates: ['2025-01-01'],
+                    series: [
+                        makePositivitySeries('PCR Positivity', [dp(10, 100)], { type: 'raw' }),
+                        makePositivitySeries('PCR Positivity (28d avg)', [dp(10, 100)])
+                    ]
+                },
+                shortTitle: 'MZCR'
+            };
+
+            const result = assembleCustomGraphData([
+                { sourceChartIndex: 0, seriesName: 'PCR Positivity' },
+                { sourceChartIndex: 0, seriesName: 'PCR Positivity (28d avg)' }
+            ], [chart], true);
+
+            expect(result.series.map(series => series.name)).toEqual([
+                'PCR Positivity (MZCR)',
+                'PCR Positivity (28d avg) (MZCR)'
+            ]);
+        });
+
+        test('includes scalar/wastewater series', () => {
             const chart: SourceChartInfo = {
                 data: {
                     dates: ['2025-01-01', '2025-01-08'],
@@ -316,7 +340,58 @@ describe('assembleCustomGraphData', () => {
             ];
 
             const result = assembleCustomGraphData(selections, [chart], true);
-            expect(result.series).toHaveLength(0);
+            expect(result.series).toHaveLength(1);
+            expect(result.series[0].dataType).toBe('scalar');
+            expect(result.series[0].name).toBe('SARS-CoV-2 Wastewater (28d avg) (DE-WW)');
+        });
+
+        test('includes absolute and ratio versions of the same series', () => {
+            const chart: SourceChartInfo = {
+                data: {
+                    dates: ['2025-01-01', '2025-01-08', '2025-01-15'],
+                    series: [
+                        makePositivitySeries('PCR Positivity', [
+                            dp(10, 100),
+                            dp(20, 100),
+                            dp(40, 100)
+                        ], { type: 'raw' })
+                    ]
+                },
+                shortTitle: 'MZCR'
+            };
+
+            const result = assembleCustomGraphData([
+                { sourceChartIndex: 0, seriesName: 'PCR Positivity' },
+                { sourceChartIndex: 0, seriesName: 'PCR Positivity', view: 'ratio7' }
+            ], [chart], true);
+
+            expect(result.series).toHaveLength(2);
+            expect(result.series[0].name).toBe('PCR Positivity (MZCR)');
+            expect(result.series[1].name).toBe('PCR Positivity (MZCR) - 7d Ratio');
+            expect(result.series[1].dataType).toBe('scalar');
+            expect((result.series[1] as ScalarSeries).valueFormat).toBe('ratio');
+            expect((result.series[1] as ScalarSeries).values[2].virusLoad).toBe(2);
+        });
+    });
+
+    describe('custom graph axes', () => {
+        test('keeps positivity, ratio, DE-WW, and DE-ARE units separate', () => {
+            const positivity = makePositivitySeries('PCR Positivity', [dp(10, 100)]);
+            const ratio: ScalarSeries = {
+                ...makeScalarSeries('PCR Positivity - 7d Ratio', [{ virusLoad: 1.2 }]),
+                valueFormat: 'ratio'
+            };
+            const wastewater = makeScalarSeries('SARS-CoV-2 Wastewater', [{ virusLoad: 100 }]);
+            const incidence = makeScalarSeries(
+                'COVID-19 SARI Hospitalization Incidence',
+                [{ virusLoad: 4.1 }],
+                { valueFormat: 'number' }
+            );
+
+            expect(getCustomGraphYAxisID(positivity)).toBe('y');
+            expect(getCustomGraphYAxisID(ratio)).toBe('yRatio');
+            expect(getCustomGraphYAxisID(wastewater)).toBe('yWastewater');
+            expect(getCustomGraphYAxisID(incidence)).toBe('yIncidence');
         });
     });
 

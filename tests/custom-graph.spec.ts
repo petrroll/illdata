@@ -64,6 +64,49 @@ test.describe('Custom Graph', () => {
     await expect(legend.locator('> span')).toHaveCount(3);
   });
 
+  test('allows raw and averaged versions of a series together', async ({ page }) => {
+    await page.locator('#customGraphToggleButton').click();
+
+    await page.locator('#customGraphSeriesSelector label', { hasText: /^PCR Positivity$/ }).locator('input').check();
+    await page.locator('#customGraphSeriesSelector label', { hasText: /^PCR Positivity \(28d avg\)$/ }).locator('input').check();
+
+    const legend = page.locator('#customGraphContainer-legend');
+    await expect(legend).toContainText('PCR Positivity (MZCR)');
+    await expect(legend).toContainText('PCR Positivity (28d avg) (MZCR)');
+
+    const visibility = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('customGraphVisibility') || '{}')
+    );
+    expect(visibility['PCR Positivity (MZCR)']).toBe(true);
+  });
+
+  test('allows absolute and ratio versions of a series together', async ({ page }) => {
+    await page.locator('#customGraphToggleButton').click();
+
+    await page.locator('#customGraphSeriesSelector label', { hasText: /^PCR Positivity$/ }).locator('input').check();
+    await page.locator('#customGraphSeriesSelector label', { hasText: /^PCR Positivity — 7d Ratio$/ }).locator('input').check();
+
+    const legend = page.locator('#customGraphContainer-legend');
+    await expect(legend).toContainText('PCR Positivity (MZCR)');
+    await expect(legend).toContainText('PCR Positivity (MZCR) - 7d Ratio');
+
+    const visibility = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('customGraphVisibility') || '{}')
+    );
+    expect(visibility['PCR Positivity (MZCR) - 7d Ratio']).toBe(true);
+  });
+
+  test('allows DE-WW and DE-ARE scalar series', async ({ page }) => {
+    await page.locator('#customGraphToggleButton').click();
+
+    await page.locator('#customGraphSeriesSelector label', { hasText: /^SARS-CoV-2 Wastewater \(28d avg\)$/ }).locator('input').check();
+    await page.locator('#customGraphSeriesSelector label', { hasText: /^COVID-19 SARI Hospitalization Incidence$/ }).locator('input').check();
+
+    const legend = page.locator('#customGraphContainer-legend');
+    await expect(legend).toContainText('SARS-CoV-2 Wastewater (28d avg) (DE-WW)');
+    await expect(legend).toContainText('COVID-19 SARI Hospitalization Incidence (DE-ARE)');
+  });
+
   test('legend keeps flex layout so pills stay spaced out', async ({ page }) => {
     // Regression for issue #176: toggling the legend visible reset display to ''
     // (block) which dropped the flex `gap`, bunching the pills together.
