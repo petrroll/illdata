@@ -11,6 +11,8 @@ import {
     calculateRatios,
     computeRatioTimeseries,
     trendFromRatio,
+    getLatestDataDate,
+    getDaysSince,
     type PositivitySeries, 
     type ScalarSeries,
     type ExtremeSeries,
@@ -1216,5 +1218,94 @@ describe('compareLabels Tests', () => {
         // Other types should be after
         expect(sorted[2]).toBe('Some Other Metric');
         expect(sorted[3]).toBe('Wastewater Data');
+    });
+});
+
+describe('getLatestDataDate Tests', () => {
+    const makePositivity = (values: Datapoint[], overrides: Partial<PositivitySeries> = {}): PositivitySeries => ({
+        name: 'PCR Positivity',
+        values,
+        type: 'raw',
+        frequencyInDays: 1,
+        dataType: 'positivity',
+        ...overrides
+    });
+
+    test('returns the last date that has a value', () => {
+        const data: TimeseriesData = {
+            dates: ['2024-01-01', '2024-01-02', '2024-01-03'],
+            series: [makePositivity([{ positive: 1, tests: 10 }, { positive: 2, tests: 20 }, { positive: 3, tests: 30 }])]
+        };
+        expect(getLatestDataDate(data)).toBe('2024-01-03');
+    });
+
+    test('ignores trailing placeholder values without tests', () => {
+        const data: TimeseriesData = {
+            dates: ['2024-01-01', '2024-01-02', '2024-01-03'],
+            series: [makePositivity([{ positive: 1, tests: 10 }, { positive: 0, tests: 0 }, { positive: 0, tests: 0 }])]
+        };
+        expect(getLatestDataDate(data)).toBe('2024-01-01');
+    });
+
+    test('uses the freshest series when sources have different lengths of data', () => {
+        const scalarSeries: ScalarSeries = {
+            name: 'Wastewater',
+            values: [{ virusLoad: 100 }, { virusLoad: 200 }, { virusLoad: NaN }],
+            type: 'raw',
+            frequencyInDays: 7,
+            dataType: 'scalar'
+        };
+        const data: TimeseriesData = {
+            dates: ['2024-01-01', '2024-01-02', '2024-01-03'],
+            series: [
+                makePositivity([{ positive: 1, tests: 10 }, { positive: 0, tests: 0 }, { positive: 0, tests: 0 }]),
+                scalarSeries
+            ]
+        };
+        expect(getLatestDataDate(data)).toBe('2024-01-02');
+    });
+
+    test('ignores shifted series because their dates are artificial', () => {
+        const data: TimeseriesData = {
+            dates: ['2024-01-01', '2024-01-02', '2024-01-03'],
+            series: [
+                makePositivity([{ positive: 1, tests: 10 }, { positive: 0, tests: 0 }, { positive: 0, tests: 0 }]),
+                makePositivity(
+                    [{ positive: 1, tests: 10 }, { positive: 2, tests: 20 }, { positive: 3, tests: 30 }],
+                    { name: 'PCR Positivity shifted by -100d', shiftedByIndexes: -100 }
+                )
+            ]
+        };
+        expect(getLatestDataDate(data)).toBe('2024-01-01');
+    });
+
+    test('returns null when there is no data at all', () => {
+        expect(getLatestDataDate({ dates: [], series: [] })).toBeNull();
+        expect(getLatestDataDate({
+            dates: ['2024-01-01'],
+            series: [makePositivity([{ positive: 0, tests: 0 }])]
+        })).toBeNull();
+    });
+});
+
+describe('getDaysSince Tests', () => {
+    test('returns 0 for the reference day itself', () => {
+        expect(getDaysSince('2024-03-10', new Date('2024-03-10T15:00:00Z'))).toBe(0);
+    });
+
+    test('counts whole days since the given date', () => {
+        expect(getDaysSince('2024-03-01', new Date('2024-03-10T00:00:00Z'))).toBe(9);
+    });
+
+    test('counts across month and year boundaries', () => {
+        expect(getDaysSince('2023-12-31', new Date('2024-01-02T00:00:00Z'))).toBe(2);
+    });
+
+    test('clamps future dates to 0', () => {
+        expect(getDaysSince('2024-03-20', new Date('2024-03-10T00:00:00Z'))).toBe(0);
+    });
+
+    test('returns NaN for an unparseable date', () => {
+        expect(getDaysSince('not-a-date', new Date('2024-03-10T00:00:00Z'))).toBeNaN();
     });
 });
