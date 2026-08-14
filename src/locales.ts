@@ -44,6 +44,9 @@ export interface Translations {
     chartTitleDeAre: string;
     chartTitleNlInfectieradar: string;
     chartTitleCustomGraph: string;
+    biobotReportHeading: string;
+    biobotReportAttribution: string;
+    biobotViewReport: string;
     countryLabel: string;
     survtypeLabel: string;
     survtypeBoth: string;
@@ -270,6 +273,9 @@ const en: Translations = {
     chartTitleDeAre: 'Germany SARI Hospitalization Incidence',
     chartTitleNlInfectieradar: 'Netherlands Infectieradar Pathogens',
     chartTitleCustomGraph: 'Custom Graph',
+    biobotReportHeading: 'US National Wastewater Risk Report',
+    biobotReportAttribution: 'Source: Biobot Analytics',
+    biobotViewReport: 'View original report',
     countryLabel: 'Country:',
     survtypeLabel: 'Surveillance Type:',
     survtypeBoth: 'Both',
@@ -448,6 +454,9 @@ const cs: Translations = {
     chartTitleDeAre: 'Německá hospitalizační incidence SARI',
     chartTitleNlInfectieradar: 'Patogeny Infectieradar Nizozemsko',
     chartTitleCustomGraph: 'Vlastní graf',
+    biobotReportHeading: 'Národní zpráva o rizicích z odpadních vod v USA',
+    biobotReportAttribution: 'Zdroj: Biobot Analytics',
+    biobotViewReport: 'Zobrazit původní zprávu',
     countryLabel: 'Země:',
     survtypeLabel: 'Typ sledování:',
     survtypeBoth: 'Obě',
