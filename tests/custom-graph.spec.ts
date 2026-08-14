@@ -73,6 +73,11 @@ test.describe('Custom Graph', () => {
     const legend = page.locator('#customGraphContainer-legend');
     await expect(legend).toContainText('PCR Positivity (MZCR)');
     await expect(legend).toContainText('PCR Positivity (28d avg) (MZCR)');
+
+    const visibility = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('customGraphVisibility') || '{}')
+    );
+    expect(visibility['PCR Positivity (MZCR)']).toBe(true);
   });
 
   test('allows absolute and ratio versions of a series together', async ({ page }) => {
@@ -84,6 +89,11 @@ test.describe('Custom Graph', () => {
     const legend = page.locator('#customGraphContainer-legend');
     await expect(legend).toContainText('PCR Positivity (MZCR)');
     await expect(legend).toContainText('PCR Positivity (MZCR) - 7d Ratio');
+
+    const visibility = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('customGraphVisibility') || '{}')
+    );
+    expect(visibility['PCR Positivity (MZCR) - 7d Ratio']).toBe(true);
   });
 
   test('allows DE-WW and DE-ARE scalar series', async ({ page }) => {

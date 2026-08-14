@@ -1696,7 +1696,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     cfg.datasetVisibility[normalizedName] = false;
                 } else {
                     const seriesType = normalizedNameToType.get(normalizedName);
-                    cfg.datasetVisibility[normalizedName] = getVisibilityDefault(normalizedName, showShifted, showTestNumbers, showShiftedTestNumbers, showNonAveragedSeries, seriesType);
+                    cfg.datasetVisibility[normalizedName] = cfg.isCustomGraph
+                        ? true
+                        : getVisibilityDefault(normalizedName, showShifted, showTestNumbers, showShiftedTestNumbers, showNonAveragedSeries, seriesType);
                 }
             }
         }
@@ -1908,6 +1910,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                 y1: {
                     type: 'linear',
                     position: 'right',
+                    display: !cfg.isCustomGraph,
                     beginAtZero: true,
                     ticks: {
                         callback: function(tickValue: string | number) {
