@@ -4,6 +4,7 @@ import { computeEuEcdcData, downloadEuEcdcData } from "./data_sources/eu_all_erv
 import { computeDeWastewaterData, downloadDeWastewaterData } from "./data_sources/de_wastewater_amelag";
 import { computeDeAreData, downloadDeAreData } from "./data_sources/de_are";
 import { computeNlInfectieradarData, downloadNlInfectieradarData, parseSemicolonCsv } from "./data_sources/nl_infectieradar";
+import { downloadBiobotRiskReportFeed, parseLatestBiobotRiskReport, type BiobotRiskReport } from "./data_sources/us_biobot_risk_report";
 import { promises as fs } from "fs";
 import { getAbsolutePath } from "./data_sources/ioUtils";
 import { computeMovingAverageTimeseries, type TimeseriesData } from "./utils";
@@ -14,6 +15,7 @@ const EU_ALLSENTINEL_ERVIS_POSITIVITY = "./data_processed/eu_sentinel_ervis/posi
 const DE_WASTEWATER_AMELAG = "./data_processed/de_wastewater_amelag/wastewater_data.json";
 const DE_ARE = "./data_processed/de_are/are_data.json";
 const NL_INFECTIERADAR_POSITIVITY = "./data_processed/nl_infectieradar/positivity_data.json";
+const US_BIOBOT_RISK_REPORT = "./data_processed/us_biobot/latest_risk_report.json";
 const TIMESTAMP_FILE = "./data_processed/timestamp.json";
 const EMPTY_TIMESERIES: TimeseriesData = { dates: [], series: [] };
 const AVERAGING_WINDOWS = [28];
@@ -109,6 +111,15 @@ export async function runDataProcessor() {
         data => addBuildTimeDerivedSeries(computeNlInfectieradarData(data)),
         NL_INFECTIERADAR_POSITIVITY,
         EMPTY_TIMESERIES
+    ));
+    sourceStatuses.push(await processSource<string, BiobotRiskReport | null>(
+        "US Biobot National Wastewater Risk Report",
+        downloadBiobotRiskReportFeed,
+        "biobot_risk_reports.xml",
+        async file => fs.readFile(getAbsolutePath(`./data/${file}`), "utf-8"),
+        parseLatestBiobotRiskReport,
+        US_BIOBOT_RISK_REPORT,
+        null
     ));
 
     await saveData({
