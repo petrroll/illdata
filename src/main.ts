@@ -9,6 +9,7 @@ import { Chart, Legend } from 'chart.js/auto';
 import { findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, type ScalarSeries, type Datapoint, type ScalarDatapoint, type TrendSuffixMarker, datapointToPercentage, compareLabels, getColorBaseSeriesName, getExtremeMatchSeriesName, isScalarSeries, compareByPreferredOrder, computeRatioTimeseries } from "./utils";
 import { getLanguage, setLanguage, getTranslations, translateSeriesName, normalizeSeriesName, type Language } from "./locales";
 import { createRegularLegendButton, createSplitTestPill, createSplitShiftedPill, type TrendRatioLookup, type ChartConfig as LegendChartConfig } from "./ui/legend-utils";
+import { ratioBaselinePlugin, RATIO_BASELINE_VALUE } from "./ui/ratio-baseline";
 import { 
     SHIFTED_SERIES_IDENTIFIER, 
     isShiftedSeries,
@@ -1742,6 +1743,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
             labels,
             datasets: allVisibleDatasets,
         },
+        // The 1x reference line only makes sense for ratio (derivative) views
+        plugins: derivativePeriodDays === null ? [] : [ratioBaselinePlugin],
         options: {
             responsive: true,
             maintainAspectRatio: false,
@@ -1875,6 +1878,8 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                     type: 'linear',
                     position: 'left',
                     beginAtZero: true,
+                    // Keep the 1x reference line in view even when all ratios stay below it
+                    suggestedMax: derivativePeriodDays === null ? undefined : RATIO_BASELINE_VALUE,
                     ticks: {
                         callback: function(tickValue: string | number) {
                             if (typeof tickValue === 'number') {
