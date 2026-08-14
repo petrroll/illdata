@@ -232,7 +232,7 @@ function renderBiobotRiskReport() {
     heading.textContent = translations.biobotReportHeading;
 
     const reportLink = document.createElement("a");
-    reportLink.href = biobotRiskReport.postUrl;
+    reportLink.href = biobotRiskReport.imageUrl;
     reportLink.target = "_blank";
     reportLink.rel = "noopener noreferrer";
 
@@ -240,7 +240,7 @@ function renderBiobotRiskReport() {
     image.src = biobotRiskReport.imageUrl;
     image.alt = biobotRiskReport.title;
     image.loading = "lazy";
-    image.style.cssText = "display: block; width: 100%; height: auto;";
+    image.style.cssText = "display: block; width: 100%; height: auto; background: #121212;";
     reportLink.appendChild(image);
 
     const caption = document.createElement("p");
