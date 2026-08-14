@@ -614,6 +614,36 @@ function seriesValueToNumber(series: DataSeries, index: number): number {
     return datapointToPercentage(series.values[index]);
 }
 
+/**
+ * Finds the most recent date for which at least one series has an actual (non-NaN) value.
+ * Shifted series are skipped because their dates are artificially moved in time.
+ * @param data - The timeseries data to inspect
+ * @returns The latest date with data in YYYY-MM-DD format, or null if there is none
+ */
+export function getLatestDataDate(data: TimeseriesData): string | null {
+    const unshiftedSeries = data.series.filter(series => series.shiftedByIndexes === undefined);
+    for (let index = data.dates.length - 1; index >= 0; index--) {
+        if (unshiftedSeries.some(series => !isNaN(seriesValueToNumber(series, index)))) {
+            return data.dates[index];
+        }
+    }
+    return null;
+}
+
+/**
+ * Number of whole days between a YYYY-MM-DD date and a reference date (today by default).
+ * Dates in the future report 0 so the UI never shows a negative age.
+ * @param dateString - Date in YYYY-MM-DD format
+ * @param referenceDate - Date to measure from, defaults to now
+ * @returns Whole days since the date, or NaN if the date cannot be parsed
+ */
+export function getDaysSince(dateString: string, referenceDate: Date = new Date()): number {
+    const date = Date.parse(`${dateString}T00:00:00Z`);
+    const reference = Date.parse(`${referenceDate.toISOString().split('T')[0]}T00:00:00Z`);
+    if (isNaN(date) || isNaN(reference)) return NaN;
+    return Math.max(0, Math.round((reference - date) / (24 * 60 * 60 * 1000)));
+}
+
 function calculateMedian(values: number[]): number {
     if (values.length === 0) return NaN;
     const sortedValues = [...values].sort((a, b) => a - b);

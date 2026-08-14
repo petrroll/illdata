@@ -6,8 +6,8 @@ import nlInfectieradarImport from "../data_processed/nl_infectieradar/positivity
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
-import { findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, type ScalarSeries, type Datapoint, type ScalarDatapoint, type TrendSuffixMarker, datapointToPercentage, compareLabels, getColorBaseSeriesName, getExtremeMatchSeriesName, isScalarSeries, compareByPreferredOrder, computeRatioTimeseries } from "./utils";
-import { getLanguage, setLanguage, getTranslations, translateSeriesName, normalizeSeriesName, type Language } from "./locales";
+import { findLocalExtreme, filterExtremesByMedianThreshold, getNewWithSifterToAlignExtremeDates, getNewWithCustomShift, calculateRatios, type TimeseriesData, type ExtremeSeries, type RatioData, type DataSeries, type PositivitySeries, type ScalarSeries, type Datapoint, type ScalarDatapoint, type TrendSuffixMarker, datapointToPercentage, compareLabels, getColorBaseSeriesName, getExtremeMatchSeriesName, isScalarSeries, compareByPreferredOrder, computeRatioTimeseries, getLatestDataDate, getDaysSince } from "./utils";
+import { getLanguage, setLanguage, getTranslations, translateSeriesName, normalizeSeriesName, formatDataAge, type Language } from "./locales";
 import { createRegularLegendButton, createSplitTestPill, createSplitShiftedPill, type TrendRatioLookup, type ChartConfig as LegendChartConfig } from "./ui/legend-utils";
 import { ratioBaselinePlugin, RATIO_BASELINE_VALUE } from "./ui/ratio-baseline";
 import { 
@@ -1413,6 +1413,18 @@ function derivativeViewPeriodDays(derivativeView: DerivativeView): number | null
     return null;
 }
 
+/**
+ * Appends the age of the freshest data point to a chart title, e.g.
+ * "EU ECDC Respiratory Viruses (latest data: 3 days ago)". Unlike the build timestamp in the
+ * footer this shows how up to date the source data of the chart actually is.
+ */
+function buildChartTitle(title: string, latestDataDate: string | null): string {
+    if (latestDataDate === null) return title;
+    const days = getDaysSince(latestDataDate);
+    if (!Number.isFinite(days)) return title;
+    return `${title} (${translations.chartLatestData}: ${formatDataAge(days)})`;
+}
+
 function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false, showNonAveragedSeries: boolean = false, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima', countryFilter?: string, survtypeFilter?: string, ageGroupFilter?: string, derivativeView: DerivativeView = 'off') {
     // Destroy existing chart if it exists
     if (cfg.chartHolder.chart) {
@@ -1542,6 +1554,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     // The ratio is computed before shifting (shifting only translates values in time) and
     // extremes are still derived from the absolute values, so wave alignment is unaffected.
     const derivativePeriodDays = derivativeViewPeriodDays(derivativeView);
+    // Freshest data point of the (filtered) source data, taken before shifting so that
+    // artificially moved series don't affect it.
+    const latestDataDate = getLatestDataDate(data);
     const absoluteShiftedData = applyShift(data);
     data = derivativePeriodDays === null
         ? absoluteShiftedData
@@ -1774,9 +1789,12 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
             plugins: {
                 title: {
                     display: true,
-                    text: derivativePeriodDays === null
-                        ? cfg.title
-                        : `${cfg.title} - ${derivativePeriodDays === 7 ? translations.derivativeViewRatio7d : translations.derivativeViewRatio28d}`
+                    text: buildChartTitle(
+                        derivativePeriodDays === null
+                            ? cfg.title
+                            : `${cfg.title} - ${derivativePeriodDays === 7 ? translations.derivativeViewRatio7d : translations.derivativeViewRatio28d}`,
+                        latestDataDate
+                    )
                 },
                 legend: {
                     display: false // We'll create a custom HTML legend instead

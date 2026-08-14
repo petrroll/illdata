@@ -53,6 +53,10 @@ export interface Translations {
     customGraphSelectSeries: string;
     customGraphNoSeriesSelected: string;
     customGraphClearAll: string;
+    chartLatestData: string;
+    dataAgeToday: string;
+    dataAgeOneDayAgo: string;
+    dataAgeDaysAgo: string;
     
     // Trends table
     trendsTableTitle: string;
@@ -275,6 +279,10 @@ const en: Translations = {
     customGraphSelectSeries: 'Select series to display:',
     customGraphNoSeriesSelected: 'No series selected. Use checkboxes above to add series to this graph.',
     customGraphClearAll: 'Clear All',
+    chartLatestData: 'latest data',
+    dataAgeToday: 'today',
+    dataAgeOneDayAgo: '1 day ago',
+    dataAgeDaysAgo: '{days} days ago',
     
     // Trends table
     trendsTableTitle: 'Current Trends',
@@ -375,7 +383,7 @@ const en: Translations = {
         'Data Processing: Raw data is fetched from sources and processed daily',
         'Moving Averages: Centered moving averages to smooth trends',
         'Local Storage: Your preferences (series visibility, time range, etc.) are saved in your browser',
-        'Updates: Data is refreshed during builds; check the footer for last update time'
+        'Updates: Data is refreshed during builds; the footer shows the last update time and each chart title shows how old its freshest data point is'
     ],
     aboutSourceCodeTitle: 'Source Code',
     aboutSourceCodeDescription: 'illmeter is open source and available on GitHub. Contributions and feedback are welcome!',
@@ -449,6 +457,10 @@ const cs: Translations = {
     customGraphSelectSeries: 'Vyberte série k zobrazení:',
     customGraphNoSeriesSelected: 'Nejsou vybrány žádné série. Použijte zaškrtávací políčka výše pro přidání sérií do tohoto grafu.',
     customGraphClearAll: 'Vymazat vše',
+    chartLatestData: 'nejnovější data',
+    dataAgeToday: 'dnes',
+    dataAgeOneDayAgo: 'před 1 dnem',
+    dataAgeDaysAgo: 'před {days} dny',
     
     // Trends table
     trendsTableTitle: 'Aktuální trendy',
@@ -549,7 +561,7 @@ const cs: Translations = {
         'Zpracování dat: Surová data jsou získávána ze zdrojů a zpracovávána denně',
         'Klouzavé průměry: Centrované klouzavé průměry pro vyhlazení trendů',
         'Lokální úložiště: Vaše preference (viditelnost sérií, časový rozsah, atd.) jsou uloženy ve vašem prohlížeči',
-        'Aktualizace: Data jsou aktualizována během buildů; zkontrolujte čas poslední aktualizace v patičce'
+        'Aktualizace: Data jsou aktualizována během buildů; v patičce je čas poslední aktualizace a v názvu každého grafu stáří jeho nejnovějšího datového bodu'
     ],
     aboutSourceCodeTitle: 'Zdrojový kód',
     aboutSourceCodeDescription: 'illmeter je open source a dostupný na GitHubu. Příspěvky a zpětná vazba jsou vítány!',
@@ -599,6 +611,19 @@ export function setLanguage(lang: Language): void {
 export function getTranslations(lang?: Language): Translations {
     const currentLang = lang || getLanguage();
     return currentLang === 'cs' ? cs : en;
+}
+
+/**
+ * Formats how long ago the newest data point is, e.g. "today", "1 day ago", "5 days ago".
+ * @param days - Whole days since the newest data point
+ * @param lang - Target language (optional, uses current language if not specified)
+ * @returns Localized description of the data age
+ */
+export function formatDataAge(days: number, lang?: Language): string {
+    const t = getTranslations(lang);
+    if (days <= 0) return t.dataAgeToday;
+    if (days === 1) return t.dataAgeOneDayAgo;
+    return t.dataAgeDaysAgo.replace('{days}', String(days));
 }
 
 /**

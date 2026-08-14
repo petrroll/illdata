@@ -17,7 +17,7 @@ Object.defineProperty(global, 'localStorage', {
     writable: true
 });
 
-import { translateSeriesName, normalizeSeriesName, setLanguage, getLanguage } from './locales';
+import { translateSeriesName, normalizeSeriesName, setLanguage, getLanguage, formatDataAge } from './locales';
 
 describe('Series Name Translation Tests', () => {
     beforeEach(() => {
@@ -166,5 +166,34 @@ describe('Series Name Translation Tests', () => {
             const normalized = normalizeSeriesName(czechName);
             expect(normalized).toBe(shiftedSeriesName);
         });
+    });
+});
+
+describe('Data Age Formatting Tests', () => {
+    beforeEach(() => {
+        mockLocalStorage.clear();
+        setLanguage('en');
+    });
+
+    test('formats today, one day and multiple days in English', () => {
+        expect(formatDataAge(0)).toBe('today');
+        expect(formatDataAge(1)).toBe('1 day ago');
+        expect(formatDataAge(5)).toBe('5 days ago');
+    });
+
+    test('formats today, one day and multiple days in Czech', () => {
+        setLanguage('cs');
+        expect(formatDataAge(0)).toBe('dnes');
+        expect(formatDataAge(1)).toBe('před 1 dnem');
+        expect(formatDataAge(5)).toBe('před 5 dny');
+    });
+
+    test('uses the explicitly requested language over the current one', () => {
+        setLanguage('en');
+        expect(formatDataAge(3, 'cs')).toBe('před 3 dny');
+    });
+
+    test('treats negative ages as today', () => {
+        expect(formatDataAge(-2)).toBe('today');
     });
 });
