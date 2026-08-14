@@ -36,8 +36,8 @@ describe("parseLatestBiobotRiskReport", () => {
         });
     });
 
-    test("ignores posts outside the risk reports category", () => {
-        const unrelated = feed.replace(
+    test("does not require category labels in the dedicated risk report feed", () => {
+        const feedWithoutCategory = feed.replace(
             "<![CDATA[Risk Reports]]>",
             "<![CDATA[Company News]]>"
         ).replace(
@@ -45,8 +45,8 @@ describe("parseLatestBiobotRiskReport", () => {
             "Biobot company update"
         );
 
-        expect(parseLatestBiobotRiskReport(unrelated).postUrl)
-            .toBe("https://biobotanalytics.substack.com/p/older-report");
+        expect(parseLatestBiobotRiskReport(feedWithoutCategory).postUrl)
+            .toBe("https://biobotanalytics.substack.com/p/latest-report?utm_source=feed&utm_medium=web");
     });
 
     test("rejects feeds without a safe report image", () => {
