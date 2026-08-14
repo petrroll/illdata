@@ -7,11 +7,14 @@
 
 import { normalizeSeriesName } from "./locales";
 import { isShiftedSeries } from "./series-utils";
-import { isScalarSeries, type TimeseriesData, type DataSeries, type PositivitySeries, type ScalarSeries, type Datapoint, type ScalarDatapoint } from "./utils";
+import { computeRatioTimeseries, isScalarSeries, type TimeseriesData, type DataSeries, type PositivitySeries, type ScalarSeries, type Datapoint, type ScalarDatapoint } from "./utils";
+
+export type CustomGraphView = 'standard' | 'ratio7' | 'ratio28';
 
 export interface CustomGraphSelection {
     sourceChartIndex: number;
     seriesName: string; // Normalized (English) series name
+    view?: CustomGraphView; // Missing for selections saved before per-series views were introduced
 }
 
 /** Minimal representation of a source chart for custom graph assembly */
@@ -22,6 +25,15 @@ export interface SourceChartInfo {
     countryFilter?: string;     // Currently selected country (undefined = no filter)
     survtypeFilter?: string;    // Currently selected survtype ("both" = no filter)
     ageGroupFilter?: string;    // Currently selected age group (undefined = no filter)
+}
+
+export type CustomGraphYAxisID = 'y' | 'yRatio' | 'yWastewater' | 'yIncidence';
+
+export function getCustomGraphYAxisID(series: DataSeries): CustomGraphYAxisID {
+    if (!isScalarSeries(series)) return 'y';
+    if (series.valueFormat === 'ratio') return 'yRatio';
+    if (series.valueFormat === 'number') return 'yIncidence';
+    return 'yWastewater';
 }
 
 /**
@@ -54,6 +66,7 @@ export function assembleCustomGraphData(
         
         const sourceData = sourceChart.data;
         const normalizedSeriesName = selection.seriesName;
+        const view = selection.view ?? 'standard';
         
         // Apply country filter from source chart
         let sourceSeries = sourceData.series;
@@ -72,17 +85,23 @@ export function assembleCustomGraphData(
         }
         
         // Find the series by normalized name
-        const series = sourceSeries.find(s => normalizeSeriesName(s.name) === normalizedSeriesName);
-        if (!series) return;
+        const sourceSeriesIndex = sourceSeries.findIndex(s => normalizeSeriesName(s.name) === normalizedSeriesName);
+        if (sourceSeriesIndex < 0) return;
+
+        let series = sourceSeries[sourceSeriesIndex];
+        if (view !== 'standard') {
+            const periodDays = view === 'ratio7' ? 7 : 28;
+            series = computeRatioTimeseries(
+                { dates: sourceData.dates, series: sourceSeries },
+                periodDays
+            ).series[sourceSeriesIndex];
+        }
         
         // Skip shifted series if disabled
         if (!showShifted && isShiftedSeries(series.name)) return;
         
-        // Skip scalar/wastewater series (no dual y-axis support yet)
-        if (series.dataType !== 'positivity') return;
-        
         // Deduplication
-        const seriesKey = `${selection.sourceChartIndex}:${series.name}`;
+        const seriesKey = `${selection.sourceChartIndex}:${series.name}:${view}`;
         if (seenSeriesKeys.has(seriesKey)) return;
         seenSeriesKeys.add(seriesKey);
         
@@ -101,7 +120,7 @@ export function assembleCustomGraphData(
         seriesWithMeta.push({
             series,
             sourceData,
-            newName: `${series.name} (${suffix})`
+            newName: `${series.name} (${suffix})${view === 'standard' ? '' : ` - ${view === 'ratio7' ? 7 : 28}d Ratio`}`
         });
     });
     
