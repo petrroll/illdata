@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from 'bun:test';
-import { encodeUrlState, decodeUrlState, type UrlChartConfig } from './urlstate';
+import { encodeUrlState, decodeUrlState, applyUrlState, type UrlChartConfig } from './urlstate';
 import { DEFAULT_APP_SETTINGS, type AppSettings, type AlignByExtreme } from './settings';
 
 // Mock localStorage for testing
@@ -20,6 +20,25 @@ Object.defineProperty(global, 'localStorage', {
 });
 
 describe('URL State Management Tests', () => {
+    test('applies old compact and full URL settings through the shared migration', () => {
+        for (const state of [
+            { s: { derivativeView: '28', showNonAveragedSeries: true }, v: {}, c: {} },
+            { settings: { derivativeView: '28', showNonAveragedSeries: true }, visibility: {}, countryFilters: {} }
+        ]) {
+            const decoded = decodeUrlState(btoa(JSON.stringify(state)))!;
+            const applied = applyUrlState(decoded, []).appSettings;
+            expect(applied.dataViews).toEqual(['ratio28']);
+            expect(applied.smoothingWindows).toEqual(['none', '28']);
+        }
+    });
+
+    test('validates selection arrays in shared URLs and preserves deliberate empty selections', () => {
+        const decoded = decodeUrlState(btoa(JSON.stringify({
+            s: { dataViews: ['raw', 'bad', 'raw', 'ratio7'], smoothingWindows: [] }, v: {}, c: {}
+        })))!;
+        expect(applyUrlState(decoded, []).appSettings.dataViews).toEqual(['raw', 'ratio7']);
+        expect(applyUrlState(decoded, []).appSettings.smoothingWindows).toEqual([]);
+    });
     beforeEach(() => {
         mockLocalStorage.clear();
     });
@@ -32,10 +51,10 @@ describe('URL State Management Tests', () => {
             showShifted: false,
             showTestNumbers: true,
             showShiftedTestNumbers: true,
-            showNonAveragedSeries: true,
+            smoothingWindows: ['none', '28'],
             shiftOverride: 2,
             alignByExtreme: 'minima',
-            derivativeView: 'off'
+            dataViews: ['raw', 'ratio7']
         };
         
         const chartConfigs: UrlChartConfig[] = [];
@@ -48,10 +67,10 @@ describe('URL State Management Tests', () => {
         expect(decoded!.settings).toEqual(settings);
     });
 
-    test('encodes and decodes default settings with showNonAveragedSeries false', () => {
+    test('encodes and decodes default smoothing selection', () => {
         const settings: AppSettings = {
             ...DEFAULT_APP_SETTINGS,
-            showNonAveragedSeries: false  // Explicit default value
+            smoothingWindows: ['28']
         };
         
         const chartConfigs: UrlChartConfig[] = [];
@@ -61,7 +80,7 @@ describe('URL State Management Tests', () => {
         const decoded = decodeUrlState(encoded);
         
         expect(decoded).not.toBeNull();
-        expect(decoded!.settings.showNonAveragedSeries).toBe(false);
+        expect(decoded!.settings.smoothingWindows).toEqual(['28']);
     });
 
     test('encodes and decodes dataset visibility correctly', () => {
@@ -152,10 +171,10 @@ describe('URL State Management Tests', () => {
             showShifted: true,
             showTestNumbers: false,
             showShiftedTestNumbers: false,
-            showNonAveragedSeries: true,
+            smoothingWindows: ['none', '28'],
             shiftOverride: 3,
             alignByExtreme: 'days',
-            derivativeView: 'off'
+            dataViews: ['raw', 'ratio28']
         };
         
         const chartConfigs: UrlChartConfig[] = [
@@ -237,10 +256,10 @@ describe('URL State Management Tests', () => {
             showShifted: true,
             showTestNumbers: true,
             showShiftedTestNumbers: false,
-            showNonAveragedSeries: true,
+            smoothingWindows: ['none', '28'],
             shiftOverride: 1,
             alignByExtreme: 'maxima',
-            derivativeView: 'off'
+            dataViews: ['raw']
         };
         
         const chartConfigs: UrlChartConfig[] = [

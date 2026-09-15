@@ -22,7 +22,8 @@ import {
     getVisibilityDefault,
     shouldIncludeShiftedSeries
 } from "./series-utils";
-import { type AppSettings, type AlignByExtreme, type DerivativeView, DEFAULT_APP_SETTINGS, APP_SETTINGS_KEY, loadAppSettings, saveAppSettings, migrateOldSettings } from "./settings";
+import { type AppSettings, type AlignByExtreme, DATA_VIEWS, SMOOTHING_WINDOWS, DEFAULT_APP_SETTINGS, APP_SETTINGS_KEY, loadAppSettings, saveAppSettings, migrateOldSettings, migrateLegacyVariantVisibility } from "./settings";
+import { assembleChartVariants, stripRatioLabel, variantKey } from "./chart-variants";
 import { type UrlState, type UrlChartConfig, encodeUrlState, decodeUrlState, loadStateFromUrl, applyUrlState } from "./urlstate";
 import { extractShiftFromLabel } from "./tooltip";
 import { adjustColorForTestBars } from "./color";
@@ -67,6 +68,7 @@ interface ChartConfig {
     visibilityKey: string;
     chartHolder: { chart: Chart | undefined };
     datasetVisibility: { [key: string]: boolean };
+    visibilityIsComplete?: boolean;
     canvas?: HTMLCanvasElement | null;
     // Cache for extremes calculations to avoid recalculating on every render.
     // filterSignature records the country/survtype/ageGroup filter values the extremes
@@ -221,6 +223,12 @@ function updateDataSourceStatusNotice(rootDiv: HTMLElement) {
 // (moved after language initialization)
 
 const container = document.getElementById("root");
+const footer = document.querySelector('footer');
+if (footer) {
+    new ResizeObserver(() => {
+        document.documentElement.style.setProperty('--footer-space', `${footer.getBoundingClientRect().height + 20}px`);
+    }).observe(footer);
+}
 
 // Initialize language system
 let currentLanguage = getLanguage();
@@ -234,6 +242,7 @@ const languageSelect = document.getElementById("languageSelect") as HTMLSelectEl
 
 // Flag to prevent recursive renderPage calls
 let isRendering = false;
+let hasAppliedUrlState = false;
 
 // renderPage() re-runs on every language switch while the shared DOM elements
 // (document, static buttons) persist. Track the last handler per target so we can
@@ -802,7 +811,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     migrateOldSettings();
 
     // Check for URL state and apply it if present
-    const urlState = loadStateFromUrl();
+    const urlState = hasAppliedUrlState ? null : loadStateFromUrl();
     let appSettings: AppSettings;
     let countryFilters: Map<string, string>;
     let survtypeFilters: Map<string, string>;
@@ -811,6 +820,7 @@ function renderPage(rootDiv: HTMLElement | null) {
     if (urlState) {
         // Apply state from URL
         const applied = applyUrlState(urlState, chartConfigs);
+        hasAppliedUrlState = true;
         appSettings = applied.appSettings;
         countryFilters = applied.countryFilters;
         
@@ -849,6 +859,17 @@ function renderPage(rootDiv: HTMLElement | null) {
     } else {
         // Load from localStorage
         appSettings = loadAppSettings();
+        try {
+            const legacySettings: unknown = JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? '{}');
+            chartConfigs.forEach(cfg => {
+                const stored = localStorage.getItem(cfg.visibilityKey);
+                if (!cfg.isCustomGraph && stored) {
+                    localStorage.setItem(cfg.visibilityKey, JSON.stringify(migrateLegacyVariantVisibility(legacySettings, JSON.parse(stored))));
+                }
+            });
+        } catch {
+            // Corrupt settings/visibility are handled by their normal loaders.
+        }
         countryFilters = new Map<string, string>();
         survtypeFilters = new Map<string, string>();
         ageGroupFilters = new Map<string, string>();
@@ -883,16 +904,21 @@ function renderPage(rootDiv: HTMLElement | null) {
 
     // Unified callback for settings changes
     function onSettingsChange(key?: keyof AppSettings, value?: AppSettings[keyof AppSettings]) {
+        const previousPairs = new Set(appSettings.dataViews.flatMap(view =>
+            appSettings.smoothingWindows.map(window => `${view}:${window}`)));
         if (key && value !== undefined) {
             (appSettings as any)[key] = value;
             saveAppSettings(appSettings);
         }
+        const addedPairs = new Set(appSettings.dataViews.flatMap(view =>
+            appSettings.smoothingWindows.map(window => `${view}:${window}`)).filter(pair => !previousPairs.has(pair)));
         
         // Update custom graph data based on current selections
         const customGraphConfig = chartConfigs.find(cfg => cfg.isCustomGraph);
         if (customGraphConfig) {
             const selections = loadCustomGraphSelections();
             customGraphConfig.data = createCustomGraphData(selections, appSettings.showShifted);
+            customGraphConfig.extremesCache = undefined;
             
             // Hide chart wrapper + legend when no series are selected
             const chartWrapper = document.getElementById('customGraphChartWrapper');
@@ -932,13 +958,13 @@ function renderPage(rootDiv: HTMLElement | null) {
                     appSettings.showShifted,
                     appSettings.showTestNumbers,
                     appSettings.showShiftedTestNumbers,
-                    appSettings.showNonAveragedSeries,
                     appSettings.shiftOverride,
                     appSettings.alignByExtreme,
                     countryFilter,
                     survtypeFilter,
                     ageGroupFilter,
-                    cfg.isCustomGraph ? 'off' : appSettings.derivativeView
+                    appSettings,
+                    addedPairs
                 );
             }
         });
@@ -1014,15 +1040,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         onChange: onSettingsChange
     });
 
-    createUnifiedSettingsControl({
-        type: 'checkbox',
-        id: 'showNonAveragedSeriesCheckbox',
-        label: translations.showNonAveragedSeries,
-        container: rootDiv,
-        settingKey: 'showNonAveragedSeries',
-        settings: appSettings,
-        onChange: onSettingsChange
-    });
+    createSeriesOptions(appSettings, onSettingsChange);
 
     // Shift settings controls
     // Shift value input (number input)
@@ -1100,23 +1118,6 @@ function renderPage(rootDiv: HTMLElement | null) {
         }
     });
   
-    // Derivative (ratio) view selector: switch charts between absolute values and
-    // the now vs last 7/28 days ratio (same measure as the trends table)
-    createUnifiedSettingsControl({
-        type: 'select',
-        id: 'derivativeViewSelect',
-        label: translations.derivativeViewLabel,
-        container: rootDiv,
-        settingKey: 'derivativeView',
-        values: [
-            { value: 'off', label: translations.derivativeViewOff },
-            { value: '7', label: translations.derivativeViewRatio7d },
-            { value: '28', label: translations.derivativeViewRatio28d }
-        ],
-        settings: appSettings,
-        onChange: onSettingsChange
-    });
-
     // Create country selectors for charts that have them
     chartConfigs.forEach(cfg => {
         if (cfg.hasCountryFilter && cfg.countryFilterKey) {
@@ -1404,13 +1405,66 @@ function getSortedSeriesWithIndices(series: DataSeries[]): { series: DataSeries,
     return seriesWithIndices;
 }
 
-/**
- * Maps the derivative view setting to the ratio period in days (null when disabled).
- */
-function derivativeViewPeriodDays(derivativeView: DerivativeView): number | null {
-    if (derivativeView === '7') return 7;
-    if (derivativeView === '28') return 28;
-    return null;
+function createSeriesOptions(settings: AppSettings, onChange: (key: keyof AppSettings, value: AppSettings[keyof AppSettings]) => void) {
+    const panel = document.getElementById('seriesOptionsPanel')!;
+    const toggle = document.getElementById('seriesOptionsToggle')!;
+    const groups = document.getElementById('seriesOptionGroups')!;
+    const summary = document.getElementById('seriesOptionsSummary')!;
+    const footer = panel.closest('footer')!;
+    groups.replaceChildren();
+    toggle.textContent = translations.seriesOptions;
+    document.getElementById('seriesOptionsHelp')!.textContent = translations.seriesOptionsHelp;
+    const resize = () => document.documentElement.style.setProperty('--footer-space', `${footer.getBoundingClientRect().height + 20}px`);
+    const updateSummary = () => {
+        const count = settings.dataViews.length * settings.smoothingWindows.length;
+        summary.textContent = count ? translations.seriesOptionsCount.replace('{count}', String(count)) : translations.seriesOptionsEmpty;
+        resize();
+    };
+    const setOpen = (open: boolean) => {
+        panel.hidden = !open;
+        toggle.setAttribute('aria-expanded', String(open));
+        resize();
+    };
+    toggle.onclick = () => setOpen(panel.hidden);
+    panel.onkeydown = event => {
+        if (event.key === 'Escape') {
+            setOpen(false);
+            toggle.focus();
+        }
+    };
+    const options = [
+        { key: 'dataViews' as const, id: 'data', legend: translations.dataViewLabel, values: DATA_VIEWS,
+            labels: [translations.dataViewRaw, translations.dataViewRatio7, translations.dataViewRatio28] },
+        { key: 'smoothingWindows' as const, id: 'smoothing', legend: translations.smoothingLabel, values: SMOOTHING_WINDOWS,
+            labels: [translations.smoothingNone, translations.smoothing7, translations.smoothing28] }
+    ];
+    options.forEach(group => {
+        const fieldset = document.createElement('fieldset');
+        fieldset.id = `${group.id}Options`;
+        fieldset.setAttribute('aria-describedby', 'seriesOptionsHelp');
+        const legend = document.createElement('legend');
+        legend.textContent = group.legend;
+        fieldset.appendChild(legend);
+        group.values.forEach((value, index) => {
+            const label = document.createElement('label');
+            label.className = 'series-option';
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.id = `${group.id}-${value}`;
+            input.value = value;
+            input.checked = (settings[group.key] as readonly string[]).includes(value);
+            input.onchange = () => {
+                const values = group.values.filter(option =>
+                    (fieldset.querySelector(`input[value="${option}"]`) as HTMLInputElement).checked);
+                onChange(group.key, values as AppSettings[typeof group.key]);
+                updateSummary();
+            };
+            label.append(input, document.createTextNode(group.labels[index]));
+            fieldset.appendChild(label);
+        });
+        groups.appendChild(fieldset);
+    });
+    updateSummary();
 }
 
 /**
@@ -1425,7 +1479,7 @@ function buildChartTitle(title: string, latestDataDate: string | null): string {
     return `${title} (${translations.chartLatestData}: ${formatDataAge(days)})`;
 }
 
-function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false, showNonAveragedSeries: boolean = false, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima', countryFilter?: string, survtypeFilter?: string, ageGroupFilter?: string, derivativeView: DerivativeView = 'off') {
+function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean = true, showExtremes: boolean = false, showShifted: boolean = true, showTestNumbers: boolean = true, showShiftedTestNumbers: boolean = false, shiftOverride: number | null = null, alignByExtreme: AlignByExtreme = 'maxima', countryFilter?: string, survtypeFilter?: string, ageGroupFilter?: string, settings: AppSettings = DEFAULT_APP_SETTINGS, addedPairs: Set<string> = new Set()) {
     // Destroy existing chart if it exists
     if (cfg.chartHolder.chart) {
         cfg.chartHolder.chart.destroy();
@@ -1473,6 +1527,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     if (ageGroupFilter && cfg.hasAgeGroupFilter) {
         data = filterDataByAgeGroup(data, ageGroupFilter);
     }
+    const absoluteSource = cfg.isCustomGraph
+        ? createCustomGraphData(loadCustomGraphSelections().map(selection => ({ ...selection, view: 'standard' })), showShifted)
+        : assembleChartVariants(data, ['raw'], ['none', ...settings.smoothingWindows, '28']);
     let cutoffDateString = data.dates[0] ?? new Date().toISOString().split('T')[0];
     if (timeRange !== "all") {
         const days = parseInt(timeRange);
@@ -1488,7 +1545,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     // settings toggles) and recomputed whenever a filter alters the underlying data.
     const extremesFilterSignature = `${countryFilter ?? ''}|${survtypeFilter ?? ''}|${ageGroupFilter ?? ''}`;
     if (!cfg.extremesCache || cfg.extremesCache.filterSignature !== extremesFilterSignature) {
-        const averagedForExtremes = data.series
+        const averagedForExtremes = absoluteSource.series
             .filter(series => series.type === 'averaged')
             .filter(series => extremesForWindow === series.windowSizeInDays);
         
@@ -1550,17 +1607,15 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         return getNewWithSifterToAlignExtremeDates(input, extremesToAlign, 1, 1 + waveCount, true);
     };
 
-    // In derivative view every series is replaced by its now-vs-previous-period ratio.
-    // The ratio is computed before shifting (shifting only translates values in time) and
-    // extremes are still derived from the absolute values, so wave alignment is unaffected.
-    const derivativePeriodDays = derivativeViewPeriodDays(derivativeView);
     // Freshest data point of the (filtered) source data, taken before shifting so that
     // artificially moved series don't affect it.
     const latestDataDate = getLatestDataDate(data);
-    const absoluteShiftedData = applyShift(data);
-    data = derivativePeriodDays === null
-        ? absoluteShiftedData
-        : applyShift(computeRatioTimeseries(data, derivativePeriodDays));
+    const absoluteShiftedData = applyShift(absoluteSource);
+    // Expand once, before shifting. Absolute extremes remain the alignment reference.
+    data = cfg.isCustomGraph ? applyShift(data)
+        : applyShift(assembleChartVariants(absoluteSource, settings.dataViews, settings.smoothingWindows));
+    const hasVariants = data.series.length > 0;
+    const hasRatios = data.series.some(series => isScalarSeries(series) && series.valueFormat === 'ratio');
 
     // End cutoff based on future inclusion flag
     const todayString = new Date().toISOString().split('T')[0];
@@ -1617,27 +1672,12 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     const paletteMap = createStablePaletteMapping(data.series, colorPalettes.length);
 
     let datasets = generateNormalDatasets(sortedSeriesWithIndices, cfg, colorPalettes, data, startIdx, endIdx, paletteMap);
-    let barDatasets = cfg.isCustomGraph
+    let barDatasets = cfg.isCustomGraph || !hasVariants || !settings.dataViews.includes('raw')
         ? []
-        : generateTestNumberBarDatasets(sortedSeriesWithIndices, cfg, colorPalettes, data, startIdx, endIdx, paletteMap, showShifted, showShiftedTestNumbers);
+        : generateTestNumberBarDatasets(getSortedSeriesWithIndices(absoluteShiftedData.series), cfg, colorPalettes, absoluteShiftedData, startIdx, endIdx, paletteMap, showShifted, showShiftedTestNumbers);
 
     // Filter shifted series based on showShifted setting
     datasets = datasets.filter(ds => shouldIncludeShiftedSeries(ds.label, showShifted));
-
-    // Filter non-averaged (raw) series based on showNonAveragedSeries setting
-    if (!showNonAveragedSeries && !cfg.isCustomGraph) {
-        // Find the corresponding series for each dataset and filter by type
-        datasets = datasets.filter(ds => {
-            const normalizedLabel = normalizeSeriesName(ds.label);
-            // Find the series in sortedSeriesWithIndices that matches this dataset
-            const matchingSeries = sortedSeriesWithIndices.find(({series}) => {
-                const translatedName = translateSeriesName(series.name);
-                return translatedName === ds.label || normalizeSeriesName(series.name) === normalizedLabel;
-            });
-            // Keep the dataset if it's averaged or if we couldn't find the series (safety)
-            return !matchingSeries || matchingSeries.series.type !== 'raw';
-        });
-    }
 
     // Filter test number series based on showTestNumbers setting
     if (!showTestNumbers) {
@@ -1647,9 +1687,9 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     // Filter shifted test number series based on showShiftedTestNumbers setting
     barDatasets = barDatasets.filter(ds => shouldIncludeShiftedSeries(ds.label, showShifted, showShiftedTestNumbers));
 
-    const localExtremeDatasets = [
-        ...generateLocalExtremeDataset([filteredMaximaSeries], data, cutoffDateString, "red", includeFuture, cfg), 
-        ...generateLocalExtremeDataset([filteredMinimaSeries], data, cutoffDateString, "blue", includeFuture, cfg)
+    const localExtremeDatasets = !hasVariants || (!cfg.isCustomGraph && !settings.dataViews.includes('raw')) ? [] : [
+        ...generateLocalExtremeDataset([filteredMaximaSeries], absoluteShiftedData, cutoffDateString, "red", includeFuture, cfg), 
+        ...generateLocalExtremeDataset([filteredMinimaSeries], absoluteShiftedData, cutoffDateString, "blue", includeFuture, cfg)
     ];
 
     // Build list of valid series names from all datasets (now includes extreme series always)
@@ -1686,8 +1726,15 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
     // because the set of available series changes when survtype changes
     const hasSurvtypeFilter = cfg.hasSurvtypeFilter && survtypeFilter;
     const hasStoredVisibility = !hasSurvtypeFilter && Object.keys(cfg.datasetVisibility).length > 0;
+    const storedPairs = new Set(Object.keys(cfg.datasetVisibility)
+        .filter(name => !isTestNumberSeries(name)).map(variantKey));
     
     normalizedValidNames.forEach(normalizedName => {
+        if (!cfg.isCustomGraph && addedPairs.has(variantKey(normalizedName))
+            && !isShiftedSeries(normalizedName) && !isTestNumberSeries(normalizedName)
+            && normalizedNameToType.has(normalizedName)) {
+            cfg.datasetVisibility[normalizedName] = true;
+        }
         if (cfg.datasetVisibility[normalizedName] === undefined) {
             // Check if we have visibility state for the base series name (from a different shift)
             const baseName = getBaseSeriesName(normalizedName);
@@ -1697,54 +1744,32 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
             
             if (previousVisibility !== undefined) {
                 // Preserve visibility from previous shift of the same series
-                // BUT: Always respect current filter settings - defaultState tells us what filters allow
                 const previousState = cfg.datasetVisibility[previousVisibility];
-                const seriesType = normalizedNameToType.get(normalizedName);
-                const defaultState = getVisibilityDefault(normalizedName, showShifted, showTestNumbers, showShiftedTestNumbers, showNonAveragedSeries, seriesType);
-                // If filters say it should be hidden (defaultState is false), hide it regardless of previous state
-                // If filters allow it (defaultState is true), preserve the previous user choice
-                cfg.datasetVisibility[normalizedName] = defaultState === false ? false : previousState;
+                cfg.datasetVisibility[normalizedName] = previousState;
             } else {
                 // If we have stored visibility (from URL or localStorage), missing entries should be false
                 // Otherwise, use the default visibility for first-time load
                 // Exception: custom graph series are user-selected, so new additions should always be visible
-                if (hasStoredVisibility && !cfg.isCustomGraph) {
+                if (!cfg.isCustomGraph && (cfg.visibilityIsComplete
+                    || (hasStoredVisibility && storedPairs.has(variantKey(normalizedName))))) {
                     cfg.datasetVisibility[normalizedName] = false;
                 } else {
                     const seriesType = normalizedNameToType.get(normalizedName);
                     cfg.datasetVisibility[normalizedName] = cfg.isCustomGraph
                         ? true
-                        : getVisibilityDefault(normalizedName, showShifted, showTestNumbers, showShiftedTestNumbers, showNonAveragedSeries, seriesType);
+                        : getVisibilityDefault(normalizedName, showShifted, showTestNumbers, showShiftedTestNumbers, true, seriesType);
                 }
             }
         }
         
-        // Also initialize visibility for test number bar variations (Positive Tests / Negative Tests)
-        // These are created dynamically from positivity series but need their own visibility entries
-        for (const testSuffix of [' - Positive Tests', ' - Negative Tests']) {
-            const testName = `${normalizedName}${testSuffix}`;
-            if (cfg.datasetVisibility[testName] === undefined) {
-                cfg.datasetVisibility[testName] = (hasStoredVisibility && !cfg.isCustomGraph)
-                    ? false
-                    : getVisibilityDefault(testName, showShifted, showTestNumbers, showShiftedTestNumbers, showNonAveragedSeries);
-            }
-        }
     });
     
-    // Clean up visibility state for series that no longer exist
-    // This prevents localStorage from growing indefinitely with old shift values.
-    // Skipped in derivative view: it has no test-number bars, so cleaning up would drop
-    // their visibility state and leave them hidden after switching back to absolute values.
-    if (derivativePeriodDays === null) {
-        Object.keys(cfg.datasetVisibility).forEach(storedName => {
-            if (!normalizedValidNames.has(storedName)) {
-                // Remove entries that are not in the current valid series list
-                // The visibility state has already been transferred to new series above
-                console.log(`Removing visibility for non-existing series: ${storedName}`);
-                delete cfg.datasetVisibility[storedName];
-            }
-        });
-    }
+    // Retain deselected variants; discard only superseded shift labels after transferring visibility.
+    Object.keys(cfg.datasetVisibility).forEach(storedName => {
+        if (!normalizedValidNames.has(storedName) && baseToCurrentSeriesMap.has(getBaseSeriesName(storedName))) {
+            delete cfg.datasetVisibility[storedName];
+        }
+    });
     localStorage.setItem(cfg.visibilityKey, JSON.stringify(cfg.datasetVisibility));
 
     if (showExtremes) {
@@ -1771,7 +1796,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
             datasets: allVisibleDatasets,
         },
         // The 1x reference line only makes sense for ratio (derivative) views
-        plugins: derivativePeriodDays === null ? [] : [ratioBaselinePlugin],
+        plugins: hasRatios ? [ratioBaselinePlugin] : [],
         options: {
             responsive: true,
             maintainAspectRatio: false,
@@ -1790,9 +1815,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                 title: {
                     display: true,
                     text: buildChartTitle(
-                        derivativePeriodDays === null
-                            ? cfg.title
-                            : `${cfg.title} - ${derivativePeriodDays === 7 ? translations.derivativeViewRatio7d : translations.derivativeViewRatio28d}`,
+                        cfg.title,
                         latestDataDate
                     )
                 },
@@ -1907,17 +1930,12 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                 y: {
                     type: 'linear',
                     position: 'left',
-                    display: cfg.isCustomGraph ? 'auto' : true,
+                    display: 'auto',
                     beginAtZero: true,
-                    // Keep the 1x reference line in view even when all ratios stay below it
-                    suggestedMax: derivativePeriodDays === null ? undefined : RATIO_BASELINE_VALUE,
+                    title: { display: true, text: translations.dataViewRaw },
                     ticks: {
                         callback: function(tickValue: string | number) {
                             if (typeof tickValue === 'number') {
-                                // In derivative view all series are unitless ratios
-                                if (derivativePeriodDays !== null) {
-                                    return `${tickValue.toFixed(2)}x`;
-                                }
                                 // Check if this is a scalar series chart (e.g., wastewater)
                                 if (hasScalarSeries && !cfg.isCustomGraph) {
                                     return usesNumberFormat ? tickValue.toLocaleString() : tickValue.toExponential(2);
@@ -1933,7 +1951,7 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                 y1: {
                     type: 'linear',
                     position: 'right',
-                    display: !cfg.isCustomGraph,
+                    display: 'auto',
                     beginAtZero: true,
                     ticks: {
                         callback: function(tickValue: string | number) {
@@ -1947,18 +1965,20 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
                         drawOnChartArea: false, // Only draw grid lines for the left y-axis
                     }
                 },
-                ...(cfg.isCustomGraph ? {
-                    yRatio: {
+                yRatio: {
                         type: 'linear' as const,
                         position: 'right' as const,
                         display: 'auto' as const,
-                        beginAtZero: false,
+                        beginAtZero: true,
+                        suggestedMax: RATIO_BASELINE_VALUE,
+                        title: { display: true, text: `${translations.dataViewRatio7} / ${translations.dataViewRatio28}` },
                         ticks: {
                             callback: (tickValue: string | number) =>
                                 typeof tickValue === 'number' ? `${tickValue.toFixed(2)}x` : tickValue
                         },
                         grid: { drawOnChartArea: false }
                     },
+                ...(cfg.isCustomGraph ? {
                     yWastewater: {
                         type: 'linear' as const,
                         position: 'right' as const,
@@ -2043,7 +2063,7 @@ function buildTrendRatioLookup(cfg: ChartConfig, processedData: TimeseriesData):
     return (datasetLabel: string): number | null => {
         // Strip test-number suffixes first so positive/negative test pills map back to the
         // underlying positivity series, then strip averaging/shift/extreme decoration.
-        const withoutTestSuffix = normalizeSeriesName(datasetLabel)
+        const withoutTestSuffix = stripRatioLabel(normalizeSeriesName(datasetLabel))
             .replace(' - Positive Tests', '')
             .replace(' - Negative Tests', '');
         if (isShiftedSeries(withoutTestSuffix)) {
@@ -2326,7 +2346,9 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
         
         // Determine line style: dashed for shifted series, solid for others
         const isShifted = series.shiftedByIndexes !== undefined && series.shiftedByIndexes !== 0;
-        const borderDash = isShifted ? SHIFTED_LINE_DASH_PATTERN : undefined;
+        const ratioPeriod = series.name.match(/ - (7|28)d Ratio/)?.[1];
+        const dataDash = ratioPeriod === '7' ? [5, 3] : ratioPeriod === '28' ? [2, 3] : [];
+        const borderDash = isShifted ? [...(dataDash.length ? dataDash : SHIFTED_LINE_DASH_PATTERN), 2, 5] : dataDash;
         
         return {
             label: translateSeriesName(series.name),
@@ -2335,12 +2357,13 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
             borderDash: borderDash,
             fill: false,
             hidden: false,
-            borderWidth: 1,
+            borderWidth: cfg.isCustomGraph ? 1 : series.type === 'raw' ? 1 : series.windowSizeInDays === 7 ? 1.8 : 2.6,
             pointRadius: 0,
             spanGaps: false, // Don't connect across null values
             dataType: series.dataType,
             ...(isScalarSeries(series) && series.valueFormat ? { valueFormat: series.valueFormat } : {}),
-            ...(cfg.isCustomGraph ? { yAxisID: getCustomGraphYAxisID(series) } : {}),
+            yAxisID: cfg.isCustomGraph ? getCustomGraphYAxisID(series)
+                : isScalarSeries(series) && series.valueFormat === 'ratio' ? 'yRatio' : 'y',
         };
     });
 }
@@ -2431,6 +2454,7 @@ function generateLocalExtremeDataset(extremeData: ExtremeSeries[][], normalData:
             hidden: false,
             borderWidth: 1,
             pointRadius: 5,
+            yAxisID: cfg.isCustomGraph && originalSeries ? getCustomGraphYAxisID(originalSeries) : 'y',
             type: "scatter",
             showLine: false
         };
@@ -2505,9 +2529,9 @@ function updateRatioTable() {
             // Raw data series names are in English, so normalize them for consistency
             const normalizedSeriesName = normalizeSeriesName(series.name);
             
-            // Check if any key in datasetVisibility contains this series name and has a true value
-            return Object.entries(cfg.datasetVisibility).some(([key, isVisible]) => {
-                return key.includes(normalizedSeriesName) && isVisible;
+            // Stored visibility also contains deselected variants, so inspect only plotted datasets.
+            return chart.data.datasets.some(dataset => {
+                return normalizeSeriesName(dataset.label ?? '').includes(normalizedSeriesName) && !dataset.hidden;
             });
         });
 

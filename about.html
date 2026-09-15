@@ -290,7 +290,8 @@
             <li>The number input specifies either days to shift or which wave to compare (1 = most recent wave, 2 = second wave back, etc.)</li>
           </ul>
         </li>
-        <li><strong>View (Ratio View):</strong> Switch charts from absolute values to a "7d Ratio" or "28d Ratio" view. Raw series compare the last 7 (or 28) days with the preceding 7 (or 28) days, using period averages (test-weighted positivity for test data) - the same measure as the Current Trends table. Both periods need a full window of history. Averaged series apply their centered moving average to these ratios. A value above 1 means the indicator is rising; zero means it fell to zero. Ratios with a zero denominator or missing data are left as gaps. Shifted series are converted as well; test-number bars are not shown in this view.</li>
+        <li><strong>Data and Smoothing (footer):</strong> Choose one or more data modes (Raw, 7-day ratio, 28-day ratio) and smoothing options (None, 7 days, 28 days). Every selected data mode is shown with every selected smoothing option: two data modes and two smoothing options produce four variants per source series. Raw means the original measure, not necessarily an unsmoothed line; choose None for no smoothing. These controls apply to the built-in charts; the custom graph keeps its own series selections.</li>
+        <li><strong>Ratio Calculation:</strong> Compare the last 7 (or 28) days with the preceding 7 (or 28) days. For positivity, sum positive tests and total tests within each period, divide to get each period's positivity, then divide the recent positivity by the preceding positivity. This is not an average of daily percentages. Scalar data uses period averages. Both periods need a full window of history. With smoothing set to None, this is the same measure as the Current Trends table; selecting 7 or 28 days applies a centered moving average to the resulting ratios. A value above 1 means growth; zero means a decline to zero. Undefined ratios remain gaps. Shifted series use the same calculations, translated in time.</li>
         <li><strong>Current Trends Table:</strong> Shows 7-day and 28-day trend ratios (current period vs. previous period) for visible series</li>
         <li><strong>Interactive Tooltips:</strong> Hover over any chart to see detailed values for that date across all visible series</li>
       </ul>
@@ -298,7 +299,7 @@
       <h3>Reading the Charts</h3>
       <ul>
         <li><strong>Left Y-Axis:</strong> Positivity percentage or virus load (depending on data type)</li>
-        <li><strong>Right Y-Axis:</strong> Number of tests (when test bars are visible)</li>
+        <li><strong>Additional Y-Axes:</strong> Number of tests (when test bars are visible) and a separate ratio scale when absolute values and ratios are shown together. Ratio values use an “x” suffix; 1x means no change.</li>
         <li><strong>X-Axis:</strong> Date (future dates shown in gray)</li>
         <li><strong>Solid Lines:</strong> Original time series</li>
         <li><strong>Dashed Lines:</strong> Time-shifted comparison series</li>

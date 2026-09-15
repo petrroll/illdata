@@ -720,6 +720,7 @@ export function compareLabels(labelA: string, labelB: string): number {
 export function getExtremeMatchSeriesName(label: string): string {
     let baseName = stripShiftAndExtremeSuffixes(label);
     baseName = baseName.replace(/\s*\(\d+d avg\)/, '');
+    baseName = baseName.replace(/ - (7|28)d Ratio/, '');
     return baseName.trim();
 }
 
@@ -743,6 +744,7 @@ export function getColorBaseSeriesName(label: string): string {
     
     // Remove averaging window information like "(28d avg)"
     baseName = baseName.replace(/\s*\(\d+d avg\)/, '');
+    baseName = baseName.replace(/ - (7|28)d Ratio/, '');
     
     // Remove surveillance type suffixes like "(Sentinel)" and "(Non-Sentinel)"
     baseName = baseName.replace(/\s*\((Non-)?Sentinel\)/, '');
