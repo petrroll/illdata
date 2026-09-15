@@ -12,16 +12,24 @@ async function datasets(page: Page, chartIndex = 0) {
   })), chartIndex);
 }
 
-test.describe('Footer data and smoothing combinations', () => {
+test.describe('Chart settings data and smoothing combinations', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#czechDataContainer-legend');
     await openOptions(page);
   });
 
-  test('provides two independent checkbox groups in the actual footer with compatible defaults', async ({ page }) => {
-    await expect(page.locator('footer #dataOptions input')).toHaveCount(3);
-    await expect(page.locator('footer #smoothingOptions input')).toHaveCount(3);
+  test('keeps global settings together with compatible defaults and no site-footer controls', async ({ page }) => {
+    await expect(page.locator('#globalSettings')).toHaveCount(1);
+    await expect(page.locator('#globalSettings #dataOptions input')).toHaveCount(3);
+    await expect(page.locator('#globalSettings #smoothingOptions input')).toHaveCount(3);
+    for (const id of ['timeRangeSelect', 'includeFutureCheckbox', 'showExtremesCheckbox',
+      'showShiftedCheckbox', 'showTestNumbersCheckbox', 'showShiftedTestNumbersCheckbox',
+      'shiftOverrideInput', 'alignByExtremeSelect', 'hideAllButton', 'seriesOptionsToggle']) {
+      await expect(page.locator(`#globalSettings #${id}`)).toHaveCount(1);
+      await expect(page.locator(`#${id}`)).toHaveCount(1);
+    }
+    await expect(page.locator('footer input, footer select, footer button')).toHaveCount(0);
     await expect(page.locator('#data-raw')).toBeChecked();
     await expect(page.locator('#smoothing-28')).toBeChecked();
     await expect(page.locator('#smoothing-none')).not.toBeChecked();
@@ -235,7 +243,9 @@ test.describe('Footer data and smoothing combinations', () => {
     await expect(page.locator('#smoothingOptions legend')).toHaveText('Vyhlazení');
     await expect(page.locator('#dataOptions')).toContainText('Poměr za 7 dní');
     await expect(page.locator('#czechDataContainer-legend')).toContainText('Poměr 7 dní');
-    await expect(page.locator('footer input[type=checkbox]')).toHaveCount(6);
+    await expect(page.locator('#globalSettingsTitle')).toHaveText('Nastavení grafů');
+    await expect(page.locator('#globalSettings #seriesOptionsPanel input[type=checkbox]')).toHaveCount(6);
+    await expect(page.locator('#globalSettings #timeRangeSelect')).toHaveCount(1);
     await expect(page.locator('#data-ratio7')).toBeChecked();
     await page.locator('#data-ratio7').focus();
     await page.keyboard.press('Escape');
@@ -244,7 +254,9 @@ test.describe('Footer data and smoothing combinations', () => {
     await page.keyboard.press('Space');
     await expect(page.locator('#seriesOptionsPanel')).toBeVisible();
     await page.locator('#languageSelect').selectOption('en');
-    await expect(page.locator('footer input[type=checkbox]')).toHaveCount(6);
+    await expect(page.locator('#globalSettingsTitle')).toHaveText('Chart settings');
+    await expect(page.locator('#globalSettings #seriesOptionsPanel input[type=checkbox]')).toHaveCount(6);
+    await expect(page.locator('#globalSettings #timeRangeSelect')).toHaveCount(1);
     expect((await datasets(page)).some((ds: any) => ds.label === 'PCR Positivity (28d avg) - 7d Ratio' && !ds.hidden)).toBe(true);
   });
 
@@ -260,17 +272,24 @@ test.describe('Footer data and smoothing combinations', () => {
     expect(await datasets(page, 5)).toEqual(before);
   });
 
-  test('keeps footer choices usable at mobile width and leaves room below content', async ({ page }) => {
+  test('keeps settings usable at mobile width without enlarging the site footer', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    const footerHeight = (await page.locator('footer').boundingBox())!.height;
     await expect(page.locator('#dataOptions')).toBeVisible();
     await page.locator('#data-ratio7').check();
     const dimensions = await page.evaluate(() => {
       const footer = document.querySelector('footer')!.getBoundingClientRect();
+      const settings = document.getElementById('globalSettings')!.getBoundingClientRect();
       return { left: footer.left, right: footer.right, height: footer.height, width: innerWidth,
+        settingsLeft: settings.left, settingsRight: settings.right,
         space: parseFloat(getComputedStyle(document.getElementById('root')!).marginBottom) };
     });
     expect(dimensions.left).toBe(0);
     expect(dimensions.right).toBeLessThanOrEqual(dimensions.width);
     expect(dimensions.space).toBeGreaterThan(dimensions.height);
+    expect(dimensions.settingsLeft).toBeGreaterThanOrEqual(0);
+    expect(dimensions.settingsRight).toBeLessThanOrEqual(dimensions.width);
+    await page.locator('#seriesOptionsToggle').click();
+    expect((await page.locator('footer').boundingBox())!.height).toBe(footerHeight);
   });
 });

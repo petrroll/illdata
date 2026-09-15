@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'bun:test';
-import { assembleChartVariants, stripRatioLabel } from './chart-variants';
+import { assembleChartVariants, stripRatioLabel, variantKey, seriesSmoothing } from './chart-variants';
+import { DATA_VIEWS, SMOOTHING_WINDOWS } from './settings';
 import { computeMovingAverageTimeseries, computeRatioTimeseries, getNewWithCustomShift, getExtremeMatchSeriesName, getColorBaseSeriesName, type TimeseriesData, type ScalarSeries, type PositivitySeries } from './utils';
 
 const source: TimeseriesData = {
@@ -14,6 +15,30 @@ const source: TimeseriesData = {
 };
 
 describe('built-in chart combinations', () => {
+    test('every selection subset produces exactly its selected data/smoothing pairs', () => {
+        for (let dataMask = 0; dataMask < 8; dataMask++) {
+            for (let smoothingMask = 0; smoothingMask < 8; smoothingMask++) {
+                const views = DATA_VIEWS.filter((_, i) => dataMask & (1 << i));
+                const windows = SMOOTHING_WINDOWS.filter((_, i) => smoothingMask & (1 << i));
+                const result = assembleChartVariants(source, views, windows);
+                expect(result.dates).toEqual(source.dates);
+                expect(result.series.map(series => variantKey(series.name)).sort()).toEqual(
+                    views.flatMap(view => windows.map(window => `${view}:${window}`)).sort()
+                );
+                expect(result.series.every(series => windows.includes(seriesSmoothing(series)))).toBe(true);
+            }
+        }
+    });
+
+    test('changing selections does not mutate an earlier result or the source', () => {
+        const original = structuredClone(source);
+        const first = assembleChartVariants(source, ['raw', 'ratio7'], ['none', '7']);
+        const snapshot = structuredClone(first);
+        assembleChartVariants(source, ['ratio28'], ['28']);
+        expect(first).toEqual(snapshot);
+        expect(source).toEqual(original);
+    });
+
     test('produces each pair exactly once, reuses existing raw smoothing, and never mutates source', () => {
         const prepared = computeMovingAverageTimeseries(source, [28]);
         const result = assembleChartVariants(prepared, ['raw', 'ratio7', 'ratio28', 'raw'], ['none', '7', '28', '7']);

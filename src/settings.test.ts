@@ -28,6 +28,16 @@ describe('Unified Settings Tests', () => {
         expect(settings).toEqual(DEFAULT_APP_SETTINGS);
     });
 
+    test('selection arrays are independent between loads and do not mutate defaults', () => {
+        const first = loadAppSettings();
+        first.dataViews.push('ratio7');
+        first.smoothingWindows.push('none');
+        expect(loadAppSettings().dataViews).toEqual(['raw']);
+        expect(loadAppSettings().smoothingWindows).toEqual(['28']);
+        expect(DEFAULT_APP_SETTINGS.dataViews).toEqual(['raw']);
+        expect(DEFAULT_APP_SETTINGS.smoothingWindows).toEqual(['28']);
+    });
+
     test('saves and loads settings correctly', () => {
         const customSettings: AppSettings = {
             timeRange: "365",

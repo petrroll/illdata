@@ -232,9 +232,33 @@ describe('URL State Management Tests', () => {
         
         expect(decoded).not.toBeNull();
         expect(decoded!.settings).toEqual(settings);
-        // When all series are false (hidden), compact format doesn't store visibility key at all
-        expect(decoded!.visibility).toEqual({});
+        // An explicit empty map preserves Hide All rather than restoring default visibility.
+        expect(decoded!.visibility).toEqual({ datasetVisibility: {} });
         expect(decoded!.countryFilters).toEqual({});
+        localStorage.setItem('datasetVisibility', JSON.stringify({ 'PCR Positivity': true }));
+        applyUrlState(decoded!, chartConfigs);
+        expect(chartConfigs[0].visibilityIsComplete).toBe(true);
+        expect(JSON.parse(localStorage.getItem('datasetVisibility')!)).toEqual({});
+    });
+
+    test('round-trips all-hidden charts without marking omitted charts as complete', () => {
+        const chartConfigs: UrlChartConfig[] = [{
+            containerId: 'czechDataContainer', visibilityKey: 'datasetVisibility',
+            datasetVisibility: { 'PCR Positivity': false }
+        }];
+        const omittedChart: UrlChartConfig = {
+            containerId: 'euDataContainer', visibilityKey: 'euDatasetVisibility',
+            datasetVisibility: { Influenza: true }
+        };
+        localStorage.setItem('euDatasetVisibility', JSON.stringify(omittedChart.datasetVisibility));
+        const decoded = decodeUrlState(encodeUrlState(DEFAULT_APP_SETTINGS, chartConfigs, new Map()))!;
+
+        applyUrlState(decoded, [...chartConfigs, omittedChart]);
+
+        expect(decoded.visibility).toEqual({ datasetVisibility: {} });
+        expect(chartConfigs[0].visibilityIsComplete).toBe(true);
+        expect(omittedChart.visibilityIsComplete).toBeUndefined();
+        expect(JSON.parse(localStorage.getItem('euDatasetVisibility')!)).toEqual({ Influenza: true });
     });
 
     test('handles invalid base64 encoding', () => {

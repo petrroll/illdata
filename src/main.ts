@@ -323,9 +323,11 @@ function createUnifiedSettingsControl<K extends keyof AppSettings>(options: {
         const label = document.createElement('label');
         label.htmlFor = options.id;
         label.textContent = options.label;
+        label.appendChild(control);
         options.container.appendChild(label);
+    } else {
+        options.container.appendChild(control);
     }
-    options.container.appendChild(control);
     
     control.addEventListener('change', (event) => {
         if (options.type === 'select') {
@@ -772,7 +774,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         'nlInfectieradarContainer',
         'deAreContainer',
         'customGraphContainer',
-        'hideAllButton'
+        'globalSettings'
     ];
     
     // Remove all child elements that are not in the keep list
@@ -972,11 +974,14 @@ function renderPage(rootDiv: HTMLElement | null) {
     }
 
     // Controls using unified settings
+    const settingsContainer = document.getElementById('globalSettingsControls')!;
+    settingsContainer.replaceChildren();
+    document.getElementById('globalSettingsTitle')!.textContent = translations.chartSettings;
     createUnifiedSettingsControl({
         type: 'select',
         id: 'timeRangeSelect',
         label: undefined,
-        container: rootDiv,
+        container: settingsContainer,
         settingKey: 'timeRange',
         values: [
             { value: "30", label: translations.timeRangeLastMonth },
@@ -994,7 +999,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         type: 'checkbox',
         id: 'includeFutureCheckbox',
         label: translations.includeFutureData,
-        container: rootDiv,
+        container: settingsContainer,
         settingKey: 'includeFuture',
         settings: appSettings,
         onChange: onSettingsChange
@@ -1004,7 +1009,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         type: 'checkbox',
         id: 'showExtremesCheckbox',
         label: translations.showMinMaxSeries,
-        container: rootDiv,
+        container: settingsContainer,
         settingKey: 'showExtremes',
         settings: appSettings,
         onChange: onSettingsChange
@@ -1014,7 +1019,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         type: 'checkbox',
         id: 'showShiftedCheckbox',
         label: translations.showShiftedSeries,
-        container: rootDiv,
+        container: settingsContainer,
         settingKey: 'showShifted',
         settings: appSettings,
         onChange: onSettingsChange
@@ -1024,7 +1029,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         type: 'checkbox',
         id: 'showTestNumbersCheckbox',
         label: translations.showTestNumbers,
-        container: rootDiv,
+        container: settingsContainer,
         settingKey: 'showTestNumbers',
         settings: appSettings,
         onChange: onSettingsChange
@@ -1034,7 +1039,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         type: 'checkbox',
         id: 'showShiftedTestNumbersCheckbox',
         label: translations.showShiftedTestNumbers,
-        container: rootDiv,
+        container: settingsContainer,
         settingKey: 'showShiftedTestNumbers',
         settings: appSettings,
         onChange: onSettingsChange
@@ -1054,8 +1059,8 @@ function renderPage(rootDiv: HTMLElement | null) {
     const shiftDaysLabel = document.createElement('label');
     shiftDaysLabel.htmlFor = 'shiftOverrideInput';
     shiftDaysLabel.textContent = translations.shiftBy;
-    rootDiv.appendChild(shiftDaysLabel);
-    rootDiv.appendChild(shiftDaysInput);
+    shiftDaysLabel.appendChild(shiftDaysInput);
+    settingsContainer.appendChild(shiftDaysLabel);
     
     shiftDaysInput.addEventListener('change', (event) => {
         const inputValue = (event.target as HTMLInputElement).value.trim();
@@ -1096,7 +1101,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         type: 'select',
         id: 'alignByExtremeSelect',
         label: '',
-        container: rootDiv,
+        container: settingsContainer,
         settingKey: 'alignByExtreme',
         values: [
             { value: 'days', label: translations.shiftByDays },
@@ -1410,20 +1415,16 @@ function createSeriesOptions(settings: AppSettings, onChange: (key: keyof AppSet
     const toggle = document.getElementById('seriesOptionsToggle')!;
     const groups = document.getElementById('seriesOptionGroups')!;
     const summary = document.getElementById('seriesOptionsSummary')!;
-    const footer = panel.closest('footer')!;
     groups.replaceChildren();
     toggle.textContent = translations.seriesOptions;
     document.getElementById('seriesOptionsHelp')!.textContent = translations.seriesOptionsHelp;
-    const resize = () => document.documentElement.style.setProperty('--footer-space', `${footer.getBoundingClientRect().height + 20}px`);
     const updateSummary = () => {
         const count = settings.dataViews.length * settings.smoothingWindows.length;
         summary.textContent = count ? translations.seriesOptionsCount.replace('{count}', String(count)) : translations.seriesOptionsEmpty;
-        resize();
     };
     const setOpen = (open: boolean) => {
         panel.hidden = !open;
         toggle.setAttribute('aria-expanded', String(open));
-        resize();
     };
     toggle.onclick = () => setOpen(panel.hidden);
     panel.onkeydown = event => {

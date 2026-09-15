@@ -13,6 +13,7 @@ export interface Translations {
     footerGithub: string;
     footerGetLink: string;
     footerLastUpdate: string;
+    chartSettings: string;
     seriesOptions: string;
     seriesOptionsHelp: string;
     seriesOptionsCount: string;
@@ -265,6 +266,7 @@ const en: Translations = {
     shiftByDays: 'Days',
     shiftByMaxima: 'Maxima',
     shiftByMinima: 'Minima',
+    chartSettings: 'Chart settings',
     seriesOptions: 'Series options',
     seriesOptionsHelp: 'Built-in charts · Select any combination. Raw means absolute values; None means no smoothing. Custom graph is independent.',
     seriesOptionsCount: '{count} variants per source · Data × Smoothing',
@@ -452,6 +454,7 @@ const cs: Translations = {
     shiftByDays: 'Dny',
     shiftByMaxima: 'Maxima',
     shiftByMinima: 'Minima',
+    chartSettings: 'Nastavení grafů',
     seriesOptions: 'Možnosti sérií',
     seriesOptionsHelp: 'Vestavěné grafy · Vyberte libovolné kombinace. Původní data znamenají absolutní hodnoty; Žádné znamená bez vyhlazení. Vlastní graf je nezávislý.',
     seriesOptionsCount: '{count} variant na zdroj · Data × Vyhlazení',

@@ -57,12 +57,22 @@
         cursor: pointer;
       }
       #seriesOptionsPanel {
-        border-bottom: 1px solid #ddd;
-        margin-bottom: 8px;
-        padding-bottom: 8px;
+        margin-top: 8px;
       }
       #seriesOptionsPanel[hidden] { display: none; }
-      .series-option-groups { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+      #root > #globalSettings {
+        display: block;
+        margin: 16px 0;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+      #globalSettingsTitle { margin: 0 0 12px; }
+      #globalSettingsControls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+      #globalSettingsControls label { display: inline-flex; align-items: center; gap: 6px; }
+      #globalSettingsActions { display: flex; flex-wrap: wrap; gap: 8px; }
+      #root .series-option { margin: 2px; }
+      .series-option-groups { display: flex; gap: 16px; flex-wrap: wrap; }
       .series-option-groups fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
       .series-option-groups legend { font-weight: bold; text-align: left; margin-bottom: 4px; }
       .series-option {
@@ -115,15 +125,21 @@
       <div id="deAreContainer"></div>
       <div id="nlInfectieradarContainer"></div>
       <div id="customGraphContainer"></div>
-      <button id="hideAllButton">Hide All Series</button>
+      <section id="globalSettings" aria-labelledby="globalSettingsTitle">
+        <h3 id="globalSettingsTitle">Chart settings</h3>
+        <div id="globalSettingsControls"></div>
+        <div id="globalSettingsActions">
+          <button id="seriesOptionsToggle" type="button" aria-expanded="false" aria-controls="seriesOptionsPanel">Series options</button>
+          <button id="hideAllButton">Hide All Series</button>
+        </div>
+        <div id="seriesOptionsPanel" hidden>
+          <p id="seriesOptionsHelp"></p>
+          <div class="series-option-groups" id="seriesOptionGroups"></div>
+          <p id="seriesOptionsSummary" role="status" aria-live="polite"></p>
+        </div>
+      </section>
     </div>
     <footer>
-      <div id="seriesOptionsPanel" hidden>
-        <p id="seriesOptionsHelp"></p>
-        <div class="series-option-groups" id="seriesOptionGroups"></div>
-        <p id="seriesOptionsSummary" role="status" aria-live="polite"></p>
-      </div>
-      <button id="seriesOptionsToggle" type="button" aria-expanded="false" aria-controls="seriesOptionsPanel">Series options</button>
       <span>
         <a href="about.html" id="footerAboutLink">About</a>
       </span>
