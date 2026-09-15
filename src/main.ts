@@ -2312,12 +2312,11 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
         if (isScalarSeries(series)) {
             // For scalar series, use the value directly (no percentage conversion)
             chartData = series.values.slice(startIdx, endIdx).map((dp) => {
-                if (!dp) return 0;
-                // Ratio (derivative view) series have no meaningful zero: missing ratios and
-                // shift padding are rendered as gaps instead of dropping the line to zero.
+                // A zero ratio is a real decline to zero; missing ratios and shift padding are NaN.
                 if (series.valueFormat === 'ratio') {
-                    return Number.isFinite(dp.virusLoad) && dp.virusLoad > 0 ? dp.virusLoad : NaN;
+                    return dp && Number.isFinite(dp.virusLoad) ? dp.virusLoad : NaN;
                 }
+                if (!dp) return 0;
                 return dp.virusLoad || 0;
             });
         } else {

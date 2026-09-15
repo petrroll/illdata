@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { computeMovingAverageTimeseries, type TimeseriesData } from '../src/utils';
 
 test.describe('Derivative (ratio) View', () => {
   test.beforeEach(async ({ page }) => {
@@ -41,6 +42,54 @@ test.describe('Derivative (ratio) View', () => {
     // Shifted pills are still rendered in derivative view
     const shiftedPills = page.locator('#czechDataContainer-legend span', { hasText: 'shifted by' });
     expect(await shiftedPills.count()).toBeGreaterThan(0);
+  });
+
+  test('should plot smoothed 28-day ratios, real zeros, and missing-data gaps', async ({ page }) => {
+    const dates = Array.from({ length: 140 }, (_, i) => {
+      const date = new Date();
+      date.setUTCDate(date.getUTCDate() - 139 + i);
+      return date.toISOString().split('T')[0];
+    });
+    const source: TimeseriesData = {
+      dates,
+      series: [{
+        name: 'PCR Positivity',
+        type: 'raw',
+        dataType: 'positivity',
+        frequencyInDays: 1,
+        values: dates.map((_, i) => ({ positive: i >= 84 ? 0 : i === 56 ? 100 : 10, tests: 100 }))
+      }]
+    };
+    await page.evaluate(data => {
+      const cfg = (window as any).__chartConfigs[0];
+      cfg.data = data;
+      cfg.extremesCache = undefined;
+    }, computeMovingAverageTimeseries(source, [28]));
+
+    await page.locator('#showShiftedCheckbox').uncheck();
+    await page.locator('#showNonAveragedSeriesCheckbox').check();
+    await page.locator('#derivativeViewSelect').selectOption('28');
+
+    const plotted = await page.evaluate(() => {
+      const datasets = (window as any).__chartConfigs[0].chartHolder.chart.data.datasets;
+      const raw = datasets.find((dataset: any) => dataset.label === 'PCR Positivity').data as number[];
+      const averaged = datasets.find((dataset: any) => dataset.label === 'PCR Positivity (28d avg)').data as number[];
+      return {
+        rawZero: raw[111],
+        averagedZero: averaged[138],
+        rawValue: raw[84],
+        averagedValue: averaged[84],
+        expectedAverage: raw.slice(71, 99).reduce((sum, value) => sum + value, 0) / 28,
+        startupGap: raw.slice(0, 55).every(Number.isNaN) && averaged.slice(0, 55).every(Number.isNaN),
+        denominatorGap: Number.isNaN(raw[139]) && Number.isNaN(averaged[139])
+      };
+    });
+    expect(plotted.rawZero).toBe(0);
+    expect(plotted.averagedZero).toBe(0);
+    expect(plotted.averagedValue).toBeCloseTo(plotted.expectedAverage, 10);
+    expect(plotted.averagedValue).not.toBe(plotted.rawValue);
+    expect(plotted.startupGap).toBe(true);
+    expect(plotted.denominatorGap).toBe(true);
   });
 
   test('should persist derivative view in localStorage', async ({ page }) => {

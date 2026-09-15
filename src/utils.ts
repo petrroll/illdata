@@ -104,7 +104,9 @@ interface ShiftedSeriesOptions {
     includeCountry?: boolean;
 }
 
-const SCALAR_PLACEHOLDER = (): ScalarDatapoint => ({ virusLoad: 0 });
+const SCALAR_PLACEHOLDER = (valueFormat?: ScalarSeries['valueFormat']): ScalarDatapoint => ({
+    virusLoad: valueFormat === 'ratio' ? NaN : 0
+});
 const POSITIVITY_PLACEHOLDER = (): Datapoint => ({ positive: 0, tests: NaN });
 
 function buildShiftedValues<T>(values: T[], length: number, shiftByIndexes: number, placeholderFactory: () => T): T[] {
@@ -134,7 +136,7 @@ function createShiftedSeries(series: DataSeries, options: ShiftedSeriesOptions):
             series.values,
             length,
             shiftByIndexes,
-            SCALAR_PLACEHOLDER
+            () => SCALAR_PLACEHOLDER(series.valueFormat)
         );
         return {
             ...commonSeriesProps,
@@ -173,7 +175,7 @@ function buildBaseSeries(series: DataSeries, padding: number): DataSeries {
     
     // Use proper placeholder objects based on series type
     const paddingValues = isScalarSeries(series)
-        ? Array.from({ length: padding }, () => SCALAR_PLACEHOLDER())
+        ? Array.from({ length: padding }, () => SCALAR_PLACEHOLDER(series.valueFormat))
         : Array.from({ length: padding }, () => POSITIVITY_PLACEHOLDER());
     const paddedValues = [...series.values, ...paddingValues];
     
@@ -495,10 +497,9 @@ export function calculateRatios(data: TimeseriesData, visibleMainSeries: string[
  * shifting keep working; the resulting series are scalar with a `ratio` value format.
  * Points without a computable ratio are NaN so the chart leaves a gap.
  *
- * Averaged series are only smoothed views of a raw series, so their ratio is computed from
- * the underlying raw series when it is available. Using the averaged values would average
- * the data twice (and the centered moving average truncates at the end of the series),
- * which would disagree with the numbers shown in the trends table.
+ * Averaged variants smooth the raw ratios using their named window, rather than computing
+ * ratios from already averaged source data. Raw ratios still match the trends table.
+ * Undefined ratios remain gaps, even when neighboring ratios can be averaged.
  */
 export function computeRatioTimeseries(data: TimeseriesData, periodDays: number): TimeseriesData {
     const rawSeriesByKey = new Map<string, DataSeries>(
@@ -509,6 +510,10 @@ export function computeRatioTimeseries(data: TimeseriesData, periodDays: number)
         const source = series.type === 'averaged'
             ? (rawSeriesByKey.get(ratioSourceKey(series)) ?? series)
             : series;
+        const values = series.values.map((_, index) => {
+            const ratio = calculatePeriodRatio(source, index, periodDays);
+            return { virusLoad: ratio !== null && Number.isFinite(ratio) ? ratio : NaN };
+        });
 
         return {
             name: series.name,
@@ -519,16 +524,27 @@ export function computeRatioTimeseries(data: TimeseriesData, periodDays: number)
             ...(series.country ? { country: series.country } : {}),
             ...(series.survtype ? { survtype: series.survtype } : {}),
             ...(series.ageGroup ? { ageGroup: series.ageGroup } : {}),
-            values: series.values.map((_, index) => {
-                const ratio = calculatePeriodRatio(source, index, periodDays);
-                return { virusLoad: ratio !== null && Number.isFinite(ratio) ? ratio : NaN };
-            }),
+            values: source !== series && series.windowSizeInDays
+                ? smoothRatioValues(values, windowSizeDaysToIndex(series.windowSizeInDays, series.frequencyInDays))
+                : values,
             dataType: 'scalar' as const,
             valueFormat: 'ratio' as const
         };
     });
 
     return { ...data, series: ratioSeries };
+}
+
+function smoothRatioValues(values: ScalarDatapoint[], windowSize: number): ScalarDatapoint[] {
+    const before = Math.floor((windowSize - 1) / 2);
+    const after = Math.floor(windowSize / 2);
+    return values.map((value, index) => {
+        if (!Number.isFinite(value.virusLoad)) return value;
+        // Keep exactly windowSize samples, including for even daily/weekly windows.
+        const window = values.slice(Math.max(0, index - before), index + after + 1)
+            .filter(value => Number.isFinite(value.virusLoad));
+        return { virusLoad: window.reduce((sum, value) => sum + value.virusLoad, 0) / window.length };
+    });
 }
 
 /**
@@ -556,13 +572,14 @@ function calculateLatestFinitePeriodRatio(series: DataSeries, endIndex: number, 
 
 function calculatePeriodRatio(series: DataSeries, endIndex: number, periodDays: number): number | null {
     const periodIndices = Math.floor(periodDays / series.frequencyInDays);
+    if (!Number.isFinite(periodIndices) || periodIndices < 1 || endIndex < 2 * periodIndices - 1) return null;
     
     // Calculate current period average (last N days)
-    const currentStart = Math.max(0, endIndex - periodIndices + 1);
+    const currentStart = endIndex - periodIndices + 1;
     const currentEnd = endIndex + 1;
     
     // Calculate previous period average (N days before that)
-    const previousStart = Math.max(0, currentStart - periodIndices);
+    const previousStart = currentStart - periodIndices;
     const previousEnd = currentStart;
     
     if (previousStart >= previousEnd || currentStart >= currentEnd) return null;

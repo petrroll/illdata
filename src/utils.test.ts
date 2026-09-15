@@ -678,8 +678,8 @@ describe('calculateRatios Tests', () => {
 });
 
 describe('computeRatioTimeseries Tests', () => {
-    const makeDates = (count: number) => Array.from({ length: count }, (_, i) => {
-        const date = new Date(Date.UTC(2025, 0, 1 + i));
+    const makeDates = (count: number, frequencyInDays = 1) => Array.from({ length: count }, (_, i) => {
+        const date = new Date(Date.UTC(2025, 0, 1 + i * frequencyInDays));
         return date.toISOString().split('T')[0];
     });
 
@@ -705,8 +705,8 @@ describe('computeRatioTimeseries Tests', () => {
         expect(series.valueFormat).toBe('ratio');
         expect(series.values).toHaveLength(14);
         expect(series.values[13].virusLoad).toBeCloseTo(2, 10);
-        // Not enough history for the very first point
-        expect(Number.isNaN(series.values[0].virusLoad)).toBe(true);
+        // Both comparison periods need a full window of history.
+        expect(series.values.slice(0, 13).every(value => Number.isNaN(value.virusLoad))).toBe(true);
     });
 
     test('converts a positivity series using positivity percentages', () => {
@@ -755,7 +755,7 @@ describe('computeRatioTimeseries Tests', () => {
         expect(series.ageGroup).toBe('00+');
     });
 
-    test('averaged series use their raw source so ratios match the trends table', () => {
+    test('averaged series smooth the raw ratios rather than duplicating them', () => {
         const dates = makeDates(30);
         const raw: PositivitySeries = {
             name: 'PCR Positivity',
@@ -771,11 +771,109 @@ describe('computeRatioTimeseries Tests', () => {
         const averagedRatio = result.series[1] as ScalarSeries;
 
         expect(averagedRatio.name).toBe('PCR Positivity (7d avg)');
-        // The averaged variant is only a smoothed view of the raw series, so its ratio has to
-        // match the raw one - which is the number shown in the trends table.
-        expect(averagedRatio.values.map(v => v.virusLoad)).toEqual(rawRatio.values.map(v => v.virusLoad));
+        const expected = rawRatio.values.slice(26, 30).reduce((sum, v) => sum + v.virusLoad, 0) / 4;
+        expect(averagedRatio.values[29].virusLoad).toBeCloseTo(expected, 10);
+        expect(averagedRatio.values[29].virusLoad).not.toBe(rawRatio.values[29].virusLoad);
         // Last point: positivity of days 24-30 vs days 17-23
-        expect(averagedRatio.values[29].virusLoad).toBeCloseTo(189 / 140, 10);
+        expect(rawRatio.values[29].virusLoad).toBeCloseTo(189 / 140, 10);
+        const [trend] = calculateRatios(data, [raw.name]);
+        expect(rawRatio.values[29].virusLoad).toBe(trend.ratio7days!);
+    });
+
+    test.each([1, 7])('28-day ratios and smoothing respect a %i-day sampling frequency', (frequencyInDays) => {
+        const periodLength = 28 / frequencyInDays;
+        const raw: ScalarSeries = {
+            name: 'Wastewater',
+            values: Array.from({ length: periodLength * 4 }, (_, i) => ({
+                virusLoad: i === periodLength * 2 ? 100 : 1
+            })),
+            type: 'raw',
+            frequencyInDays,
+            dataType: 'scalar'
+        };
+        const data = computeMovingAverageTimeseries({ dates: makeDates(raw.values.length, frequencyInDays), series: [raw] }, [28]);
+        const [rawRatio, averagedRatio] = computeRatioTimeseries(data, 28).series as ScalarSeries[];
+
+        expect(rawRatio.values.slice(0, periodLength * 2 - 1).every(v => Number.isNaN(v.virusLoad))).toBe(true);
+        expect(rawRatio.values[periodLength * 2 - 1].virusLoad).toBe(1);
+        expect(rawRatio.values[periodLength * 2].virusLoad).toBeCloseTo((periodLength + 99) / periodLength, 10);
+
+        const index = periodLength * 3;
+        const start = index - Math.floor((periodLength - 1) / 2);
+        const expected = rawRatio.values.slice(start, start + periodLength)
+            .reduce((sum, v) => sum + v.virusLoad, 0) / periodLength;
+        expect(averagedRatio.values[index].virusLoad).toBeCloseTo(expected, 10);
+        const largestJump = (series: ScalarSeries) => Math.max(...series.values.slice(1).map((v, i) =>
+            Number.isFinite(v.virusLoad) && Number.isFinite(series.values[i].virusLoad)
+                ? Math.abs(v.virusLoad - series.values[i].virusLoad) : 0
+        ));
+        expect(largestJump(averagedRatio)).toBeLessThan(largestJump(rawRatio));
+    });
+
+    test('positivity ratios weight by test counts, not daily percentages', () => {
+        const data: TimeseriesData = {
+            dates: makeDates(4, 7),
+            series: [{
+                name: 'Positivity',
+                values: [
+                    { positive: 1, tests: 10 }, { positive: 90, tests: 100 },
+                    { positive: 2, tests: 10 }, { positive: 90, tests: 100 }
+                ],
+                type: 'raw',
+                frequencyInDays: 7,
+                dataType: 'positivity'
+            }]
+        };
+        const [ratio] = computeRatioTimeseries(data, 14).series as ScalarSeries[];
+        expect(ratio.values[3].virusLoad).toBeCloseTo(92 / 91, 10);
+    });
+
+    test('smoothing includes zero ratios but preserves undefined ratios as gaps', () => {
+        const raw: ScalarSeries = {
+            name: 'Incidence',
+            values: [1, 1, 0, 1, 1, 1].map(virusLoad => ({ virusLoad })),
+            type: 'raw',
+            frequencyInDays: 7,
+            dataType: 'scalar'
+        };
+        const data = computeMovingAverageTimeseries({ dates: makeDates(6, 7), series: [raw] }, [21]);
+        const [rawRatio, averagedRatio] = computeRatioTimeseries(data, 7).series as ScalarSeries[];
+
+        expect(rawRatio.values.map(v => v.virusLoad)).toEqual([NaN, 1, 0, NaN, 1, 1]);
+        expect(averagedRatio.values.map(v => v.virusLoad)).toEqual([NaN, 0.5, 0.5, NaN, 1, 1]);
+    });
+
+    test('shifted ratio padding is missing data, not a zero ratio', () => {
+        const base: TimeseriesData = {
+            dates: makeDates(5),
+            series: [{
+                name: 'Incidence',
+                values: [1, 1, 0, 1, 1].map(virusLoad => ({ virusLoad })),
+                type: 'raw',
+                frequencyInDays: 1,
+                dataType: 'scalar'
+            }]
+        };
+        const ratios = computeRatioTimeseries(base, 1);
+        const forward = getNewWithCustomShift(ratios, -2, true);
+        const backward = getNewWithCustomShift(ratios, 2);
+        const aligned = getNewWithSifterToAlignExtremeDates(ratios, [{
+            name: 'Incidence maxima', originalSeriesName: 'Incidence',
+            type: 'extreme', extreme: 'maxima', indices: [1, 3]
+        }], 1, 2, true);
+
+        for (const result of [forward, aligned]) {
+            const shifted = result.series.find(s => s.shiftedByIndexes !== undefined) as ScalarSeries;
+            const unshifted = result.series.find(s => s.shiftedByIndexes === undefined) as ScalarSeries;
+            expect(shifted.values[0].virusLoad).toBeNaN();
+            expect(shifted.values[1].virusLoad).toBeNaN();
+            expect(shifted.values[4].virusLoad).toBe(0);
+            expect(unshifted.values[5].virusLoad).toBeNaN();
+            expect(unshifted.values[6].virusLoad).toBeNaN();
+        }
+        const shiftedBack = backward.series.find(s => s.shiftedByIndexes !== undefined) as ScalarSeries;
+        expect(shiftedBack.values[0].virusLoad).toBe(0);
+        expect(shiftedBack.values[4].virusLoad).toBeNaN();
     });
 
     test('ratios of a shifted series match the ratios of its base series', () => {
@@ -796,7 +894,7 @@ describe('computeRatioTimeseries Tests', () => {
         const unshifted = ratios.series[0] as ScalarSeries;
 
         // The shifted ratio series is just the ratio series translated in time
-        expect(shifted.values[10].virusLoad).toBeCloseTo(unshifted.values[7].virusLoad, 10);
+        expect(shifted.values[16].virusLoad).toBeCloseTo(unshifted.values[13].virusLoad, 10);
     });
 });
 
