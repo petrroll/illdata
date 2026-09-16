@@ -17,6 +17,7 @@ import {
     type ScalarSeries,
     type ExtremeSeries,
     type TimeseriesData,
+    type DataSeries,
     type Datapoint
 } from './utils';
 
@@ -657,7 +658,7 @@ describe('trendFromRatio Tests', () => {
 });
 
 describe('calculateRatios Tests', () => {
-    test('uses the latest finite scalar ratio before a padded zero tail', () => {
+    test('includes the latest all-zero scalar comparison', () => {
         const data: TimeseriesData = {
             dates: Array.from({ length: 20 }, (_, i) => `2026-${String(Math.floor(i / 4) + 1).padStart(2, '0')}-${String((i % 4) * 7 + 1).padStart(2, '0')}`),
             series: [{
@@ -673,7 +674,7 @@ describe('calculateRatios Tests', () => {
         const [ratio] = calculateRatios(data, ['COVID-19 SARI Hospitalization Incidence']);
 
         expect(ratio.ratio28days).toBe(0);
-        expect(ratio.lastDataDate?.toISOString().split('T')[0]).toBe(data.dates[18]);
+        expect(ratio.lastDataDate?.toISOString().split('T')[0]).toBe(data.dates[19]);
     });
 });
 
@@ -728,6 +729,67 @@ describe('computeRatioTimeseries Tests', () => {
 
         expect(series.dataType).toBe('scalar');
         expect(series.values[13].virusLoad).toBeCloseTo(3, 10);
+    });
+
+    test.each([7, 28])('%i-day zero-over-zero comparisons are zero, including with smoothing', (periodDays) => {
+        const count = 2 * periodDays + 10;
+        const data: TimeseriesData = {
+            dates: makeDates(count),
+            series: [
+                ...[0, 100].map(tests => ({
+                    name: `Positivity ${tests}`, type: 'raw' as const, dataType: 'positivity' as const,
+                    frequencyInDays: 1,
+                    values: Array.from({ length: count }, () => ({ positive: 0, tests }))
+                })),
+                {
+                    name: 'Incidence', type: 'raw', dataType: 'scalar', frequencyInDays: 1,
+                    values: Array.from({ length: count }, () => ({ virusLoad: 0 }))
+                }
+            ]
+        };
+        const ratios = computeRatioTimeseries(computeMovingAverageTimeseries(data, [7, 28]), periodDays);
+        for (const series of ratios.series as ScalarSeries[]) {
+            expect(series.values.slice(0, 2 * periodDays - 1).every(v => Number.isNaN(v.virusLoad))).toBe(true);
+            expect(series.values.slice(2 * periodDays - 1).every(v => v.virusLoad === 0)).toBe(true);
+        }
+        for (const trend of calculateRatios(data, data.series.map(series => series.name))) {
+            expect(periodDays === 7 ? trend.ratio7days : trend.ratio28days).toBe(0);
+        }
+    });
+
+    test.each([7, 28])('%i-day positive-over-zero comparisons and missing observations remain undefined', (periodDays) => {
+        const count = 2 * periodDays;
+        const raw: PositivitySeries = {
+            name: 'PCR Positivity', type: 'raw', dataType: 'positivity', frequencyInDays: 1,
+            values: Array.from({ length: count }, (_, i) => ({
+                positive: i < periodDays ? 0 : 1, tests: 100
+            }))
+        };
+        const ratioAtEnd = (series: DataSeries) => {
+            const data = computeMovingAverageTimeseries({ dates: makeDates(count), series: [series] }, [7, 28]);
+            return (computeRatioTimeseries(data, periodDays).series as ScalarSeries[]).map(s => s.values[count - 1].virusLoad);
+        };
+        expect(ratioAtEnd(raw).every(Number.isNaN)).toBe(true);
+        for (const missing of [NaN, null]) {
+            const positivity = JSON.parse(JSON.stringify(raw)) as PositivitySeries;
+            positivity.values.forEach(point => { point.positive = 0; });
+            // JSON encodes missing numeric values as null.
+            Object.assign(positivity.values[periodDays], { positive: missing, tests: missing });
+            expect(ratioAtEnd(positivity).every(Number.isNaN)).toBe(true);
+            const scalar: ScalarSeries = {
+                name: 'Incidence', type: 'raw', dataType: 'scalar', frequencyInDays: 1,
+                values: Array.from({ length: count }, () => ({ virusLoad: 0 }))
+            };
+            Object.assign(scalar.values[periodDays], { virusLoad: missing });
+            expect(ratioAtEnd(scalar).every(Number.isNaN)).toBe(true);
+        }
+        const missingObservation = JSON.parse(JSON.stringify(raw)) as PositivitySeries;
+        missingObservation.values.forEach(point => { point.positive = 0; });
+        Object.assign(missingObservation.values, { [periodDays]: null });
+        const missingRatio = computeRatioTimeseries({
+            dates: makeDates(count), series: [missingObservation]
+        }, periodDays).series[0] as ScalarSeries;
+        expect(missingRatio.values[count - 1].virusLoad).toBeNaN();
     });
 
     test('preserves metadata so shifting and filtering keep working', () => {

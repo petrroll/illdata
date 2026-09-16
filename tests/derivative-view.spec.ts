@@ -50,6 +50,11 @@ test.describe('Chart settings data and smoothing combinations', () => {
     expect(after.filter((ds: any) => ds.axis === 'y1').length).toBe(before.filter((ds: any) => ds.axis === 'y1').length);
     const pcr = lines.filter((ds: any) => ds.label.startsWith('PCR'));
     expect(new Set(pcr.map((ds: any) => JSON.stringify([ds.dash, ds.width]))).size).toBe(9);
+    expect([...new Set(pcr.map((ds: any) => ds.width))].sort()).toEqual([1, 1.4, 1.8]);
+    for (const line of pcr.filter((ds: any) => ds.format === 'ratio')) {
+      expect(line.dash[0]).toBeGreaterThanOrEqual(10);
+      expect(line.dash[1]).toBeLessThanOrEqual(3);
+    }
     expect(new Set(pcr.filter((ds: any) => ds.label.includes('(28d avg)')).map((ds: any) => ds.color)).size).toBe(1);
     await expect(page.locator('#seriesOptionsSummary')).toContainText('9 variants');
   });
@@ -85,15 +90,15 @@ test.describe('Chart settings data and smoothing combinations', () => {
   });
 
   test('plots raw values, smoothed ratios, true zeros and gaps, then shifts each variant once', async ({ page }) => {
-    const dates = Array.from({ length: 140 }, (_, i) => {
+    const dates = Array.from({ length: 141 }, (_, i) => {
       const date = new Date();
-      date.setUTCDate(date.getUTCDate() - 139 + i);
+      date.setUTCDate(date.getUTCDate() - 140 + i);
       return date.toISOString().split('T')[0];
     });
     const source: TimeseriesData = {
       dates, series: [{
         name: 'PCR Positivity', type: 'raw', dataType: 'positivity', frequencyInDays: 1,
-        values: dates.map((_, i) => ({ positive: i >= 84 ? 0 : i === 56 ? 100 : 10, tests: 100 }))
+        values: dates.map((_, i) => ({ positive: i === 140 ? 1 : i >= 84 ? 0 : i === 56 ? 100 : 10, tests: 100 }))
       }]
     };
     await page.evaluate(data => {
@@ -117,7 +122,8 @@ test.describe('Chart settings data and smoothing combinations', () => {
         expectedAverage: raw.slice(71, 99).reduce((sum, value) => sum + value, 0) / 28,
         week: week[84], expectedWeek: raw.slice(81, 88).reduce((sum, value) => sum + value, 0) / 7,
         startupGap: raw.slice(0, 55).every(Number.isNaN) && avg.slice(0, 55).every(Number.isNaN),
-        denominatorGap: Number.isNaN(raw[139]) && Number.isNaN(avg[139])
+        zeroOverZero: raw[139] === 0 && avg[139] === 0,
+        positiveOverZeroGap: Number.isNaN(raw[140]) && Number.isNaN(avg[140])
       };
     });
     expect(plotted.absolute).toBe(100);
@@ -128,7 +134,8 @@ test.describe('Chart settings data and smoothing combinations', () => {
     expect(plotted.week).toBeCloseTo(plotted.expectedWeek, 10);
     expect(plotted.averagedValue).not.toBe(plotted.rawValue);
     expect(plotted.startupGap).toBe(true);
-    expect(plotted.denominatorGap).toBe(true);
+    expect(plotted.zeroOverZero).toBe(true);
+    expect(plotted.positiveOverZeroGap).toBe(true);
     await page.locator('#alignByExtremeSelect').selectOption('days');
     await page.locator('#shiftOverrideInput').fill('10');
     await page.locator('#shiftOverrideInput').dispatchEvent('change');

@@ -60,7 +60,7 @@ describe('built-in chart combinations', () => {
         expect(month.values[84].virusLoad).toBeCloseTo(raw.values.slice(71, 99).reduce((sum, value) => sum + value.virusLoad, 0) / 28, 12);
         expect(raw.values[111].virusLoad).toBe(0);
         expect(month.values[138].virusLoad).toBe(0);
-        expect(Number.isNaN(month.values[139].virusLoad)).toBe(true);
+        expect(month.values[139].virusLoad).toBe(0);
     });
 
     test('raw smoothing preserves pooled positives and tests, not a mean of percentages', () => {

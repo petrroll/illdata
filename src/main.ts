@@ -2348,7 +2348,7 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
         // Determine line style: dashed for shifted series, solid for others
         const isShifted = series.shiftedByIndexes !== undefined && series.shiftedByIndexes !== 0;
         const ratioPeriod = series.name.match(/ - (7|28)d Ratio/)?.[1];
-        const dataDash = ratioPeriod === '7' ? [5, 3] : ratioPeriod === '28' ? [2, 3] : [];
+        const dataDash = ratioPeriod === '7' ? [10, 2] : ratioPeriod === '28' ? [18, 3] : [];
         const borderDash = isShifted ? [...(dataDash.length ? dataDash : SHIFTED_LINE_DASH_PATTERN), 2, 5] : dataDash;
         
         return {
@@ -2358,7 +2358,7 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
             borderDash: borderDash,
             fill: false,
             hidden: false,
-            borderWidth: cfg.isCustomGraph ? 1 : series.type === 'raw' ? 1 : series.windowSizeInDays === 7 ? 1.8 : 2.6,
+            borderWidth: cfg.isCustomGraph ? 1 : series.type === 'raw' ? 1 : series.windowSizeInDays === 7 ? 1.4 : 1.8,
             pointRadius: 0,
             spanGaps: false, // Don't connect across null values
             dataType: series.dataType,

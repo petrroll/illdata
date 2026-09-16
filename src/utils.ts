@@ -591,17 +591,21 @@ function calculatePeriodRatio(series: DataSeries, endIndex: number, periodDays: 
         .slice(previousStart, previousEnd)
         .filter(value => value !== null && value !== undefined);
     
-    if (currentValues.length === 0 || previousValues.length === 0) return null;
+    if (currentValues.length !== periodIndices || previousValues.length !== periodIndices) return null;
     
     let currentAvg: number;
     let previousAvg: number;
     
     if (isScalarSeries(series)) {
+        if ([...currentValues, ...previousValues].some(value =>
+            !Number.isFinite((value as ScalarDatapoint).virusLoad))) return null;
         const currentSum = (currentValues as ScalarDatapoint[]).reduce((sum, val) => sum + val.virusLoad, 0);
         const previousSum = (previousValues as ScalarDatapoint[]).reduce((sum, val) => sum + val.virusLoad, 0);
         currentAvg = currentSum / currentValues.length;
         previousAvg = previousSum / previousValues.length;
     } else {
+        if ([...currentValues, ...previousValues].some(value =>
+            !Number.isFinite((value as Datapoint).positive) || !Number.isFinite((value as Datapoint).tests))) return null;
         const current = (currentValues as Datapoint[]).reduce((sum, val) => {
             sum.positive += val.positive;
             sum.tests += val.tests;
@@ -612,10 +616,12 @@ function calculatePeriodRatio(series: DataSeries, endIndex: number, periodDays: 
             sum.tests += val.tests;
             return sum;
         }, {positive: 0, tests: 0});
-        currentAvg = datapointToPercentage(current);
-        previousAvg = datapointToPercentage(previous);
+        currentAvg = current.positive === 0 && current.tests === 0 ? 0 : datapointToPercentage(current);
+        previousAvg = previous.positive === 0 && previous.tests === 0 ? 0 : datapointToPercentage(previous);
     }
 
+    // Treat an observed all-zero comparison as zero, but not positive / zero or missing data.
+    if (currentAvg === 0 && previousAvg === 0) return 0;
     return currentAvg / previousAvg;
 }
 
