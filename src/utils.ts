@@ -597,8 +597,6 @@ function calculatePeriodRatio(series: DataSeries, endIndex: number, periodDays: 
     let previousAvg: number;
     
     if (isScalarSeries(series)) {
-        if ([...currentValues, ...previousValues].some(value =>
-            !Number.isFinite((value as ScalarDatapoint).virusLoad))) return null;
         const currentSum = (currentValues as ScalarDatapoint[]).reduce((sum, val) => sum + val.virusLoad, 0);
         const previousSum = (previousValues as ScalarDatapoint[]).reduce((sum, val) => sum + val.virusLoad, 0);
         currentAvg = currentSum / currentValues.length;
@@ -618,10 +616,10 @@ function calculatePeriodRatio(series: DataSeries, endIndex: number, periodDays: 
         }, {positive: 0, tests: 0});
         currentAvg = current.positive === 0 && current.tests === 0 ? 0 : datapointToPercentage(current);
         previousAvg = previous.positive === 0 && previous.tests === 0 ? 0 : datapointToPercentage(previous);
+        // Scalar zeros can be missing-data placeholders; only positivity has explicit test counts.
+        if (currentAvg === 0 && previousAvg === 0) return 0;
     }
 
-    // Treat an observed all-zero comparison as zero, but not positive / zero or missing data.
-    if (currentAvg === 0 && previousAvg === 0) return 0;
     return currentAvg / previousAvg;
 }
 

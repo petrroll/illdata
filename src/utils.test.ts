@@ -658,7 +658,7 @@ describe('trendFromRatio Tests', () => {
 });
 
 describe('calculateRatios Tests', () => {
-    test('includes the latest all-zero scalar comparison', () => {
+    test('uses the latest finite scalar ratio before a padded zero tail', () => {
         const data: TimeseriesData = {
             dates: Array.from({ length: 20 }, (_, i) => `2026-${String(Math.floor(i / 4) + 1).padStart(2, '0')}-${String((i % 4) * 7 + 1).padStart(2, '0')}`),
             series: [{
@@ -674,7 +674,7 @@ describe('calculateRatios Tests', () => {
         const [ratio] = calculateRatios(data, ['COVID-19 SARI Hospitalization Incidence']);
 
         expect(ratio.ratio28days).toBe(0);
-        expect(ratio.lastDataDate?.toISOString().split('T')[0]).toBe(data.dates[19]);
+        expect(ratio.lastDataDate?.toISOString().split('T')[0]).toBe(data.dates[18]);
     });
 });
 
@@ -731,21 +731,15 @@ describe('computeRatioTimeseries Tests', () => {
         expect(series.values[13].virusLoad).toBeCloseTo(3, 10);
     });
 
-    test.each([7, 28])('%i-day zero-over-zero comparisons are zero, including with smoothing', (periodDays) => {
+    test.each([7, 28])('%i-day zero-over-zero positivity comparisons are zero, including with smoothing', (periodDays) => {
         const count = 2 * periodDays + 10;
         const data: TimeseriesData = {
             dates: makeDates(count),
-            series: [
-                ...[0, 100].map(tests => ({
-                    name: `Positivity ${tests}`, type: 'raw' as const, dataType: 'positivity' as const,
-                    frequencyInDays: 1,
-                    values: Array.from({ length: count }, () => ({ positive: 0, tests }))
-                })),
-                {
-                    name: 'Incidence', type: 'raw', dataType: 'scalar', frequencyInDays: 1,
-                    values: Array.from({ length: count }, () => ({ virusLoad: 0 }))
-                }
-            ]
+            series: [0, 100].map(tests => ({
+                name: `Positivity ${tests}`, type: 'raw', dataType: 'positivity',
+                frequencyInDays: 1,
+                values: Array.from({ length: count }, () => ({ positive: 0, tests }))
+            }))
         };
         const ratios = computeRatioTimeseries(computeMovingAverageTimeseries(data, [7, 28]), periodDays);
         for (const series of ratios.series as ScalarSeries[]) {
