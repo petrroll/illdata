@@ -1,6 +1,19 @@
 // Color utility functions
 // Extracted from main.ts for testability and reuse
 
+import { color } from 'chart.js/helpers';
+
+/** Keep ratios in the source color family while distinguishing the two periods. */
+export function adjustColorForRatio(hexColor: string, periodDays: 7 | 28): string {
+    const base = color(hexColor);
+    const { r, g, b } = base.rgb;
+    // A neutral palette has no hue to rotate, so give it a subtle tint instead.
+    if (r === g && g === b) {
+        return base.mix(color(periodDays === 7 ? '#008080' : '#800080'), 0.85).hexString();
+    }
+    return base.rotate(periodDays === 7 ? -12 : 12).hexString();
+}
+
 /**
  * Adjusts the color for test bar charts by adjusting saturation and lightness
  * to create better contrast between positive and negative test bars.

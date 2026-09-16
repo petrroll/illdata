@@ -49,14 +49,19 @@ test.describe('Chart settings data and smoothing combinations', () => {
     expect(lines.every((ds: any) => !ds.hidden)).toBe(true);
     expect(after.filter((ds: any) => ds.axis === 'y1').length).toBe(before.filter((ds: any) => ds.axis === 'y1').length);
     const pcr = lines.filter((ds: any) => ds.label.startsWith('PCR'));
-    expect(new Set(pcr.map((ds: any) => JSON.stringify([ds.dash, ds.width]))).size).toBe(9);
+    expect(new Set(pcr.map((ds: any) => JSON.stringify([ds.color, ds.width]))).size).toBe(9);
     expect([...new Set(pcr.map((ds: any) => ds.width))].sort()).toEqual([1, 1.4, 1.8]);
     for (const line of pcr.filter((ds: any) => ds.format === 'ratio')) {
-      expect(line.dash[0]).toBeGreaterThanOrEqual(10);
-      expect(line.dash[1]).toBeLessThanOrEqual(3);
+      expect(line.dash).toEqual([]);
     }
-    expect(new Set(pcr.filter((ds: any) => ds.label.includes('(28d avg)')).map((ds: any) => ds.color)).size).toBe(1);
+    expect(new Set(pcr.filter((ds: any) => ds.label.includes('(28d avg)')).map((ds: any) => ds.color)).size).toBe(3);
     await expect(page.locator('#seriesOptionsSummary')).toContainText('9 variants');
+    await page.locator('#showShiftedCheckbox').check();
+    const shiftedLines = (await datasets(page)).filter((ds: any) => ds.label.includes('shifted'));
+    const shiftedRatios = shiftedLines.filter((ds: any) => ds.format === 'ratio');
+    expect(shiftedRatios.length).toBeGreaterThan(0);
+    expect(shiftedRatios.every((ds: any) => ds.dash.length === 0)).toBe(true);
+    expect(shiftedLines.filter((ds: any) => ds.axis === 'y').every((ds: any) => ds.dash.length > 0)).toBe(true);
   });
 
   test('keeps raw/ratio axes and a visible 1x baseline separate, with correctly formatted tooltips', async ({ page }) => {

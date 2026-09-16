@@ -1,6 +1,26 @@
 import { describe, test, expect } from "bun:test";
 import { getColorBaseSeriesName } from "./utils";
-import { adjustColorForTestBars } from "./color";
+import { adjustColorForTestBars, adjustColorForRatio } from "./color";
+import { color } from "chart.js/helpers";
+
+describe("adjustColorForRatio Tests", () => {
+    test.each(["#1f77b4", "#2ca02c", "#d62728", "#9467bd", "#ff7f0e", "#8b4513", "#e377c2", "#7f7f7f"])(
+        "gives each ratio period a distinct subtle hue for %s", hex => {
+            const week = adjustColorForRatio(hex, 7);
+            const month = adjustColorForRatio(hex, 28);
+            expect(new Set([hex.toUpperCase(), week, month]).size).toBe(3);
+            for (const adjusted of [week, month]) {
+                expect(adjusted).toMatch(/^#[0-9A-F]{6}$/);
+                const original = color(hex).rgb;
+                const tinted = color(adjusted).rgb;
+                for (const channel of ['r', 'g', 'b'] as const) {
+                    expect(Math.abs(tinted[channel] - original[channel])).toBeLessThanOrEqual(51);
+                }
+            }
+            expect(adjustColorForRatio(hex, 7)).toBe(week);
+        }
+    );
+});
 
 describe("Color Base Series Name Extraction Tests", () => {
     test("extracts base name from raw series", () => {

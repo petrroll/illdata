@@ -26,7 +26,7 @@ import { type AppSettings, type AlignByExtreme, DATA_VIEWS, SMOOTHING_WINDOWS, D
 import { assembleChartVariants, stripRatioLabel, variantKey } from "./chart-variants";
 import { type UrlState, type UrlChartConfig, encodeUrlState, decodeUrlState, loadStateFromUrl, applyUrlState } from "./urlstate";
 import { extractShiftFromLabel } from "./tooltip";
-import { adjustColorForTestBars } from "./color";
+import { adjustColorForTestBars, adjustColorForRatio } from "./color";
 import { compareTooltipItems, type TooltipItem } from "./tooltip-formatting";
 import { assembleCustomGraphData, getCustomGraphYAxisID, type CustomGraphSelection, type CustomGraphView, type SourceChartInfo } from "./custom-graph";
 
@@ -2313,7 +2313,10 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
     return sortedSeriesWithIndices.map(({ series, originalIndex }, sortedIndex) => {
         const selectedPalette = getSeriesPalette(series, paletteMap, colorPalettes);
         const colorIndex = getSeriesColorIndex(series);
-        const borderColor = selectedPalette[colorIndex % selectedPalette.length];
+        const baseColor = selectedPalette[colorIndex % selectedPalette.length];
+        const ratioPeriod = series.name.match(/ - (7|28)d Ratio/)?.[1];
+        const borderColor = ratioPeriod
+            ? adjustColorForRatio(baseColor, ratioPeriod === '7' ? 7 : 28) : baseColor;
 
         // Validate data based on type
         if (!isScalarSeries(series)) {
@@ -2345,11 +2348,9 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
             chartData = series.values.slice(startIdx, endIdx).map(datapointToPercentage);
         }
         
-        // Determine line style: dashed for shifted series, solid for others
+        // Ratios stay solid; only shifted absolute series use dashes.
         const isShifted = series.shiftedByIndexes !== undefined && series.shiftedByIndexes !== 0;
-        const ratioPeriod = series.name.match(/ - (7|28)d Ratio/)?.[1];
-        const dataDash = ratioPeriod === '7' ? [10, 2] : ratioPeriod === '28' ? [18, 3] : [];
-        const borderDash = isShifted ? [...(dataDash.length ? dataDash : SHIFTED_LINE_DASH_PATTERN), 2, 5] : dataDash;
+        const borderDash = isShifted && !ratioPeriod ? [...SHIFTED_LINE_DASH_PATTERN, 2, 5] : [];
         
         return {
             label: translateSeriesName(series.name),
