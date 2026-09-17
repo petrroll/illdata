@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from 'bun:test';
-import { loadAppSettings, saveAppSettings, migrateOldSettings, DEFAULT_APP_SETTINGS, APP_SETTINGS_KEY, type AppSettings } from './settings';
+import { loadAppSettings, saveAppSettings, migrateOldSettings, migrateLegacyVariantVisibility, DEFAULT_APP_SETTINGS, APP_SETTINGS_KEY, type AppSettings } from './settings';
 
 // Mock localStorage for testing
 const mockLocalStorage = (() => {
@@ -28,6 +28,16 @@ describe('Unified Settings Tests', () => {
         expect(settings).toEqual(DEFAULT_APP_SETTINGS);
     });
 
+    test('selection arrays are independent between loads and do not mutate defaults', () => {
+        const first = loadAppSettings();
+        first.dataViews.push('ratio7');
+        first.smoothingWindows.push('none');
+        expect(loadAppSettings().dataViews).toEqual(['raw']);
+        expect(loadAppSettings().smoothingWindows).toEqual(['28']);
+        expect(DEFAULT_APP_SETTINGS.dataViews).toEqual(['raw']);
+        expect(DEFAULT_APP_SETTINGS.smoothingWindows).toEqual(['28']);
+    });
+
     test('saves and loads settings correctly', () => {
         const customSettings: AppSettings = {
             timeRange: "365",
@@ -36,10 +46,10 @@ describe('Unified Settings Tests', () => {
             showShifted: true,
             showTestNumbers: true,
             showShiftedTestNumbers: false,
-            showNonAveragedSeries: true,
+            smoothingWindows: ['none', '28'],
             shiftOverride: 1,
             alignByExtreme: 'maxima',
-            derivativeView: 'off'
+            dataViews: ['raw']
         };
         
         saveAppSettings(customSettings);
@@ -117,12 +127,13 @@ describe('Unified Settings Tests', () => {
         expect(settings.showShiftedTestNumbers).toBe(false);
     });
 
-    test('showNonAveragedSeries defaults to false', () => {
+    test('defaults to absolute data with the existing 28-day smoothing', () => {
         const settings = loadAppSettings();
-        expect(settings.showNonAveragedSeries).toBe(false);
+        expect(settings.dataViews).toEqual(['raw']);
+        expect(settings.smoothingWindows).toEqual(['28']);
     });
 
-    test('saves and loads showNonAveragedSeries correctly', () => {
+    test('saves and loads smoothing selections correctly', () => {
         const customSettings: AppSettings = {
             timeRange: "365",
             includeFuture: false,
@@ -130,16 +141,16 @@ describe('Unified Settings Tests', () => {
             showShifted: true,
             showTestNumbers: true,
             showShiftedTestNumbers: false,
-            showNonAveragedSeries: false,  // Test with default value
+            smoothingWindows: ['28'],
             shiftOverride: 1,
             alignByExtreme: 'maxima',
-            derivativeView: 'off'
+            dataViews: ['raw']
         };
         
         saveAppSettings(customSettings);
         const loadedSettings = loadAppSettings();
         
-        expect(loadedSettings.showNonAveragedSeries).toBe(false);
+        expect(loadedSettings.smoothingWindows).toEqual(['28']);
         expect(loadedSettings).toEqual(customSettings);
     });
 
@@ -151,10 +162,10 @@ describe('Unified Settings Tests', () => {
             showShifted: true,
             showTestNumbers: true,
             showShiftedTestNumbers: true,  // Enable the new setting
-            showNonAveragedSeries: true,
+            smoothingWindows: ['none', '28'],
             shiftOverride: 1,
             alignByExtreme: 'maxima',
-            derivativeView: 'off'
+            dataViews: ['raw']
         };
         
         saveAppSettings(customSettings);
@@ -180,6 +191,52 @@ describe('Unified Settings Tests', () => {
         const settings = loadAppSettings();
         expect(settings.alignByExtreme).toBe('days');
         expect((settings as any).useCustomShift).toBeUndefined();
+    });
+
+    test('migrates legacy ratio and raw toggles without retaining conflicting settings', () => {
+        localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify({ derivativeView: '7', showNonAveragedSeries: true }));
+        const settings = loadAppSettings();
+        expect(settings.dataViews).toEqual(['ratio7']);
+        expect(settings.smoothingWindows).toEqual(['none', '28']);
+        expect(settings).not.toHaveProperty('derivativeView');
+        expect(settings).not.toHaveProperty('showNonAveragedSeries');
+    });
+
+    test('migrates legacy ratio visibility keys including shifts but not test bars', () => {
+        const visibility = {
+            'PCR Positivity (28d avg)': false,
+            'PCR Positivity (28d avg) shifted by -10d': true,
+            'PCR Positivity - Positive Tests': true
+        };
+        const migrated = migrateLegacyVariantVisibility({ derivativeView: '7' }, visibility);
+        expect(migrated['PCR Positivity (28d avg) - 7d Ratio']).toBe(false);
+        expect(migrated['PCR Positivity (28d avg) - 7d Ratio shifted by -10d']).toBe(true);
+        expect(migrated['PCR Positivity - Positive Tests - 7d Ratio']).toBeUndefined();
+        expect(migrateLegacyVariantVisibility({ derivativeView: '7', dataViews: ['ratio7'] }, visibility)).toBe(visibility);
+    });
+
+    test('validates, deduplicates, and orders selections while preserving explicit emptiness', () => {
+        localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify({
+            dataViews: ['ratio28', 'bogus', 'raw', 'raw'], smoothingWindows: ['7', 28, 'none', '7']
+        }));
+        expect(loadAppSettings().dataViews).toEqual(['raw', 'ratio28']);
+        expect(loadAppSettings().smoothingWindows).toEqual(['none', '7']);
+        localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify({ dataViews: [], smoothingWindows: [] }));
+        expect(loadAppSettings().dataViews).toEqual([]);
+        expect(loadAppSettings().smoothingWindows).toEqual([]);
+        localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify({ dataViews: ['bad'], smoothingWindows: null }));
+        expect(loadAppSettings()).toEqual(DEFAULT_APP_SETTINGS);
+    });
+
+    test('new arrays take precedence over legacy fields and defaults are not shared', () => {
+        localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify({
+            dataViews: ['raw', 'ratio28'], smoothingWindows: ['7'], derivativeView: '7', showNonAveragedSeries: true
+        }));
+        expect(loadAppSettings().dataViews).toEqual(['raw', 'ratio28']);
+        expect(loadAppSettings().smoothingWindows).toEqual(['7']);
+        localStorage.clear();
+        loadAppSettings().dataViews.push('ratio7');
+        expect(loadAppSettings().dataViews).toEqual(['raw']);
     });
 
     test('migrates old shiftOverrideDays setting', () => {

@@ -33,6 +33,14 @@ function createMockYScale(maxValue: number, top: number, bottom: number) {
 }
 
 describe("drawRatioBaseline Tests", () => {
+    test("uses the ratio axis instead of the absolute axis in a mixed chart", () => {
+        const ctx = createMockContext();
+        drawRatioBaseline({
+            ctx, chartArea: { left: 0, right: 100, top: 0, bottom: 200 },
+            scales: { y: createMockYScale(100, 0, 200), yRatio: createMockYScale(2, 0, 200) }
+        });
+        expect(ctx.calls.find(call => call.op === 'moveTo')?.args).toEqual([0, 100]);
+    });
     test("draws a horizontal line across the chart area at the 1x level", () => {
         const ctx = createMockContext();
         const chart = {

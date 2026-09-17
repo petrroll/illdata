@@ -14,6 +14,9 @@
         text-align: center;
         font-size: 0.9em;
         border-top: 1px solid #eee;
+        left: 0;
+        box-sizing: border-box;
+        z-index: 100;
       }
       footer a {
         color: #666;
@@ -23,7 +26,7 @@
         text-decoration: underline;
       }
       #root {
-        margin-bottom: 50px;
+        margin-bottom: var(--footer-space, 70px);
       }
       #root > * {
         margin: 0 15px 10px 0;
@@ -53,6 +56,47 @@
         border-radius: 3px;
         cursor: pointer;
       }
+      #seriesOptionsPanel {
+        margin-top: 8px;
+      }
+      #seriesOptionsPanel[hidden] { display: none; }
+      #root > #globalSettings {
+        display: block;
+        margin: 16px 0;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+      #globalSettingsTitle { margin: 0 0 12px; }
+      #globalSettingsControls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+      #globalSettingsControls label { display: inline-flex; align-items: center; gap: 6px; }
+      #globalSettingsActions { display: flex; flex-wrap: wrap; gap: 8px; }
+      #root .series-option { margin: 2px; }
+      .series-option-groups { display: flex; gap: 16px; flex-wrap: wrap; }
+      .series-option-groups fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+      .series-option-groups legend { font-weight: bold; text-align: left; margin-bottom: 4px; }
+      .series-option {
+        display: inline-flex;
+        align-items: center;
+        min-height: 36px;
+        padding: 0 8px;
+        margin: 2px;
+        gap: 4px;
+        border: 1px solid #777;
+        border-radius: 5px;
+        background: white;
+        cursor: pointer;
+      }
+      .series-option:has(input:checked) { background: #e4effa; border-color: #24649b; }
+      .series-option:focus-within { outline: 2px solid #24649b; outline-offset: 2px; }
+      #seriesOptionsToggle { min-height: 36px; cursor: pointer; margin-right: 8px; }
+      #seriesOptionsHelp, #seriesOptionsSummary { margin: 4px 0; }
+      #seriesOptionsHelp { color: #444; font-size: 0.9em; }
+      @media (max-width: 600px) {
+        footer { padding: 6px; font-size: 0.8em; }
+        .series-option-groups { gap: 8px; }
+        .series-option { min-height: 40px; }
+      }
     </style>
   </head>
   <body>
@@ -81,7 +125,19 @@
       <div id="deAreContainer"></div>
       <div id="nlInfectieradarContainer"></div>
       <div id="customGraphContainer"></div>
-      <button id="hideAllButton">Hide All Series</button>
+      <section id="globalSettings" aria-labelledby="globalSettingsTitle">
+        <h3 id="globalSettingsTitle">Chart settings</h3>
+        <div id="globalSettingsControls"></div>
+        <div id="globalSettingsActions">
+          <button id="seriesOptionsToggle" type="button" aria-expanded="false" aria-controls="seriesOptionsPanel">Series options</button>
+          <button id="hideAllButton">Hide All Series</button>
+        </div>
+        <div id="seriesOptionsPanel" hidden>
+          <p id="seriesOptionsHelp"></p>
+          <div class="series-option-groups" id="seriesOptionGroups"></div>
+          <p id="seriesOptionsSummary" role="status" aria-live="polite"></p>
+        </div>
+      </section>
     </div>
     <footer>
       <span>

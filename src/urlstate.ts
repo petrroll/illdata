@@ -1,7 +1,7 @@
 // URL state management
 // Extracted from main.ts for testability and reuse
 
-import { type AppSettings, DEFAULT_APP_SETTINGS, saveAppSettings } from './settings';
+import { type AppSettings, normalizeAppSettings, migrateLegacyVariantVisibility, saveAppSettings } from './settings';
 import { getLanguage, setLanguage, type Language } from './locales';
 
 export interface UrlState {
@@ -27,6 +27,7 @@ export interface UrlChartConfig {
     datasetVisibility: { [key: string]: boolean };
     countryFilterKey?: string;
     ageGroupFilterKey?: string;
+    visibilityIsComplete?: boolean;
 }
 
 export function encodeUrlState(appSettings: AppSettings, chartConfigs: UrlChartConfig[], countryFilters: Map<string, string>, ageGroupFilters: Map<string, string> = new Map()): string {
@@ -39,9 +40,8 @@ export function encodeUrlState(appSettings: AppSettings, chartConfigs: UrlChartC
                 trueOnly[seriesName] = true;
             }
         });
-        if (Object.keys(trueOnly).length > 0) {
-            compactVisibility[cfg.visibilityKey] = trueOnly;
-        }
+        // Keep even empty maps: they explicitly mean every dataset in this chart is hidden.
+        compactVisibility[cfg.visibilityKey] = trueOnly;
     });
     
     // Collect country filters
@@ -120,7 +120,7 @@ export function applyUrlState(state: UrlState, chartConfigs: UrlChartConfig[]): 
     }
     
     // Apply settings
-    const appSettings = { ...DEFAULT_APP_SETTINGS, ...state.settings };
+    const appSettings = normalizeAppSettings(state.settings);
     saveAppSettings(appSettings);
     
     // Apply visibility state
@@ -129,7 +129,9 @@ export function applyUrlState(state: UrlState, chartConfigs: UrlChartConfig[]): 
     Object.entries(state.visibility).forEach(([visibilityKey, visibilityMap]) => {
         // Store visibility map from URL directly to localStorage
         // The chart rendering code will use this when determining visibility
-        localStorage.setItem(visibilityKey, JSON.stringify(visibilityMap));
+        localStorage.setItem(visibilityKey, JSON.stringify(migrateLegacyVariantVisibility(state.settings, visibilityMap)));
+        const cfg = chartConfigs.find(config => config.visibilityKey === visibilityKey);
+        if (cfg) cfg.visibilityIsComplete = true;
     });
     
     // Apply country filters

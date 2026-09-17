@@ -180,8 +180,9 @@ test.describe('Category Filters', () => {
     await expect(legendItems.first()).toBeVisible();
   });
 
-  test('should show/hide non-averaged series when toggling the checkbox', async ({ page }) => {
-    const showNonAveragedSeriesCheckbox = page.locator('#showNonAveragedSeriesCheckbox');
+  test('should add/remove unsmoothed series with Smoothing None', async ({ page }) => {
+    await page.locator('#seriesOptionsToggle').click();
+    const showNonAveragedSeriesCheckbox = page.locator('#smoothing-none');
     await expect(showNonAveragedSeriesCheckbox).toBeVisible();
     
     // Initial state - should be unchecked by default (non-averaged series hidden)
@@ -208,12 +209,13 @@ test.describe('Category Filters', () => {
     expect(afterUncheck).toBe(withoutNonAveraged);
   });
 
-  test('non-averaged series toggle should not affect test numbers', async ({ page }) => {
+  test('Smoothing None should not duplicate test numbers', async ({ page }) => {
     // Make sure test numbers are visible
     const showTestNumbersCheckbox = page.locator('#showTestNumbersCheckbox');
     await expect(showTestNumbersCheckbox).toBeChecked();
     
-    const showNonAveragedSeriesCheckbox = page.locator('#showNonAveragedSeriesCheckbox');
+    await page.locator('#seriesOptionsToggle').click();
+    const showNonAveragedSeriesCheckbox = page.locator('#smoothing-none');
     
     // Get initial count with test numbers visible and non-averaged hidden
     const czechLegend = page.locator('#czechDataContainer-legend');
@@ -233,8 +235,9 @@ test.describe('Category Filters', () => {
     expect(backToInitial).toBe(initialCount);
   });
 
-  test('should persist non-averaged series toggle state in localStorage', async ({ page }) => {
-    const showNonAveragedSeriesCheckbox = page.locator('#showNonAveragedSeriesCheckbox');
+  test('should persist Smoothing None selection in localStorage', async ({ page }) => {
+    await page.locator('#seriesOptionsToggle').click();
+    const showNonAveragedSeriesCheckbox = page.locator('#smoothing-none');
     
     // Initial state should be unchecked
     await expect(showNonAveragedSeriesCheckbox).not.toBeChecked();
@@ -245,7 +248,7 @@ test.describe('Category Filters', () => {
     
     // Reload page
     await page.reload();
-    await page.waitForSelector('#showNonAveragedSeriesCheckbox');
+    await page.locator('#seriesOptionsToggle').click();
     
     // State should persist as checked
     await expect(showNonAveragedSeriesCheckbox).toBeChecked();
@@ -254,14 +257,15 @@ test.describe('Category Filters', () => {
     await showNonAveragedSeriesCheckbox.uncheck();
     await page.waitForTimeout(300);
     await page.reload();
-    await page.waitForSelector('#showNonAveragedSeriesCheckbox');
+    await page.locator('#seriesOptionsToggle').click();
     
     // State should persist as unchecked
     await expect(showNonAveragedSeriesCheckbox).not.toBeChecked();
   });
 
-  test('non-averaged series toggle should work with averaged series visible', async ({ page }) => {
-    const showNonAveragedSeriesCheckbox = page.locator('#showNonAveragedSeriesCheckbox');
+  test('Smoothing None should add to existing smoothed series', async ({ page }) => {
+    await page.locator('#seriesOptionsToggle').click();
+    const showNonAveragedSeriesCheckbox = page.locator('#smoothing-none');
     const czechLegend = page.locator('#czechDataContainer-legend');
     
     // Start with non-averaged hidden (default)

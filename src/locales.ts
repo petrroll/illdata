@@ -13,6 +13,19 @@ export interface Translations {
     footerGithub: string;
     footerGetLink: string;
     footerLastUpdate: string;
+    chartSettings: string;
+    seriesOptions: string;
+    seriesOptionsHelp: string;
+    seriesOptionsCount: string;
+    seriesOptionsEmpty: string;
+    dataViewLabel: string;
+    dataViewRaw: string;
+    dataViewRatio7: string;
+    dataViewRatio28: string;
+    smoothingLabel: string;
+    smoothingNone: string;
+    smoothing7: string;
+    smoothing28: string;
     
     // Main controls
     timeRangeLastMonth: string;
@@ -26,13 +39,10 @@ export interface Translations {
     showShiftedSeries: string;
     showTestNumbers: string;
     showShiftedTestNumbers: string;
-    showNonAveragedSeries: string;
     shiftBy: string;
     shiftByDays: string;
     shiftByMaxima: string;
     shiftByMinima: string;
-    derivativeViewLabel: string;
-    derivativeViewOff: string;
     derivativeViewRatio7d: string;
     derivativeViewRatio28d: string;
     hideAllButton: string;
@@ -252,13 +262,23 @@ const en: Translations = {
     showShiftedSeries: 'Show Shifted Series',
     showTestNumbers: 'Show Test Numbers',
     showShiftedTestNumbers: 'Show Shifted Test Numbers',
-    showNonAveragedSeries: 'Show Non-Averaged Series',
     shiftBy: 'Shift By:',
     shiftByDays: 'Days',
     shiftByMaxima: 'Maxima',
     shiftByMinima: 'Minima',
-    derivativeViewLabel: 'View:',
-    derivativeViewOff: 'Absolute Values',
+    chartSettings: 'Chart settings',
+    seriesOptions: 'Series options',
+    seriesOptionsHelp: 'Built-in charts · Select any combination. Raw means absolute values; None means no smoothing. Custom graph is independent.',
+    seriesOptionsCount: '{count} variants per source · Data × Smoothing',
+    seriesOptionsEmpty: 'No variants selected. Select at least one Data option and one Smoothing option to plot built-in charts.',
+    dataViewLabel: 'Data',
+    dataViewRaw: 'Raw',
+    dataViewRatio7: '7-day ratio',
+    dataViewRatio28: '28-day ratio',
+    smoothingLabel: 'Smoothing',
+    smoothingNone: 'None',
+    smoothing7: '7 days',
+    smoothing28: '28 days',
     derivativeViewRatio7d: '7d Ratio',
     derivativeViewRatio28d: '28d Ratio',
     hideAllButton: 'Hide All Series',
@@ -430,13 +450,23 @@ const cs: Translations = {
     showShiftedSeries: 'Zobrazit posunuté série',
     showTestNumbers: 'Zobrazit počty testů',
     showShiftedTestNumbers: 'Zobrazit posunuté počty testů',
-    showNonAveragedSeries: 'Zobrazit nezprůměrované série',
     shiftBy: 'Posun o:',
     shiftByDays: 'Dny',
     shiftByMaxima: 'Maxima',
     shiftByMinima: 'Minima',
-    derivativeViewLabel: 'Zobrazení:',
-    derivativeViewOff: 'Absolutní hodnoty',
+    chartSettings: 'Nastavení grafů',
+    seriesOptions: 'Možnosti sérií',
+    seriesOptionsHelp: 'Vestavěné grafy · Vyberte libovolné kombinace. Původní data znamenají absolutní hodnoty; Žádné znamená bez vyhlazení. Vlastní graf je nezávislý.',
+    seriesOptionsCount: '{count} variant na zdroj · Data × Vyhlazení',
+    seriesOptionsEmpty: 'Nejsou vybrány žádné varianty. Pro zobrazení vestavěných grafů vyberte alespoň jednu možnost v každé skupině.',
+    dataViewLabel: 'Data',
+    dataViewRaw: 'Původní data',
+    dataViewRatio7: 'Poměr za 7 dní',
+    dataViewRatio28: 'Poměr za 28 dní',
+    smoothingLabel: 'Vyhlazení',
+    smoothingNone: 'Žádné',
+    smoothing7: '7 dní',
+    smoothing28: '28 dní',
     derivativeViewRatio7d: 'Poměr 7 dní',
     derivativeViewRatio28d: 'Poměr 28 dní',
     hideAllButton: 'Skrýt všechny série',
@@ -648,6 +678,12 @@ export function translateSeriesName(seriesName: string, lang?: Language): string
     
     const t = getTranslations(currentLang);
     let translated = seriesName;
+    let ratioSuffix = '';
+    const ratioMatch = translated.match(/ - (7|28)d Ratio/);
+    if (ratioMatch) {
+        ratioSuffix = ` - Poměr ${ratioMatch[1]} dní`;
+        translated = translated.replace(ratioMatch[0], '');
+    }
     
     // Extract components from the series name
     // Pattern: "BaseName (Xd avg) shifted by Y wave Zd - Test Type"
@@ -715,7 +751,7 @@ export function translateSeriesName(seriesName: string, lang?: Language): string
     }
     
     // 5. Reconstruct the full series name
-    return translated + avgSuffix + shiftSuffix + testSuffix;
+    return translated + avgSuffix + ratioSuffix + shiftSuffix + testSuffix;
 }
 
 /**
@@ -726,6 +762,7 @@ export function translateSeriesName(seriesName: string, lang?: Language): string
  * @returns Series name normalized to English
  */
 export function normalizeSeriesName(seriesName: string): string {
+    seriesName = seriesName.replace(/ - Poměr (7|28) dní/, ' - $1d Ratio');
     // If it's already in English format (contains English keywords), return as is
     if (seriesName.includes('Positivity') || seriesName.includes('Wastewater')) {
         return seriesName;

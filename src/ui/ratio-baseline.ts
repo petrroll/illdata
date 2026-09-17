@@ -33,7 +33,7 @@ interface BaselineChart {
  * @returns true if the line was drawn, false if the chart isn't ready or 1x is out of view.
  */
 export function drawRatioBaseline(chart: BaselineChart): boolean {
-    const yScale = chart.scales?.['y'];
+    const yScale = chart.scales?.['yRatio'] ?? chart.scales?.['y'];
     const area = chart.chartArea;
     const ctx = chart.ctx;
     if (!yScale || !area || !ctx) return false;
@@ -61,6 +61,8 @@ export function drawRatioBaseline(chart: BaselineChart): boolean {
 export const ratioBaselinePlugin: Plugin<'line'> = {
     id: 'ratioBaseline',
     beforeDatasetsDraw(chart) {
-        drawRatioBaseline(chart);
+        if (chart.data.datasets.some((dataset, index) => dataset.yAxisID === 'yRatio' && chart.isDatasetVisible(index))) {
+            drawRatioBaseline(chart);
+        }
     }
 };

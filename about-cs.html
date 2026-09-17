@@ -284,7 +284,8 @@
             <li>Číselný vstup specifikuje buď dny k posunu, nebo kterou vlnu porovnat (1 = nejnovější vlna, 2 = druhá vlna zpět, atd.)</li>
           </ul>
         </li>
-        <li><strong>Zobrazení (poměrový pohled):</strong> Přepne grafy z absolutních hodnot na „Poměr 7 dní“ nebo „Poměr 28 dní“, kde každý bod ukazuje poměr mezi posledními 7 (resp. 28) dny a předchozími 7 (resp. 28) dny - stejnou veličinu jako tabulka aktuálních trendů, vykreslenou v čase. Hodnota nad 1 znamená, že ukazatel roste. Posunuté série se převádějí také; sloupce s počty testů se v tomto zobrazení nezobrazují.</li>
+        <li><strong>Data a vyhlazení (nastavení grafů):</strong> Otevřete Možnosti sérií v nastavení pod grafy, vedle voleb časového rozsahu, viditelnosti a posunu. Vyberte jeden nebo více režimů dat (Původní, Poměr 7 dní, Poměr 28 dní) a možností vyhlazení (Žádné, 7 dní, 28 dní). Každý vybraný režim dat se zobrazí s každým vybraným vyhlazením: dva režimy dat a dvě možnosti vyhlazení vytvoří čtyři varianty každé zdrojové série. Původní data znamenají původní veličinu, nikoli nutně nevyhlazenou křivku; pro zobrazení bez vyhlazení zvolte Žádné. Tyto volby platí pro přednastavené grafy; vlastní graf si ponechává svůj výběr sérií.</li>
+        <li><strong>Výpočet poměru:</strong> Porovnává posledních 7 (resp. 28) dní s předchozími 7 (resp. 28) dny. U pozitivity se v každém období sečtou pozitivní testy a všechny testy, jejich podíl určí pozitivitu období a následně se vydělí pozitivita posledního období pozitivitou předchozího. Nejde o průměr denních procent. U skalárních dat se používají průměry za období. Obě období vyžadují celé časové okno historie. Bez vyhlazení jde o stejnou veličinu jako v tabulce aktuálních trendů; volba 7 nebo 28 dní aplikuje centrovaný klouzavý průměr na výsledné poměry. Hodnota nad 1 znamená růst. Nula znamená pokles na nulu nebo porovnání dvou období s nulovou pozitivitou: u pozitivity se 0/0 zobrazuje jako 0, včetně výslovně zaznamenaných období s nulovým počtem testů. U skalárních dat zůstává 0/0 mezerou, protože jejich zdroje mohou nulou označovat chybějící údaje. Kladné hodnoty dělené nulou, chybějící údaje a nedostatečná historie zůstávají mezerami; i celé období s provedenými testy může mít nulovou pozitivitu. Posunuté série používají stejné výpočty, pouze posunuté v čase.</li>
         <li><strong>Tabulka aktuálních trendů:</strong> Zobrazuje 7denní a 28denní trendové poměry (aktuální období vs. předchozí období) pro viditelné série</li>
         <li><strong>Interaktivní nápovědy:</strong> Najeďte myší na jakýkoli graf pro zobrazení podrobných hodnot pro toto datum napříč všemi viditelnými sériemi</li>
       </ul>
@@ -292,10 +293,10 @@
       <h3>Čtení grafů</h3>
       <ul>
         <li><strong>Levá osa Y:</strong> Procento pozitivity nebo virová nálož (v závislosti na typu dat)</li>
-        <li><strong>Pravá osa Y:</strong> Počet testů (když jsou viditelné sloupcové testy)</li>
+        <li><strong>Další osy Y:</strong> Počet testů (když jsou viditelné sloupce testů) a samostatná stupnice poměrů při společném zobrazení původních hodnot a poměrů. Poměry mají příponu „x“; 1x znamená beze změny.</li>
         <li><strong>Osa X:</strong> Datum (budoucí data zobrazena šedě)</li>
-        <li><strong>Plné čáry:</strong> Původní časové série</li>
-        <li><strong>Čárkované čáry:</strong> Časově posunuté srovnávací série</li>
+        <li><strong>Plné čáry:</strong> Původní časové série a poměry. Poměry za 7 a 28 dní mají mírně odlišné odstíny barvy původní série, a to i při časovém posunu.</li>
+        <li><strong>Čárkované čáry:</strong> Časově posunuté srovnávací série absolutních hodnot</li>
       </ul>
 
       <h2>Tipy pro analýzu</h2>

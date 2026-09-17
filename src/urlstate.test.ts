@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from 'bun:test';
-import { encodeUrlState, decodeUrlState, type UrlChartConfig } from './urlstate';
+import { encodeUrlState, decodeUrlState, applyUrlState, type UrlChartConfig } from './urlstate';
 import { DEFAULT_APP_SETTINGS, type AppSettings, type AlignByExtreme } from './settings';
 
 // Mock localStorage for testing
@@ -20,6 +20,25 @@ Object.defineProperty(global, 'localStorage', {
 });
 
 describe('URL State Management Tests', () => {
+    test('applies old compact and full URL settings through the shared migration', () => {
+        for (const state of [
+            { s: { derivativeView: '28', showNonAveragedSeries: true }, v: {}, c: {} },
+            { settings: { derivativeView: '28', showNonAveragedSeries: true }, visibility: {}, countryFilters: {} }
+        ]) {
+            const decoded = decodeUrlState(btoa(JSON.stringify(state)))!;
+            const applied = applyUrlState(decoded, []).appSettings;
+            expect(applied.dataViews).toEqual(['ratio28']);
+            expect(applied.smoothingWindows).toEqual(['none', '28']);
+        }
+    });
+
+    test('validates selection arrays in shared URLs and preserves deliberate empty selections', () => {
+        const decoded = decodeUrlState(btoa(JSON.stringify({
+            s: { dataViews: ['raw', 'bad', 'raw', 'ratio7'], smoothingWindows: [] }, v: {}, c: {}
+        })))!;
+        expect(applyUrlState(decoded, []).appSettings.dataViews).toEqual(['raw', 'ratio7']);
+        expect(applyUrlState(decoded, []).appSettings.smoothingWindows).toEqual([]);
+    });
     beforeEach(() => {
         mockLocalStorage.clear();
     });
@@ -32,10 +51,10 @@ describe('URL State Management Tests', () => {
             showShifted: false,
             showTestNumbers: true,
             showShiftedTestNumbers: true,
-            showNonAveragedSeries: true,
+            smoothingWindows: ['none', '28'],
             shiftOverride: 2,
             alignByExtreme: 'minima',
-            derivativeView: 'off'
+            dataViews: ['raw', 'ratio7']
         };
         
         const chartConfigs: UrlChartConfig[] = [];
@@ -48,10 +67,10 @@ describe('URL State Management Tests', () => {
         expect(decoded!.settings).toEqual(settings);
     });
 
-    test('encodes and decodes default settings with showNonAveragedSeries false', () => {
+    test('encodes and decodes default smoothing selection', () => {
         const settings: AppSettings = {
             ...DEFAULT_APP_SETTINGS,
-            showNonAveragedSeries: false  // Explicit default value
+            smoothingWindows: ['28']
         };
         
         const chartConfigs: UrlChartConfig[] = [];
@@ -61,7 +80,7 @@ describe('URL State Management Tests', () => {
         const decoded = decodeUrlState(encoded);
         
         expect(decoded).not.toBeNull();
-        expect(decoded!.settings.showNonAveragedSeries).toBe(false);
+        expect(decoded!.settings.smoothingWindows).toEqual(['28']);
     });
 
     test('encodes and decodes dataset visibility correctly', () => {
@@ -152,10 +171,10 @@ describe('URL State Management Tests', () => {
             showShifted: true,
             showTestNumbers: false,
             showShiftedTestNumbers: false,
-            showNonAveragedSeries: true,
+            smoothingWindows: ['none', '28'],
             shiftOverride: 3,
             alignByExtreme: 'days',
-            derivativeView: 'off'
+            dataViews: ['raw', 'ratio28']
         };
         
         const chartConfigs: UrlChartConfig[] = [
@@ -213,9 +232,33 @@ describe('URL State Management Tests', () => {
         
         expect(decoded).not.toBeNull();
         expect(decoded!.settings).toEqual(settings);
-        // When all series are false (hidden), compact format doesn't store visibility key at all
-        expect(decoded!.visibility).toEqual({});
+        // An explicit empty map preserves Hide All rather than restoring default visibility.
+        expect(decoded!.visibility).toEqual({ datasetVisibility: {} });
         expect(decoded!.countryFilters).toEqual({});
+        localStorage.setItem('datasetVisibility', JSON.stringify({ 'PCR Positivity': true }));
+        applyUrlState(decoded!, chartConfigs);
+        expect(chartConfigs[0].visibilityIsComplete).toBe(true);
+        expect(JSON.parse(localStorage.getItem('datasetVisibility')!)).toEqual({});
+    });
+
+    test('round-trips all-hidden charts without marking omitted charts as complete', () => {
+        const chartConfigs: UrlChartConfig[] = [{
+            containerId: 'czechDataContainer', visibilityKey: 'datasetVisibility',
+            datasetVisibility: { 'PCR Positivity': false }
+        }];
+        const omittedChart: UrlChartConfig = {
+            containerId: 'euDataContainer', visibilityKey: 'euDatasetVisibility',
+            datasetVisibility: { Influenza: true }
+        };
+        localStorage.setItem('euDatasetVisibility', JSON.stringify(omittedChart.datasetVisibility));
+        const decoded = decodeUrlState(encodeUrlState(DEFAULT_APP_SETTINGS, chartConfigs, new Map()))!;
+
+        applyUrlState(decoded, [...chartConfigs, omittedChart]);
+
+        expect(decoded.visibility).toEqual({ datasetVisibility: {} });
+        expect(chartConfigs[0].visibilityIsComplete).toBe(true);
+        expect(omittedChart.visibilityIsComplete).toBeUndefined();
+        expect(JSON.parse(localStorage.getItem('euDatasetVisibility')!)).toEqual({ Influenza: true });
     });
 
     test('handles invalid base64 encoding', () => {
@@ -237,10 +280,10 @@ describe('URL State Management Tests', () => {
             showShifted: true,
             showTestNumbers: true,
             showShiftedTestNumbers: false,
-            showNonAveragedSeries: true,
+            smoothingWindows: ['none', '28'],
             shiftOverride: 1,
             alignByExtreme: 'maxima',
-            derivativeView: 'off'
+            dataViews: ['raw']
         };
         
         const chartConfigs: UrlChartConfig[] = [
