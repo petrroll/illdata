@@ -50,7 +50,7 @@ test.describe('Chart settings data and smoothing combinations', () => {
     expect(after.filter((ds: any) => ds.axis === 'y1').length).toBe(before.filter((ds: any) => ds.axis === 'y1').length);
     const pcr = lines.filter((ds: any) => ds.label.startsWith('PCR'));
     expect(new Set(pcr.map((ds: any) => JSON.stringify([ds.color, ds.width]))).size).toBe(9);
-    expect([...new Set(pcr.map((ds: any) => ds.width))].sort()).toEqual([1, 1.4, 1.8]);
+    expect([...new Set(pcr.map((ds: any) => ds.width))].sort()).toEqual([1, 1.15, 1.3]);
     for (const line of pcr.filter((ds: any) => ds.format === 'ratio')) {
       expect(line.dash).toEqual([]);
     }

@@ -2359,7 +2359,7 @@ function generateNormalDatasets(sortedSeriesWithIndices: { series: DataSeries; o
             borderDash: borderDash,
             fill: false,
             hidden: false,
-            borderWidth: cfg.isCustomGraph ? 1 : series.type === 'raw' ? 1 : series.windowSizeInDays === 7 ? 1.4 : 1.8,
+            borderWidth: cfg.isCustomGraph ? 1 : series.type === 'raw' ? 1 : series.windowSizeInDays === 7 ? 1.15 : 1.3,
             pointRadius: 0,
             spanGaps: false, // Don't connect across null values
             dataType: series.dataType,
