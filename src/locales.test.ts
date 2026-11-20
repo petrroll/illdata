@@ -103,6 +103,11 @@ describe('Series Name Translation Tests', () => {
                 'Adenovirus Positivity',
                 'Humaan metapneumovirus Positivity',
                 'Parainfluenza Positivity',
+                'Metapneumovirus Positivity',
+                'Rhinovirus Positivity (28d avg)',
+                'Enterovirus Positivity',
+                'Seasonal Coronaviruses Positivity',
+                'Mycoplasma pneumoniae Positivity',
             ];
 
             originalNames.forEach(original => {

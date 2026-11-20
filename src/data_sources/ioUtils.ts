@@ -79,18 +79,25 @@ export async function downloadAndSaveCsv(url: string, filePath: string): Promise
     console.log(`CSV downloaded and saved to ${filePath}`);
 }
 
-export async function downloadCsv(url: string, retries: number = 3, retryDelayMs: number = 1000) {
+async function downloadWithRetries<T>(
+    url: string,
+    label: string,
+    read: (response: Response) => Promise<T>,
+    isEmpty: (content: T) => boolean,
+    retries: number,
+    retryDelayMs: number
+): Promise<T> {
     let lastError: unknown;
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
             const response = await fetch(url);
-            if (!response.ok) throw new Error(`Failed to fetch CSV: ${response.statusText}`);
-            const csvContent = await response.text();
+            if (!response.ok) throw new Error(`Failed to fetch ${label}: ${response.statusText}`);
+            const content = await read(response);
             // Some upstream sources intermittently answer with HTTP 200 and an empty
             // body. Treat that as a transient failure and retry instead of saving an
             // empty file that would later crash parsing and break the build.
-            if (csvContent.trim() === "") throw new Error("Fetched CSV is empty");
-            return csvContent;
+            if (isEmpty(content)) throw new Error(`Fetched ${label} is empty`);
+            return content;
         } catch (error) {
             lastError = error;
             const message = error instanceof Error ? error.message : String(error);
@@ -100,7 +107,28 @@ export async function downloadCsv(url: string, retries: number = 3, retryDelayMs
             }
         }
     }
-    throw new Error(`Failed to download CSV from ${url} after ${retries} attempts: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+    throw new Error(`Failed to download ${label} from ${url} after ${retries} attempts: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+}
+
+export async function downloadCsv(url: string, retries: number = 3, retryDelayMs: number = 1000) {
+    return downloadWithRetries(url, "CSV", response => response.text(), content => content.trim() === "", retries, retryDelayMs);
+}
+
+export async function downloadText(url: string, retries: number = 3, retryDelayMs: number = 1000) {
+    return downloadWithRetries(url, "text", response => response.text(), content => content.trim() === "", retries, retryDelayMs);
+}
+
+export async function downloadBinary(url: string, retries: number = 3, retryDelayMs: number = 1000) {
+    return downloadWithRetries(url, "file", async response => new Uint8Array(await response.arrayBuffer()), content => content.length === 0, retries, retryDelayMs);
+}
+
+/** Returns the Monday (YYYY-MM-DD) of the given ISO week. */
+export function isoWeekToDate(year: number, week: number): string {
+    const jan4 = new Date(Date.UTC(year, 0, 4));
+    const jan4Day = jan4.getUTCDay() || 7;
+    const monday = new Date(jan4);
+    monday.setUTCDate(jan4.getUTCDate() - jan4Day + 1 + (week - 1) * 7);
+    return monday.toISOString().split("T")[0];
 }
 
 export async function saveData<T>(data: T, filePath: string): Promise<void> {

@@ -276,12 +276,12 @@ test.describe('Chart settings data and smoothing combinations', () => {
     await page.locator('#seriesOptionsToggle').click();
     await page.locator('#customGraphToggleButton').click();
     await page.locator('#customGraphSeriesSelector label', { hasText: /^PCR Positivity — 7d Ratio$/ }).locator('input').check();
-    const before = await datasets(page, 5);
+    const before = await datasets(page, 6);
     await openOptions(page);
     await page.locator('#data-ratio28').check();
     await page.locator('#smoothing-7').check();
     await page.locator('#smoothing-none').check();
-    expect(await datasets(page, 5)).toEqual(before);
+    expect(await datasets(page, 6)).toEqual(before);
   });
 
   test('keeps settings usable at mobile width without enlarging the site footer', async ({ page }) => {

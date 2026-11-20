@@ -1,4 +1,4 @@
-import { downloadCsv, getAbsolutePath } from "./ioUtils";
+import { downloadCsv, getAbsolutePath, isoWeekToDate as isoWeekToMonday } from "./ioUtils";
 import { compareByPreferredOrder, type ScalarSeries, type TimeseriesData } from "../utils";
 import { promises as fs } from "fs";
 import path from "path";
@@ -91,14 +91,5 @@ function isoWeekToDate(isoWeek: string): string {
     const match = isoWeek.match(/^(\d{4})-W(\d{2})$/);
     if (!match) return "";
 
-    const year = parseInt(match[1], 10);
-    const week = parseInt(match[2], 10);
-    const jan4 = new Date(Date.UTC(year, 0, 4));
-    const jan4Day = jan4.getUTCDay() || 7;
-    const mondayWeek1 = new Date(jan4);
-    mondayWeek1.setUTCDate(jan4.getUTCDate() - jan4Day + 1);
-    const monday = new Date(mondayWeek1);
-    monday.setUTCDate(mondayWeek1.getUTCDate() + (week - 1) * 7);
-
-    return monday.toISOString().split("T")[0];
+    return isoWeekToMonday(parseInt(match[1], 10), parseInt(match[2], 10));
 }

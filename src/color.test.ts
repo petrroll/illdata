@@ -4,7 +4,7 @@ import { adjustColorForTestBars, adjustColorForRatio } from "./color";
 import { color } from "chart.js/helpers";
 
 describe("adjustColorForRatio Tests", () => {
-    test.each(["#1f77b4", "#2ca02c", "#d62728", "#9467bd", "#ff7f0e", "#8b4513", "#e377c2", "#7f7f7f"])(
+    test.each(["#1f77b4", "#2ca02c", "#d62728", "#9467bd", "#ff7f0e", "#8b4513", "#e377c2", "#7f7f7f", "#17becf", "#bcbd22"])(
         "gives each ratio period a distinct subtle hue for %s", hex => {
             const week = adjustColorForRatio(hex, 7);
             const month = adjustColorForRatio(hex, 28);

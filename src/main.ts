@@ -3,6 +3,7 @@ import euPositivityImport from "../data_processed/eu_sentinel_ervis/positivity_d
 import deWastewaterImport from "../data_processed/de_wastewater_amelag/wastewater_data.json" with { type: "json" };
 import deAreImport from "../data_processed/de_are/are_data.json" with { type: "json" };
 import nlInfectieradarImport from "../data_processed/nl_infectieradar/positivity_data.json" with { type: "json" };
+import czSzuImport from "../data_processed/cz_szu/positivity_data.json" with { type: "json" };
 import lastUpdateTimestamp from "../data_processed/timestamp.json" with { type: "json" };
 
 import { Chart, Legend } from 'chart.js/auto';
@@ -43,6 +44,7 @@ const euPositivityEnhanced = euPositivityImport as TimeseriesData;
 const deWastewaterEnhanced = deWastewaterImport as TimeseriesData;
 const nlInfectieradarEnhanced = nlInfectieradarImport as TimeseriesData;
 const deAreEnhanced = deAreImport as TimeseriesData;
+const czSzuEnhanced = czSzuImport as TimeseriesData;
 
 // Constants for chart styling
 const SHIFTED_LINE_DASH_PATTERN = [15, 1]; // Dash pattern for shifted series: [dash length, gap length] - very subtle, almost solid pattern
@@ -56,6 +58,7 @@ const DE_WASTEWATER_VISIBILITY_KEY = "deWastewaterVisibility";
 const DE_ARE_VISIBILITY_KEY = "deAreVisibility";
 const DE_AGE_GROUP_FILTER_KEY = "deAgeGroupFilter";
 const NL_INFECTIERADAR_VISIBILITY_KEY = "nlInfectieradarVisibility";
+const CZ_SZU_VISIBILITY_KEY = "czSzuVisibility";
 const CUSTOM_GRAPH_VISIBILITY_KEY = "customGraphVisibility";
 const CUSTOM_GRAPH_SELECTIONS_KEY = "customGraphSelections";
 
@@ -148,6 +151,16 @@ const chartConfigs : ChartConfig[] = [
         ageGroupFilterKey: DE_AGE_GROUP_FILTER_KEY
     },
     {
+        containerId: "czSzuContainer",
+        canvasId: "czSzuChart",
+        data: czSzuEnhanced,
+        title: "Czech SZÚ Respiratory Viruses (Sentinel Lab Results)",
+        shortTitle: "SZU",
+        visibilityKey: CZ_SZU_VISIBILITY_KEY,
+        chartHolder: { chart: undefined as Chart | undefined },
+        datasetVisibility: { }
+    },
+    {
         containerId: "customGraphContainer",
         canvasId: "customGraphChart",
         data: { dates: [], series: [] }, // Start with empty data
@@ -191,7 +204,8 @@ function updateAllUITexts() {
     chartConfigs[2].title = t.chartTitleDeWastewater;
     chartConfigs[3].title = t.chartTitleNlInfectieradar;
     chartConfigs[4].title = t.chartTitleDeAre;
-    chartConfigs[5].title = t.chartTitleCustomGraph;
+    chartConfigs[5].title = t.chartTitleCzSzu;
+    chartConfigs[6].title = t.chartTitleCustomGraph;
 }
 
 function updateDataSourceStatusNotice(rootDiv: HTMLElement) {
@@ -773,6 +787,7 @@ function renderPage(rootDiv: HTMLElement | null) {
         'deWastewaterContainer',
         'nlInfectieradarContainer',
         'deAreContainer',
+        'czSzuContainer',
         'customGraphContainer',
         'globalSettings'
     ];
@@ -1657,7 +1672,11 @@ function updateChart(timeRange: string, cfg: ChartConfig, includeFuture: boolean
         // Pinks palette
         ["#e377c2", "#f48fb1", "#f7a8cc", "#fabfe6", "#fdd7f0"],
         // Grays palette
-        ["#7f7f7f", "#969696", "#adadad", "#c4c4c4", "#dbdbdb"]
+        ["#7f7f7f", "#969696", "#adadad", "#c4c4c4", "#dbdbdb"],
+        // Teals palette
+        ["#17becf", "#3ccbd9", "#66d7e2", "#8fe3eb", "#b8eff4"],
+        // Olives palette
+        ["#bcbd22", "#c9ca45", "#d5d66b", "#e1e290", "#eeeeb6"]
     ];
     // Sort series and calculate color assignments
     const sortedSeriesWithIndices = getSortedSeriesWithIndices(data.series);
@@ -2225,7 +2244,7 @@ function createStablePaletteMapping(series: DataSeries[], numPalettes: number): 
     ).sort((a, b) => compareLabels(a, b));
     
     // Priority mappings to ensure consistent and distinct colors
-    // Palette indices: [0: Blues, 1: Greens, 2: Reds, 3: Purples, 4: Oranges, 5: Browns, 6: Pinks, 7: Grays]
+    // Palette indices: [0: Blues, 1: Greens, 2: Reds, 3: Purples, 4: Oranges, 5: Browns, 6: Pinks, 7: Grays, 8: Teals, 9: Olives]
     const priorityMappings: Record<string, number> = {
         // Czech MZCR data - preserve original alphabetical assignment
         'Antigen Positivity': 0,                  // Blues (first alphabetically)
@@ -2254,6 +2273,13 @@ function createStablePaletteMapping(series: DataSeries[], numPalettes: number): 
         'Parainfluenza Positivity': 5,            // Browns (unique, distinct from RSV Blues)
         'Rhino-/enterovirus Positivity': 6,       // Pinks (unique, distinct from Influenza Greens)
         'Seizoenscoronavirussen Positivity': 7,   // Grays (unique, distinct from SARS-CoV-2 Reds)
+
+        // Czech SZÚ-specific pathogens - match the closest NL equivalents above
+        'Metapneumovirus Positivity': 4,          // Oranges
+        'Rhinovirus Positivity': 6,               // Pinks
+        'Seasonal Coronaviruses Positivity': 7,   // Grays
+        'Enterovirus Positivity': 8,              // Teals
+        'Mycoplasma pneumoniae Positivity': 9,    // Olives
     };
     
     // Check for priority series and assign them first

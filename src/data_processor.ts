@@ -4,6 +4,7 @@ import { computeEuEcdcData, downloadEuEcdcData } from "./data_sources/eu_all_erv
 import { computeDeWastewaterData, downloadDeWastewaterData } from "./data_sources/de_wastewater_amelag";
 import { computeDeAreData, downloadDeAreData } from "./data_sources/de_are";
 import { computeNlInfectieradarData, downloadNlInfectieradarData, parseSemicolonCsv } from "./data_sources/nl_infectieradar";
+import { computeCzSzuData, downloadCzSzuData, loadCzSzuPdfItems, parseCzSzuVirusTable } from "./data_sources/cz_szu";
 import { promises as fs } from "fs";
 import { getAbsolutePath } from "./data_sources/ioUtils";
 import { computeMovingAverageTimeseries, type TimeseriesData } from "./utils";
@@ -14,6 +15,7 @@ const EU_ALLSENTINEL_ERVIS_POSITIVITY = "./data_processed/eu_sentinel_ervis/posi
 const DE_WASTEWATER_AMELAG = "./data_processed/de_wastewater_amelag/wastewater_data.json";
 const DE_ARE = "./data_processed/de_are/are_data.json";
 const NL_INFECTIERADAR_POSITIVITY = "./data_processed/nl_infectieradar/positivity_data.json";
+const CZ_SZU_POSITIVITY = "./data_processed/cz_szu/positivity_data.json";
 const TIMESTAMP_FILE = "./data_processed/timestamp.json";
 const EMPTY_TIMESERIES: TimeseriesData = { dates: [], series: [] };
 const AVERAGING_WINDOWS = [28];
@@ -108,6 +110,15 @@ export async function runDataProcessor() {
         },
         data => addBuildTimeDerivedSeries(computeNlInfectieradarData(data)),
         NL_INFECTIERADAR_POSITIVITY,
+        EMPTY_TIMESERIES
+    ));
+    sourceStatuses.push(await processSource(
+        "Czech SZÚ Respiratory Viruses",
+        downloadCzSzuData,
+        "cz_szu_viry.pdf",
+        async (file) => parseCzSzuVirusTable(await loadCzSzuPdfItems(file)),
+        records => addBuildTimeDerivedSeries(computeCzSzuData(records)),
+        CZ_SZU_POSITIVITY,
         EMPTY_TIMESERIES
     ));
 

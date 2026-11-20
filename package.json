@@ -12,6 +12,7 @@
     "@types/bun": "latest",
     "@types/chart.js": "^2.9.41",
     "@types/jest": "^29.5.14",
+    "pdfjs-dist": "^6.5.438",
     "typescript": "^5.0.0",
     "vite": "^6.0.11"
   },
