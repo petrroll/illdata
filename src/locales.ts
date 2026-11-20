@@ -53,6 +53,7 @@ export interface Translations {
     chartTitleDeWastewater: string;
     chartTitleDeAre: string;
     chartTitleNlInfectieradar: string;
+    chartTitleCzSzu: string;
     chartTitleCustomGraph: string;
     countryLabel: string;
     survtypeLabel: string;
@@ -236,6 +237,26 @@ const seriesNameMap: SeriesNameMap = {
     'Seizoenscoronavirussen Positivity': {
         en: 'Seasonal Coronavirus Positivity',
         cs: 'Sezónní koronavirus pozitivita'
+    },
+    'Metapneumovirus Positivity': {
+        en: 'Metapneumovirus Positivity',
+        cs: 'Metapneumovirus pozitivita'
+    },
+    'Rhinovirus Positivity': {
+        en: 'Rhinovirus Positivity',
+        cs: 'Rhinovirus pozitivita'
+    },
+    'Enterovirus Positivity': {
+        en: 'Enterovirus Positivity',
+        cs: 'Enterovirus pozitivita'
+    },
+    'Seasonal Coronaviruses Positivity': {
+        en: 'Seasonal Coronaviruses Positivity',
+        cs: 'Sezónní koronaviry pozitivita'
+    },
+    'Mycoplasma pneumoniae Positivity': {
+        en: 'Mycoplasma pneumoniae Positivity',
+        cs: 'Mycoplasma pneumoniae pozitivita'
     }
 };
 
@@ -289,6 +310,7 @@ const en: Translations = {
     chartTitleDeWastewater: 'Germany Wastewater Surveillance (AMELAG)',
     chartTitleDeAre: 'Germany SARI Hospitalization Incidence',
     chartTitleNlInfectieradar: 'Netherlands Infectieradar Pathogens',
+    chartTitleCzSzu: 'Czech SZÚ Respiratory Viruses (Lab Results)',
     chartTitleCustomGraph: 'Custom Graph',
     countryLabel: 'Country:',
     survtypeLabel: 'Surveillance Type:',
@@ -477,6 +499,7 @@ const cs: Translations = {
     chartTitleDeWastewater: 'Sledování odpadních vod v Německu (AMELAG)',
     chartTitleDeAre: 'Německá hospitalizační incidence SARI',
     chartTitleNlInfectieradar: 'Patogeny Infectieradar Nizozemsko',
+    chartTitleCzSzu: 'Respirační viry SZÚ (laboratorní vyšetření)',
     chartTitleCustomGraph: 'Vlastní graf',
     countryLabel: 'Země:',
     survtypeLabel: 'Typ sledování:',
@@ -734,8 +757,12 @@ export function translateSeriesName(seriesName: string, lang?: Language): string
     
     // 4. Translate the base series name
     // Check if we have a direct mapping
+    const sourceMatch = translated.match(/^(.*)( \([^()]+\))$/);
     if (seriesNameMap[translated]) {
         translated = seriesNameMap[translated][currentLang];
+    } else if (sourceMatch && seriesNameMap[sourceMatch[1]]) {
+        // Custom graph series carry a source suffix, e.g. "Rhinovirus Positivity (SZU)"
+        translated = seriesNameMap[sourceMatch[1]][currentLang] + sourceMatch[2];
     } else {
         // If no direct mapping, try to construct from components
         // This handles any edge cases or new series
@@ -800,6 +827,11 @@ export function normalizeSeriesName(seriesName: string): string {
         .replace(/Parainfluenza pozitivita/g, 'Parainfluenza Positivity')
         .replace(/Rhinovirus\/Enterovirus pozitivita/g, 'Rhino-/enterovirus Positivity')
         .replace(/Sezónní koronavirus pozitivita/g, 'Seizoenscoronavirussen Positivity')
+        .replace(/Metapneumovirus pozitivita/g, 'Metapneumovirus Positivity')
+        .replace(/Rhinovirus pozitivita/g, 'Rhinovirus Positivity')
+        .replace(/Enterovirus pozitivita/g, 'Enterovirus Positivity')
+        .replace(/Sezónní koronaviry pozitivita/g, 'Seasonal Coronaviruses Positivity')
+        .replace(/Mycoplasma pneumoniae pozitivita/g, 'Mycoplasma pneumoniae Positivity')
         .replace(/Chřipka odpadní vody/g, 'Influenza Wastewater')
         .replace(/chřipka odpadní vody/g, 'Influenza Wastewater')
         .replace(/RSV odpadní vody/g, 'RSV Wastewater')
