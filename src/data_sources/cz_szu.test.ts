@@ -124,6 +124,20 @@ describe('parseCzSzuVirusTable', () => {
         expect(records[2].counts).toMatchObject({ 'A H1pdm': 1, 'SARS-CoV-2': 75, total: 1305 });
     });
 
+    test('reads row labels that share a line with a section caption', () => {
+        const items = buildTable(SEASON_WEEKS, {
+            'A': { 0: '3' },
+            'SARS-CoV-2': { 0: '108' },
+            'pozitivní': { 0: '227' },
+            'negativní': { 0: '849' },
+        });
+        items.push(text('Detekce viru', 2, rowY('A')));
+
+        const records = parseCzSzuVirusTable(items);
+
+        expect(records[0].counts).toMatchObject({ 'A': 3, 'SARS-CoV-2': 108, positive: 227, negative: 849 });
+    });
+
     test('ignores "40" "." split tokens and data rows that look like headers', () => {
         const items = buildTable(SEASON_WEEKS, { 'HRV': fill(SEASON_WEEKS.map((_, i) => i), i => String((i * 7) % 50 + 1)) });
         const splitHeader = SEASON_WEEKS.flatMap((week, i) => [text(String(week), 42 + i * PITCH, HEADER_Y + 20), text('.', 43.7 + i * PITCH, HEADER_Y + 20)]);
@@ -177,6 +191,16 @@ describe('computeCzSzuData', () => {
 
         expect(result.dates).toEqual(['2024-12-16', '2024-12-23', '2024-12-30']);
         expect(result.series[0].values[1]).toEqual({ positive: 0, tests: 0 });
+    });
+
+    test('fills weeks without a column (e.g. a missing ISO week 53) as empty observations', () => {
+        const result = computeCzSzuData([
+            record(2026, 52, { positive: 1, negative: 9 }),
+            record(2027, 1, { positive: 2, negative: 8 }),
+        ], new Date('2027-01-20T12:00:00Z'));
+
+        expect(result.dates).toEqual(['2026-12-21', '2026-12-28', '2027-01-04']);
+        expect(result.series[0].values).toEqual([{ positive: 0, tests: 10 }, { positive: 0, tests: 0 }, { positive: 0, tests: 10 }]);
     });
 
     test('falls back to the total row when positive and negative counts are missing', () => {

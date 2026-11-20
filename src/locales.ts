@@ -310,7 +310,7 @@ const en: Translations = {
     chartTitleDeWastewater: 'Germany Wastewater Surveillance (AMELAG)',
     chartTitleDeAre: 'Germany SARI Hospitalization Incidence',
     chartTitleNlInfectieradar: 'Netherlands Infectieradar Pathogens',
-    chartTitleCzSzu: 'Czech SZÚ Respiratory Viruses (Sentinel Lab Results)',
+    chartTitleCzSzu: 'Czech SZÚ Respiratory Viruses (Lab Results)',
     chartTitleCustomGraph: 'Custom Graph',
     countryLabel: 'Country:',
     survtypeLabel: 'Surveillance Type:',
@@ -499,7 +499,7 @@ const cs: Translations = {
     chartTitleDeWastewater: 'Sledování odpadních vod v Německu (AMELAG)',
     chartTitleDeAre: 'Německá hospitalizační incidence SARI',
     chartTitleNlInfectieradar: 'Patogeny Infectieradar Nizozemsko',
-    chartTitleCzSzu: 'Respirační viry SZÚ (sentinelová laboratorní vyšetření)',
+    chartTitleCzSzu: 'Respirační viry SZÚ (laboratorní vyšetření)',
     chartTitleCustomGraph: 'Vlastní graf',
     countryLabel: 'Země:',
     survtypeLabel: 'Typ sledování:',
@@ -757,8 +757,12 @@ export function translateSeriesName(seriesName: string, lang?: Language): string
     
     // 4. Translate the base series name
     // Check if we have a direct mapping
+    const sourceMatch = translated.match(/^(.*)( \([^()]+\))$/);
     if (seriesNameMap[translated]) {
         translated = seriesNameMap[translated][currentLang];
+    } else if (sourceMatch && seriesNameMap[sourceMatch[1]]) {
+        // Custom graph series carry a source suffix, e.g. "Rhinovirus Positivity (SZU)"
+        translated = seriesNameMap[sourceMatch[1]][currentLang] + sourceMatch[2];
     } else {
         // If no direct mapping, try to construct from components
         // This handles any edge cases or new series

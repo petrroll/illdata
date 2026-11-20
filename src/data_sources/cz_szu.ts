@@ -4,8 +4,9 @@ import { promises as fs } from "fs";
 import path from "path";
 
 // SZÚ (Státní zdravotní ústav) publishes weekly "Výsledky-viry" PDFs with laboratory
-// detections of respiratory viruses in sentinel ARI samples. Each PDF contains a table
+// detections of respiratory viruses from sentinel and non-sentinel surveillance. Each PDF contains a table
 // with one column per calendar week for the last few seasons (40. KT → 39. KT).
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const SZU_PAGE_URL = "https://szu.gov.cz/publikace-szu/data/akutni-respiracni-infekce-chripka/";
 const SZU_PDF_LINK_PATTERN = /href="([^"]*laboratorni_vysetreni_podle_typu_viru[^"]*\.pdf)"/gi;
 const SZU_PDF_WEEK_PATTERN = /(\d{1,2})_?tyden_(\d{4})/i;
@@ -47,6 +48,7 @@ const ROW_KEYS: Record<string, string> = {
     "pozitivní": "positive",
     "negativní": "negative",
     "celkem": "total",
+    "celkovýpočetvyšetření": "total",
 };
 
 // "A" contains only influenza A samples without subtype, so total influenza is the sum of all four rows.
@@ -162,6 +164,16 @@ function groupIntoLines(items: PdfTextItem[], tolerance: number): Line[] {
     }
     lines.forEach(line => line.items.sort((a, b) => a.x - b.x));
     return lines;
+}
+
+// Section captions (e.g. "Detekce viru") can share a line with the first row label, so the
+// label is matched against progressively shorter suffixes of the text left of the table.
+function findRowKey(labelParts: PdfTextItem[]): string | undefined {
+    for (let start = 0; start < labelParts.length; start++) {
+        const key = ROW_KEYS[normalizeLabel(labelParts.slice(start).map(item => item.str).join(""))];
+        if (key) return key;
+    }
+    return undefined;
 }
 
 // A header is a line with many week numbers that mostly follow each other (…, 52, 1, 2, …).
@@ -284,7 +296,7 @@ export function parseCzSzuVirusTable(rawItems: PdfTextItem[]): CzSzuWeekRecord[]
         // The table ends at the next header or at a large vertical gap (charts follow below it).
         for (let l = h + 1; l < lines.length && !isHeaderLine(lines[l]) && lines[l - 1].y - lines[l].y < fontSize * 4; l++) {
             const labelParts = lines[l].items.filter(item => center(item) < columns[0].left);
-            const rowKey = ROW_KEYS[normalizeLabel(labelParts.map(item => item.str).join(""))];
+            const rowKey = findRowKey(labelParts);
             if (!rowKey) continue;
             if (rows.has(rowKey)) {
                 throw new Error(`Duplicate SZÚ table row: ${rowKey}`);
@@ -354,7 +366,19 @@ export function computeCzSzuData(records: CzSzuWeekRecord[], now: Date = new Dat
     }
     let last = weeks.length - 1;
     while (weeks[last].tests === 0) last--;
-    const usedWeeks = weeks.slice(first, last + 1);
+
+    // Weeks without a column (e.g. an ISO week 53 missing from the template) are kept as empty
+    // observations so the series stays strictly weekly.
+    const byDate = new Map(weeks.slice(first, last + 1).map(week => [week.date, week]));
+    const usedWeeks: typeof weeks = [];
+    for (let time = Date.parse(`${weeks[first].date}T00:00:00Z`); time <= Date.parse(`${weeks[last].date}T00:00:00Z`); time += WEEK_MS) {
+        const date = new Date(time).toISOString().split("T")[0];
+        const week = byDate.get(date);
+        if (!week) {
+            console.warn(`SZÚ table has no column for the week of ${date}; treating it as missing`);
+        }
+        usedWeeks.push(week ?? { date, counts: {}, tests: 0 });
+    }
 
     const latestDate = usedWeeks[usedWeeks.length - 1].date;
     if (new Date(`${latestDate}T00:00:00Z`).getTime() > now.getTime()) {

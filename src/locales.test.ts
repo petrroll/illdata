@@ -108,6 +108,9 @@ describe('Series Name Translation Tests', () => {
                 'Enterovirus Positivity',
                 'Seasonal Coronaviruses Positivity',
                 'Mycoplasma pneumoniae Positivity',
+                'Rhinovirus Positivity (SZU) (28d avg)',
+                'Adenovirus Positivity (NL-IR)',
+                'Seasonal Coronaviruses Positivity (SZU) - 7d Ratio',
             ];
 
             originalNames.forEach(original => {

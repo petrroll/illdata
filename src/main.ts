@@ -154,7 +154,7 @@ const chartConfigs : ChartConfig[] = [
         containerId: "czSzuContainer",
         canvasId: "czSzuChart",
         data: czSzuEnhanced,
-        title: "Czech SZÚ Respiratory Viruses (Sentinel Lab Results)",
+        title: "Czech SZÚ Respiratory Viruses (Lab Results)",
         shortTitle: "SZU",
         visibilityKey: CZ_SZU_VISIBILITY_KEY,
         chartHolder: { chart: undefined as Chart | undefined },
