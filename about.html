@@ -170,6 +170,20 @@
       </div>
 
       <div class="data-source">
+        <h3>Czech SZÚ Respiratory Viruses (Sentinel Lab Results)</h3>
+        <p><strong>Source:</strong> National Institute of Public Health (Státní zdravotní ústav, SZÚ)</p>
+        <p><strong>Data Type:</strong> Laboratory detections of respiratory viruses in sentinel acute respiratory infection (ARI) samples</p>
+        <p><strong>Frequency:</strong> Weekly</p>
+        <p><strong>Link:</strong> <a href="https://szu.gov.cz/publikace-szu/data/akutni-respiracni-infekce-chripka/" target="_blank">SZÚ – Acute respiratory infections and influenza</a> (weekly "Výsledky-viry" PDF)</p>
+        <p><strong>What it shows:</strong> Weekly share of tested samples in which a given virus was detected: SARS-CoV-2, influenza (A unsubtyped, A(H1)pdm, A(H3) and B combined), RSV, rhinovirus, metapneumovirus, adenovirus, parainfluenza, seasonal coronaviruses (the common-cold coronaviruses, not SARS-CoV-2), enterovirus and <em>Mycoplasma pneumoniae</em>. The denominator is all tested samples (positive + negative) of the week.</p>
+        <p><strong>Important Notes:</strong></p>
+        <ul>
+          <li><strong>Mixed Infections:</strong> SZÚ reports samples with more than one detected pathogen in a separate "mixed infection" row without saying which viruses were involved, so they are not included in the per-virus series.</li>
+          <li><strong>Data Processing:</strong> The values are extracted from the latest weekly PDF report, which contains the current and the two previous seasons. Weeks are dated by the Monday of the ISO calendar week; the calendar year is derived from the order of the weekly columns (week 52/53 → week 1 starts a new year).</li>
+        </ul>
+      </div>
+
+      <div class="data-source">
         <h3>EU ECDC Respiratory Viruses (ERV-IS)</h3>
         <p><strong>Source:</strong> European Centre for Disease Prevention and Control</p>
         <p><strong>Data Type:</strong> Sentinel surveillance data for multiple respiratory viruses (COVID-19, Influenza, RSV)</p>
@@ -257,6 +271,7 @@
       <h3>Country-Specific vs Aggregate Data</h3>
       <ul>
         <li><strong>Czech MZCR:</strong> Specific to Czech Republic only</li>
+        <li><strong>Czech SZÚ:</strong> Specific to Czech Republic only</li>
         <li><strong>EU ECDC:</strong> Offers both EU/EEA aggregate data and individual country data (use the country selector)</li>
         <li><strong>Germany Wastewater:</strong> Specific to Germany only</li>
         <li><strong>Germany SARI:</strong> Specific to Germany only</li>
