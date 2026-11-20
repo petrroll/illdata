@@ -24,6 +24,7 @@ GitHub Pages (gh-pages branch):
 - Manual workflow dispatch
 
 **Actions:**
+- Re-enables itself via the GitHub API so the daily schedule isn't auto-disabled after 60 days without commits
 - Builds the project using Bun
 - Processes data using the data processor
 - Preserves existing PR previews
@@ -112,6 +113,7 @@ The system uses reusable bash scripts for DRY (Don't Repeat Yourself) implementa
 ### Required Permissions
 
 The workflows require the following permissions (automatically configured):
+- `actions: write` - To keep the scheduled main deployment enabled (`ghp-deploy-main.yml`)
 - `contents: read` - To read repository content
 - `pages: write` - To deploy to GitHub Pages
 - `pull-requests: write` - To comment on PRs
@@ -201,7 +203,11 @@ ls -la dist/
    - Verify workflow completed successfully
    - Check if artifact was properly uploaded
 
-3. **Missing preview comment:**
+3. **Dashboard data is several days old:**
+   - Check that `ghp-deploy-main` is still running daily in the Actions tab
+   - GitHub disables scheduled workflows after 60 days without repository activity; re-enable it with `gh workflow enable ghp-deploy-main.yml` (the workflow normally keeps itself enabled)
+
+4. **Missing preview comment:**
    - Ensure workflow has `pull-requests: write` permission
    - Verify PR is against `main` branch
    - Check for errors in comment posting step

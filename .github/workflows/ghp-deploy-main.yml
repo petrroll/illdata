@@ -10,6 +10,7 @@ on:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
+  actions: write # Needed to keep the scheduled workflow enabled (see "Keep scheduled workflow alive" step)
   contents: read
   pages: write
   id-token: write
@@ -18,6 +19,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # GitHub disables scheduled workflows after 60 days without repository activity, which silently
+      # stops the daily data refresh. Re-enabling the workflow on every run resets that inactivity timer.
+      - name: Keep scheduled workflow alive
+        run: gh api --method PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/ghp-deploy-main.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        continue-on-error: true
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
